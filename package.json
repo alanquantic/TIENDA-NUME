@@ -1,0 +1,43 @@
+{
+  "name": "tienda",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx lib/db/seed.ts",
+    "db:import": "tsx lib/db/import-wc.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "csv-parse": "^7.0.1",
+    "drizzle-orm": "^0.45.2",
+    "next": "14.2.35",
+    "postgres": "^3.4.9",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "stripe": "^22.3.1",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.11",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.19",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.35",
+    "postcss": "8.4.39",
+    "tailwindcss": "3.4.10",
+    "tsx": "^4.23.1",
+    "typescript": "5.5.4"
+  }
+}

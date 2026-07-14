@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ──────────────────────────────────────────────
+   El tema se controla con el atributo data-theme en <html>, fijado
+   por un script inline antes del paint (sin parpadeo). Por defecto
+   :root es claro; [data-theme="dark"] sobreescribe. */
+:root {
+  --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+
+  /* Paleta de marca Numerología Cotidiana:
+     ciruela #693061 (primario) · rosa #cc3366 (acento) · lavanda #e9e6ed */
+  --background: 300 20% 99%;
+  --foreground: 290 12% 18%;
+  --card: 0 0% 100%;
+  --muted: 290 24% 96%;
+  --muted-foreground: 285 8% 42%;
+  --border: 290 16% 90%;
+  --primary: 308 37% 30%; /* ciruela #693061 */
+  --primary-foreground: 0 0% 100%;
+  --accent: 340 62% 50%; /* rosa #cc3366 */
+  --accent-foreground: 0 0% 100%;
+  --ring: 308 37% 45%;
+  --radius: 0.75rem;
+}
+
+:root[data-theme='dark'] {
+  --background: 292 22% 7%;
+  --foreground: 300 15% 92%;
+  --card: 290 18% 11%;
+  --muted: 288 14% 17%;
+  --muted-foreground: 285 10% 62%;
+  --border: 288 12% 22%;
+  --primary: 305 46% 78%; /* ciruela clara para botones sobre oscuro */
+  --primary-foreground: 292 30% 10%;
+  --accent: 340 68% 60%; /* rosa más brillante */
+  --accent-foreground: 0 0% 100%;
+  --ring: 305 40% 66%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+/* Transición suave al cambiar de tema */
+:root.theme-transition,
+:root.theme-transition * {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s ease-out;
+}
+
