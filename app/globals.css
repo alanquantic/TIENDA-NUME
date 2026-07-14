@@ -9,34 +9,39 @@
 :root {
   --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
 
-  /* Paleta de marca Numerología Cotidiana:
-     ciruela #693061 (primario) · rosa #cc3366 (acento) · lavanda #e9e6ed */
-  --background: 300 20% 99%;
-  --foreground: 290 12% 18%;
+  /* Paleta de marca de nume (WEB-NUME): morado (primary), dorado (accent), fucsia. */
+  --background: 270 60% 98%;
+  --foreground: 263 35% 18%;
   --card: 0 0% 100%;
-  --muted: 290 24% 96%;
-  --muted-foreground: 285 8% 42%;
-  --border: 290 16% 90%;
-  --primary: 308 37% 30%; /* ciruela #693061 */
+  --muted: 270 40% 96%;
+  --muted-foreground: 263 12% 45%;
+  --border: 270 32% 90%;
+  --primary: 263 67% 35%;
   --primary-foreground: 0 0% 100%;
-  --accent: 340 62% 50%; /* rosa #cc3366 */
-  --accent-foreground: 0 0% 100%;
-  --ring: 308 37% 45%;
+  --primary-soft: 270 95% 95%;
+  --secondary: 270 100% 96%;
+  --accent: 46 64% 52%;
+  --accent-foreground: 263 35% 18%;
+  --fuchsia: 295 78% 40%;
+  --ring: 263 67% 45%;
   --radius: 0.75rem;
 }
 
 :root[data-theme='dark'] {
-  --background: 292 22% 7%;
-  --foreground: 300 15% 92%;
-  --card: 290 18% 11%;
-  --muted: 288 14% 17%;
-  --muted-foreground: 285 10% 62%;
-  --border: 288 12% 22%;
-  --primary: 305 46% 78%; /* ciruela clara para botones sobre oscuro */
-  --primary-foreground: 292 30% 10%;
-  --accent: 340 68% 60%; /* rosa más brillante */
-  --accent-foreground: 0 0% 100%;
-  --ring: 305 40% 66%;
+  --background: 264 40% 9%;
+  --foreground: 270 30% 94%;
+  --card: 263 34% 13%;
+  --muted: 263 30% 18%;
+  --muted-foreground: 270 15% 66%;
+  --border: 263 24% 24%;
+  --primary: 271 82% 78%;
+  --primary-foreground: 264 40% 12%;
+  --primary-soft: 264 42% 22%;
+  --secondary: 263 34% 18%;
+  --accent: 46 78% 62%;
+  --accent-foreground: 263 40% 12%;
+  --fuchsia: 295 78% 72%;
+  --ring: 271 60% 66%;
 }
 
 * {
@@ -71,5 +76,61 @@ body {
 
 .animate-toast-in {
   animation: toast-in 0.2s ease-out;
+}
+
+/* ── Clases del header (portadas de WEB-NUME) ─────────────────── */
+.text-gradient-brand {
+  background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--fuchsia)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.bg-gradient-brand {
+  background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--fuchsia)));
+}
+.header-chip {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease;
+}
+.header-chip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, hsl(var(--primary) / 0.14), transparent 55%, hsl(var(--fuchsia) / 0.12));
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+.header-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px hsl(var(--primary) / 0.12);
+}
+.header-chip:hover::after {
+  opacity: 1;
+}
+.header-link-float {
+  transition:
+    color 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+.header-link-float:hover {
+  transform: translateY(-1px);
+}
+.header-panel {
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease;
+}
+.header-panel:hover {
+  border-color: hsl(var(--primary) / 0.18);
+  box-shadow: 0 18px 40px hsl(var(--primary) / 0.1);
 }
 

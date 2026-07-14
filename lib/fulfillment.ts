@@ -2,8 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
-import { formatMoney } from './money';
-import { sendOrderConfirmation } from './email';
+import { sendOrderConfirmation, sendOrderFailed } from './email';
+import type { EmailAddress } from './email-templates';
 import {
   digitalAssets,
   discountCodes,
@@ -23,7 +23,7 @@ type FulfillMeta = {
  * está pagado, no hace nada. Todo ocurre en una transacción.
  */
 export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Promise<void> {
-  const downloadLinks = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [order] = await tx
       .select()
       .from(orders)
@@ -94,20 +94,58 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
         .where(eq(discountCodes.code, order.discountCode));
     }
 
-    return {
-      email: order.customerEmail,
-      number: order.number,
-      totalLabel: formatMoney(Math.round(parseFloat(order.totalAmount) * 100), order.currency),
-      links,
-    };
+    return { order, items, links };
   });
 
-  if (downloadLinks) {
+  if (result) {
+    const { order, items, links } = result;
     await sendOrderConfirmation({
-      to: downloadLinks.email,
-      orderNumber: downloadLinks.number,
-      totalLabel: downloadLinks.totalLabel,
-      downloadLinks: downloadLinks.links,
+      number: order.number,
+      customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
+      customerEmail: order.customerEmail,
+      customerPhone: order.customerPhone,
+      currency: order.currency,
+      items: items.map((i) => ({
+        name: i.name,
+        variantName: i.variantName,
+        quantity: i.quantity,
+        totalAmount: i.totalAmount,
+        type: i.type,
+      })),
+      subtotalAmount: order.subtotalAmount,
+      discountAmount: order.discountAmount,
+      discountCode: order.discountCode,
+      shippingAmount: order.shippingAmount,
+      taxAmount: order.taxAmount,
+      totalAmount: order.totalAmount,
+      requiresShipping: order.requiresShipping,
+      shippingMethod: order.shippingMethod,
+      shippingAddress: (order.shippingAddress as EmailAddress | null) ?? null,
+      downloads: links,
     });
   }
+}
+
+/**
+ * Envía el correo de "compra no completada" para un pedido. Llamar cuando el
+ * pago falla o la sesión de pago expira (webhook de la pasarela).
+ */
+export async function notifyOrderFailed(orderId: string): Promise<void> {
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) return;
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  await sendOrderFailed({
+    number: order.number,
+    customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
+    customerEmail: order.customerEmail,
+    currency: order.currency,
+    items: items.map((i) => ({
+      name: i.name,
+      variantName: i.variantName,
+      quantity: i.quantity,
+      totalAmount: i.totalAmount,
+      type: i.type,
+    })),
+    totalAmount: order.totalAmount,
+  });
 }

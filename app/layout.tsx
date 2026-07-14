@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { config } from '@/lib/config';
+import { TopBar } from '@/components/layout/top-bar';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from '@/components/toaster';
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-screen flex flex-col">
+        <TopBar />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

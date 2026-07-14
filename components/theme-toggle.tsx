@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -29,7 +29,10 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label="Cambiar tema"
       title="Cambiar tema"
-      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors"
+      className={
+        className ??
+        'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors'
+      }
     >
       {mounted && theme === 'dark' ? (
         // Sol

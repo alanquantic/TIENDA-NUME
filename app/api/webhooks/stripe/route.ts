@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { orders, webhookEvents } from '@/lib/db/schema';
 import { getStripe } from '@/lib/stripe';
 import { stripeConfig } from '@/lib/config';
-import { fulfillOrder } from '@/lib/fulfillment';
+import { fulfillOrder, notifyOrderFailed } from '@/lib/fulfillment';
 
 export const runtime = 'nodejs';
 // El webhook necesita el cuerpo crudo para verificar la firma.
@@ -87,7 +87,8 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       });
       return;
     }
-    case 'checkout.session.expired': {
+    case 'checkout.session.expired':
+    case 'checkout.session.async_payment_failed': {
       const session = event.data.object as Stripe.Checkout.Session;
       const orderId = session.metadata?.orderId;
       if (!orderId) return;
@@ -95,6 +96,8 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
         .update(orders)
         .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
         .where(eq(orders.id, orderId));
+      // Avisar al cliente que la compra no se completó (best-effort).
+      await notifyOrderFailed(orderId);
       return;
     }
     default:

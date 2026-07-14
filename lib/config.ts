@@ -26,3 +26,12 @@ export const stripeConfig = {
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
   publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
 } as const;
+
+export const emailConfig = {
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
+  // Remitente. En pruebas: "Tienda Nume <onboarding@resend.dev>" (solo entrega
+  // al correo de tu cuenta Resend). En producción: un remitente de tu dominio
+  // verificado, p. ej. "Tienda Nume <pedidos@numerologia-cotidiana.com>".
+  from: process.env.EMAIL_FROM ?? 'Tienda Nume <onboarding@resend.dev>',
+  replyTo: process.env.EMAIL_REPLY_TO || undefined,
+} as const;
