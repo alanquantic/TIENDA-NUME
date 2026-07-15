@@ -232,6 +232,11 @@ export const orders = pgTable(
     shippingMethod: text('shipping_method'),
     // { name, line1, line2, city, state, postalCode, country, phone }
     shippingAddress: jsonb('shipping_address'),
+    // true si el cliente pidió factura (CFDI) en el checkout.
+    requiresInvoice: boolean('requires_invoice').notNull().default(false),
+    // Datos fiscales cuando requiresInvoice = true (CFDI 4.0):
+    // { rfc, razonSocial, regimenFiscal, usoCfdi, postalCode, email }
+    billingInfo: jsonb('billing_info'),
     // IDs de Stripe
     externalCheckoutId: text('external_checkout_id'),
     externalPaymentIntentId: text('external_payment_intent_id'),

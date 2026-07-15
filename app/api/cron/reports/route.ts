@@ -9,8 +9,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type StoredInput = {
-  person?: { name: string; birthDate: string };
+  kind?: 'generated' | 'static';
+  person?: { name: string; birthDate: string } | null;
   partner?: { name: string; birthDate: string } | null;
+  variant?: string | null;
 };
 
 /**
@@ -38,7 +40,9 @@ export async function GET(req: Request) {
 
   for (const r of pending) {
     const input = (r.input ?? {}) as StoredInput;
-    if (!input.person) {
+    const isStatic = input.kind === 'static';
+    // Los generados requieren datos de la persona; los estáticos no.
+    if (!isStatic && !input.person) {
       await db
         .update(generatedReports)
         .set({ status: 'error', error: 'Sin datos de persona', updatedAt: new Date() })
@@ -50,7 +54,8 @@ export async function GET(req: Request) {
       const { url } = await generateReport({
         orderId: r.orderId,
         report: r.reportKey as ReportKey,
-        person: input.person,
+        variant: input.variant ?? undefined,
+        person: input.person ?? undefined,
         partner: input.partner ?? undefined,
       });
       await db

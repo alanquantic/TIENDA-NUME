@@ -5,7 +5,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
-import { isReportSlug, reportForSlug } from '@/lib/report-catalog';
+import { isGeneratedReportSlug, reportForSlug } from '@/lib/report-catalog';
+import { REGIMEN_FISCAL, USO_CFDI } from '@/lib/sat-catalog';
+
+type BillingInput = {
+  rfc: string;
+  razonSocial: string;
+  regimenFiscal: string;
+  usoCfdi: string;
+  postalCode: string;
+  email: string;
+};
 
 type ReportInput = {
   personName: string;
@@ -71,10 +81,21 @@ export function CheckoutForm({
   const [shippingRateId, setShippingRateId] = useState('');
   const [discountCode, setDiscountCode] = useState('');
   const [reportInputs, setReportInputs] = useState<Record<string, ReportInput>>({});
+  const [wantsInvoice, setWantsInvoice] = useState(false);
+  const [billing, setBilling] = useState<BillingInput>({
+    rfc: '',
+    razonSocial: '',
+    regimenFiscal: '',
+    usoCfdi: '',
+    postalCode: '',
+    email: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reportItems = items.filter((i) => isReportSlug(i.slug));
+  // Solo los reportes "generados" piden datos de la persona; los estáticos
+  // (agenda/planeador/semestral) no necesitan nada extra en el checkout.
+  const reportItems = items.filter((i) => isGeneratedReportSlug(i.slug));
 
   function getReportInput(variantId: string): ReportInput {
     return (
@@ -168,6 +189,17 @@ export function CheckoutForm({
                 : {}),
             };
           }),
+          requiresInvoice: wantsInvoice,
+          billingInfo: wantsInvoice
+            ? {
+                rfc: billing.rfc.trim(),
+                razonSocial: billing.razonSocial.trim(),
+                regimenFiscal: billing.regimenFiscal,
+                usoCfdi: billing.usoCfdi,
+                postalCode: billing.postalCode.trim(),
+                email: billing.email.trim() || email,
+              }
+            : null,
         }),
       });
       const data = await res.json();
@@ -426,6 +458,98 @@ export function CheckoutForm({
             onChange={(e) => setDiscountCode(e.target.value)}
             className={inputCls}
           />
+        </section>
+
+        <section className="space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={wantsInvoice}
+              onChange={(e) => setWantsInvoice(e.target.checked)}
+            />
+            <span className="font-semibold">Requiero factura (CFDI)</span>
+          </label>
+
+          {wantsInvoice && (
+            <div className="space-y-3 rounded-xl border border-[hsl(var(--border))] p-4">
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Datos fiscales del receptor. Deben coincidir con tu Constancia de Situación Fiscal.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <input
+                  required
+                  placeholder="RFC"
+                  value={billing.rfc}
+                  onChange={(e) =>
+                    setBilling({ ...billing, rfc: e.target.value.toUpperCase() })
+                  }
+                  className={inputCls}
+                />
+                <input
+                  required
+                  placeholder="Razón social / Nombre fiscal"
+                  value={billing.razonSocial}
+                  onChange={(e) => setBilling({ ...billing, razonSocial: e.target.value })}
+                  className={inputCls}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex flex-col">
+                  <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    Régimen fiscal
+                  </span>
+                  <select
+                    required
+                    value={billing.regimenFiscal}
+                    onChange={(e) => setBilling({ ...billing, regimenFiscal: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">Selecciona…</option>
+                    {REGIMEN_FISCAL.map(([code, label]) => (
+                      <option key={code} value={code}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col">
+                  <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    Uso de CFDI
+                  </span>
+                  <select
+                    required
+                    value={billing.usoCfdi}
+                    onChange={(e) => setBilling({ ...billing, usoCfdi: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">Selecciona…</option>
+                    {USO_CFDI.map(([code, label]) => (
+                      <option key={code} value={code}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <input
+                  required
+                  inputMode="numeric"
+                  placeholder="Código postal fiscal"
+                  value={billing.postalCode}
+                  onChange={(e) => setBilling({ ...billing, postalCode: e.target.value })}
+                  className={inputCls}
+                />
+                <input
+                  type="email"
+                  placeholder="Correo para la factura (opcional)"
+                  value={billing.email}
+                  onChange={(e) => setBilling({ ...billing, email: e.target.value })}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          )}
         </section>
       </div>
 

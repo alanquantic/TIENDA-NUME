@@ -9,10 +9,14 @@ import {
   orders,
 } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
+import { REGIMEN_FISCAL, USO_CFDI } from '@/lib/sat-catalog';
 
 export const dynamic = 'force-dynamic';
 
 const fmtDate = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeStyle: 'short' });
+
+const REGIMEN_LABEL = new Map(REGIMEN_FISCAL);
+const USO_LABEL = new Map(USO_CFDI);
 
 type Address = {
   name?: string;
@@ -23,6 +27,15 @@ type Address = {
   postalCode?: string;
   country?: string;
   phone?: string | null;
+};
+
+type Billing = {
+  rfc?: string;
+  razonSocial?: string;
+  regimenFiscal?: string;
+  usoCfdi?: string;
+  postalCode?: string;
+  email?: string | null;
 };
 
 export default async function OrderDetail({ params }: { params: { id: string } }) {
@@ -37,6 +50,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
     .where(eq(downloadGrants.orderId, order.id));
 
   const addr = (order.shippingAddress ?? null) as Address | null;
+  const billing = (order.billingInfo ?? null) as Billing | null;
 
   return (
     <div>
@@ -83,6 +97,35 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 {addr.state ? `, ${addr.state}` : ''} {addr.postalCode}
                 <br />
                 {addr.country}
+              </p>
+            )}
+          </Card>
+        )}
+
+        {order.requiresInvoice && (
+          <Card title="Facturación (CFDI)">
+            {billing ? (
+              <>
+                <Row k="RFC" v={billing.rfc ?? '—'} />
+                <Row k="Razón social" v={billing.razonSocial ?? '—'} />
+                <Row
+                  k="Régimen"
+                  v={
+                    billing.regimenFiscal
+                      ? (REGIMEN_LABEL.get(billing.regimenFiscal) ?? billing.regimenFiscal)
+                      : '—'
+                  }
+                />
+                <Row
+                  k="Uso CFDI"
+                  v={billing.usoCfdi ? (USO_LABEL.get(billing.usoCfdi) ?? billing.usoCfdi) : '—'}
+                />
+                <Row k="CP fiscal" v={billing.postalCode ?? '—'} />
+                <Row k="Correo factura" v={billing.email || order.customerEmail} />
+              </>
+            ) : (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Solicitó factura, sin datos fiscales registrados.
               </p>
             )}
           </Card>

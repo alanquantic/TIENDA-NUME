@@ -10,7 +10,7 @@ import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
 import { fulfillOrder } from '@/lib/fulfillment';
-import { reportForSlug } from '@/lib/report-catalog';
+import { reportForSlug, AGENDA_2025_COLORS } from '@/lib/report-catalog';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +18,23 @@ function generateOrderNumber(): string {
   const stamp = Date.now().toString(36);
   const rand = randomBytes(2).toString('hex');
   return `NUME-${(stamp + rand).toUpperCase()}`;
+}
+
+/**
+ * Deriva el color (variant) de un estático con versiones a partir de la variante
+ * comprada. Preferimos `attributes.color`; si falta, se infiere del nombre.
+ */
+function variantColor(
+  attributes: Record<string, unknown>,
+  variantName: string | null,
+): string | undefined {
+  const colors = AGENDA_2025_COLORS as readonly string[];
+  const attr = attributes?.color;
+  if (typeof attr === 'string' && colors.includes(attr)) return attr;
+  const n = (variantName ?? '').toLowerCase();
+  if (n.startsWith('mora')) return 'morado'; // "Morada" (sitio) → código "morado"
+  if (colors.includes(n)) return n;
+  return undefined;
 }
 
 export async function POST(req: Request) {
@@ -79,6 +96,8 @@ export async function POST(req: Request) {
       requiresShipping: quote.requiresShipping,
       shippingMethod: quote.shippingMethod,
       shippingAddress: input.shippingAddress ?? null,
+      requiresInvoice: input.requiresInvoice ?? false,
+      billingInfo: input.requiresInvoice ? (input.billingInfo ?? null) : null,
     })
     .returning();
 
@@ -88,17 +107,32 @@ export async function POST(req: Request) {
   await db.insert(orderItems).values(
     quote.lines.map((line) => {
       const mapping = reportForSlug(line.slug);
-      const reportInput = reportByVariant.get(line.variantId);
-      const metadata =
-        mapping && reportInput
-          ? {
-              report: {
-                key: mapping.report,
-                person: reportInput.person,
-                partner: reportInput.partner ?? null,
-              },
-            }
-          : {};
+      let metadata: Record<string, unknown> = {};
+      if (mapping?.kind === 'static') {
+        // PDF pre-hecho: sin person/partner. Agenda 2025 lleva `variant` (color).
+        metadata = {
+          report: {
+            key: mapping.report,
+            kind: 'static',
+            ...(mapping.needsVariant
+              ? { variant: variantColor(line.variantAttributes, line.variantName) }
+              : {}),
+          },
+        };
+      } else if (mapping) {
+        // Generado: requiere los datos capturados en el checkout.
+        const reportInput = reportByVariant.get(line.variantId);
+        if (reportInput) {
+          metadata = {
+            report: {
+              key: mapping.report,
+              kind: 'generated',
+              person: reportInput.person,
+              partner: reportInput.partner ?? null,
+            },
+          };
+        }
+      }
       return {
         orderId: order.id,
         productId: line.productId,

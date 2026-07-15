@@ -54,6 +54,18 @@ export default async function AdminOrders() {
                     <Link href={`/admin/pedidos/${o.id}`} className="font-medium hover:underline">
                       {o.number}
                     </Link>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {o.requiresShipping && (
+                        <span className="rounded-full border border-[hsl(var(--border))] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                          Envío
+                        </span>
+                      )}
+                      {o.requiresInvoice && (
+                        <span className="rounded-full border border-[hsl(var(--border))] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                          Factura
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
                     {fmtDate.format(o.createdAt)}

@@ -1,9 +1,34 @@
 import { z } from 'zod';
+import { REGIMEN_FISCAL_CODES, USO_CFDI_CODES } from './sat-catalog';
 
 export const checkoutLineSchema = z.object({
   variantId: z.string().uuid(),
   quantity: z.number().int().min(1).max(99),
 });
+
+/** Datos fiscales para factura (CFDI 4.0). */
+export const billingInfoSchema = z.object({
+  rfc: z
+    .string()
+    .trim()
+    .transform((s) => s.toUpperCase())
+    .pipe(
+      z
+        .string()
+        .regex(/^[A-ZÑ&]{3,4}\d{6}[A-Z\d]{3}$/, 'RFC inválido (12 o 13 caracteres).'),
+    ),
+  razonSocial: z.string().trim().min(1, 'La razón social es obligatoria.'),
+  regimenFiscal: z.enum(REGIMEN_FISCAL_CODES as [string, ...string[]], {
+    message: 'Selecciona un régimen fiscal.',
+  }),
+  usoCfdi: z.enum(USO_CFDI_CODES as [string, ...string[]], {
+    message: 'Selecciona un uso de CFDI.',
+  }),
+  postalCode: z.string().trim().regex(/^\d{5}$/, 'Código postal inválido (5 dígitos).'),
+  email: z.string().email('Correo inválido.').nullish().or(z.literal('')),
+});
+
+export type BillingInfo = z.infer<typeof billingInfoSchema>;
 
 export const shippingAddressSchema = z.object({
   name: z.string().min(1),
@@ -27,24 +52,32 @@ export const reportInputSchema = z.object({
   partner: reportPersonSchema.nullish(),
 });
 
-export const checkoutSchema = z.object({
-  email: z.string().email(),
-  firstName: z.string().trim().min(1, 'El nombre es obligatorio.'),
-  lastName: z.string().trim().min(1, 'Los apellidos son obligatorios.'),
-  phone: z.string().trim().min(6, 'El teléfono es obligatorio.'),
-  // Fecha de nacimiento en formato YYYY-MM-DD (opcional).
-  birthDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.')
-    .nullish()
-    .or(z.literal('')),
-  items: z.array(checkoutLineSchema).min(1),
-  shippingRateId: z.string().uuid().nullish(),
-  shippingAddress: shippingAddressSchema.nullish(),
-  discountCode: z.string().trim().min(1).nullish(),
-  // Datos por reporte (persona y, si aplica, pareja), indexados por variantId.
-  reports: z.array(reportInputSchema).nullish(),
-});
+export const checkoutSchema = z
+  .object({
+    email: z.string().email(),
+    firstName: z.string().trim().min(1, 'El nombre es obligatorio.'),
+    lastName: z.string().trim().min(1, 'Los apellidos son obligatorios.'),
+    phone: z.string().trim().min(6, 'El teléfono es obligatorio.'),
+    // Fecha de nacimiento en formato YYYY-MM-DD (opcional).
+    birthDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.')
+      .nullish()
+      .or(z.literal('')),
+    items: z.array(checkoutLineSchema).min(1),
+    shippingRateId: z.string().uuid().nullish(),
+    shippingAddress: shippingAddressSchema.nullish(),
+    discountCode: z.string().trim().min(1).nullish(),
+    // Datos por reporte (persona y, si aplica, pareja), indexados por variantId.
+    reports: z.array(reportInputSchema).nullish(),
+    // Facturación (opcional). Si requiresInvoice = true, billingInfo es obligatorio.
+    requiresInvoice: z.boolean().default(false),
+    billingInfo: billingInfoSchema.nullish(),
+  })
+  .refine((d) => !d.requiresInvoice || !!d.billingInfo, {
+    message: 'Faltan los datos fiscales para la factura.',
+    path: ['billingInfo'],
+  });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export type ShippingAddress = z.infer<typeof shippingAddressSchema>;

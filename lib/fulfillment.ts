@@ -18,8 +18,12 @@ import {
 
 type ReportMeta = {
   key: ReportKey;
-  person: { name: string; birthDate: string };
+  /** 'generated' → lleva person/partner; 'static' → PDF pre-hecho (+ variant). */
+  kind?: 'generated' | 'static';
+  person?: { name: string; birthDate: string } | null;
   partner?: { name: string; birthDate: string } | null;
+  /** Color elegido para estáticos con versiones (agenda 2025). */
+  variant?: string | null;
 };
 
 async function generateReportsForOrder(
@@ -38,7 +42,12 @@ async function generateReportsForOrder(
         reportKey: meta.key,
         productName: item.name,
         status: 'pending',
-        input: { person: meta.person, partner: meta.partner ?? null },
+        input: {
+          kind: meta.kind ?? 'generated',
+          person: meta.person ?? null,
+          partner: meta.partner ?? null,
+          variant: meta.variant ?? null,
+        },
       })
       .onConflictDoNothing({
         target: [generatedReports.orderId, generatedReports.reportKey],
@@ -61,7 +70,8 @@ async function generateReportsForOrder(
       const { url } = await generateReport({
         orderId,
         report: meta.key,
-        person: meta.person,
+        variant: meta.variant ?? undefined,
+        person: meta.person ?? undefined,
         partner: meta.partner ?? undefined,
       });
       await db

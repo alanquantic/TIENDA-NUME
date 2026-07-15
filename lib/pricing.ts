@@ -12,6 +12,8 @@ export type PricedLine = {
   slug: string;
   name: string;
   variantName: string | null;
+  /** Atributos de la variante (p. ej. { color: 'morado' }) — snapshot de catálogo. */
+  variantAttributes: Record<string, unknown>;
   sku: string | null;
   type: 'digital' | 'physical';
   image: string | null;
@@ -46,6 +48,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
     .select({
       variantId: productVariants.id,
       variantName: productVariants.name,
+      variantAttributes: productVariants.attributes,
       sku: productVariants.sku,
       priceAmount: productVariants.priceAmount,
       stock: productVariants.stock,
@@ -99,6 +102,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
       slug: row.slug,
       name: row.name,
       variantName: row.variantName,
+      variantAttributes: (row.variantAttributes as Record<string, unknown>) ?? {},
       sku: row.sku,
       type: row.type,
       image: images[0] ?? null,
