@@ -46,7 +46,11 @@ const sample: OrderEmailData = {
     postalCode: '06600',
     country: 'MX',
   },
-  downloads: [{ name: 'reporte-pareja.pdf', url: `${config.appUrl}/api/descargas/ejemplo` }],
+  downloads: [{ name: 'agenda-2026.pdf', url: `${config.appUrl}/api/descargas/ejemplo` }],
+  reports: [
+    { name: 'Reporte: Numerología de Pareja', url: 'https://generador.up.railway.app/files/abc123/reporte-pareja.pdf' },
+    { name: 'Reporte: ¿Quién soy?', url: 'https://generador.up.railway.app/files/def456/reporte-quien-soy.pdf' },
+  ],
 };
 
 // Vista previa de los templates (protegida por el middleware de /api/admin/*).
