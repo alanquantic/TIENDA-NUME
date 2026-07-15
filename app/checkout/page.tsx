@@ -28,7 +28,6 @@ export default async function CheckoutPage() {
       <h1 className="text-3xl font-semibold tracking-tight mb-8">Checkout</h1>
       <CheckoutForm
         shippingRates={dto}
-        taxRate={config.taxRate}
         currency={config.currency}
         simulate={config.simulatePayments}
       />

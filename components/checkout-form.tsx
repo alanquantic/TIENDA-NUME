@@ -5,6 +5,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
+import { isReportSlug, reportForSlug } from '@/lib/report-catalog';
+
+type ReportInput = {
+  personName: string;
+  personBirthDate: string;
+  partnerName: string;
+  partnerBirthDate: string;
+};
 
 export type ShippingRateDTO = {
   id: string;
@@ -26,12 +34,10 @@ const COUNTRIES = [
 
 export function CheckoutForm({
   shippingRates,
-  taxRate,
   currency,
   simulate = false,
 }: {
   shippingRates: ShippingRateDTO[];
-  taxRate: number;
   currency: string;
   simulate?: boolean;
 }) {
@@ -64,8 +70,34 @@ export function CheckoutForm({
   });
   const [shippingRateId, setShippingRateId] = useState('');
   const [discountCode, setDiscountCode] = useState('');
+  const [reportInputs, setReportInputs] = useState<Record<string, ReportInput>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const reportItems = items.filter((i) => isReportSlug(i.slug));
+
+  function getReportInput(variantId: string): ReportInput {
+    return (
+      reportInputs[variantId] ?? {
+        personName: `${firstName} ${lastName}`.trim(),
+        personBirthDate: birthDate,
+        partnerName: '',
+        partnerBirthDate: '',
+      }
+    );
+  }
+
+  function setReportField(variantId: string, field: keyof ReportInput, value: string) {
+    setReportInputs((prev) => {
+      const current: ReportInput = prev[variantId] ?? {
+        personName: `${firstName} ${lastName}`.trim(),
+        personBirthDate: birthDate,
+        partnerName: '',
+        partnerBirthDate: '',
+      };
+      return { ...prev, [variantId]: { ...current, [field]: value } };
+    });
+  }
 
   const requiresShipping = items.some((i) => i.type === 'physical');
   const subtotalMinor = items.reduce((s, i) => s + toMinor(i.priceAmount) * i.quantity, 0);
@@ -94,8 +126,7 @@ export function CheckoutForm({
 
   const selectedRate = applicableRates.find((r) => r.id === shippingRateId) ?? null;
   const shippingMinor = requiresShipping && selectedRate ? ratePriceMinor(selectedRate) : 0;
-  const taxMinor = Math.round(taxRate * subtotalMinor);
-  const totalMinor = subtotalMinor + taxMinor + shippingMinor;
+  const totalMinor = subtotalMinor + shippingMinor;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,6 +157,17 @@ export function CheckoutForm({
               }
             : null,
           discountCode: discountCode.trim() || null,
+          reports: reportItems.map((i) => {
+            const inp = getReportInput(i.variantId);
+            const m = reportForSlug(i.slug)!;
+            return {
+              variantId: i.variantId,
+              person: { name: inp.personName.trim(), birthDate: inp.personBirthDate },
+              ...(m.needsPartner
+                ? { partner: { name: inp.partnerName.trim(), birthDate: inp.partnerBirthDate } }
+                : {}),
+            };
+          }),
         }),
       });
       const data = await res.json();
@@ -210,6 +252,87 @@ export function CheckoutForm({
             Recibirás la confirmación y las descargas en este correo. No necesitas cuenta.
           </p>
         </section>
+
+        {reportItems.length > 0 && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="font-semibold">Datos para tus reportes</h2>
+              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                Cada reporte se genera con estos datos. Por defecto usamos tu nombre; edítalo si el
+                reporte es para otra persona.
+              </p>
+            </div>
+
+            {reportItems.map((item) => {
+              const mapping = reportForSlug(item.slug)!;
+              const inp = getReportInput(item.variantId);
+              return (
+                <div
+                  key={item.variantId}
+                  className="space-y-3 rounded-xl border border-[hsl(var(--border))] p-4"
+                >
+                  <p className="text-sm font-medium text-[hsl(var(--primary))]">{item.name}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <input
+                      required
+                      placeholder="Nombre completo"
+                      value={inp.personName}
+                      onChange={(e) => setReportField(item.variantId, 'personName', e.target.value)}
+                      className={inputCls}
+                    />
+                    <label className="flex flex-col">
+                      <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
+                        Fecha de nacimiento
+                      </span>
+                      <input
+                        required
+                        type="date"
+                        value={inp.personBirthDate}
+                        onChange={(e) =>
+                          setReportField(item.variantId, 'personBirthDate', e.target.value)
+                        }
+                        className={inputCls}
+                      />
+                    </label>
+                  </div>
+
+                  {mapping.needsPartner && (
+                    <div className="space-y-3 border-t border-[hsl(var(--border))] pt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                        Datos de la pareja
+                      </p>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <input
+                          required
+                          placeholder="Nombre completo de la pareja"
+                          value={inp.partnerName}
+                          onChange={(e) =>
+                            setReportField(item.variantId, 'partnerName', e.target.value)
+                          }
+                          className={inputCls}
+                        />
+                        <label className="flex flex-col">
+                          <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
+                            Fecha de nacimiento de la pareja
+                          </span>
+                          <input
+                            required
+                            type="date"
+                            value={inp.partnerBirthDate}
+                            onChange={(e) =>
+                              setReportField(item.variantId, 'partnerBirthDate', e.target.value)
+                            }
+                            className={inputCls}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        )}
 
         {requiresShipping && (
           <section className="space-y-3">
@@ -326,7 +449,6 @@ export function CheckoutForm({
               value={shippingMinor === 0 ? 'Gratis' : formatMoney(shippingMinor, currency)}
             />
           )}
-          {taxMinor > 0 && <Row label="Impuestos (est.)" value={formatMoney(taxMinor, currency)} />}
         </div>
         <div className="border-t border-[hsl(var(--border))] pt-3 flex justify-between font-semibold">
           <span>Total</span>

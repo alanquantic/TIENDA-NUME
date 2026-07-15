@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   digitalAssets,
   downloadGrants,
+  generatedReports,
   orderItems,
   orders,
 } from '@/lib/db/schema';
@@ -38,6 +39,13 @@ export default async function SuccessPage({
         .from(downloadGrants)
         .innerJoin(digitalAssets, eq(downloadGrants.digitalAssetId, digitalAssets.id))
         .where(eq(downloadGrants.orderId, order.id))
+    : [];
+
+  const reports = order
+    ? await db
+        .select({ name: generatedReports.productName, url: generatedReports.url })
+        .from(generatedReports)
+        .where(and(eq(generatedReports.orderId, order.id), eq(generatedReports.status, 'ready')))
     : [];
 
   const isPaid = order?.status === 'paid' || order?.status === 'fulfilled';
@@ -79,6 +87,26 @@ export default async function SuccessPage({
             <span>Total</span>
             <span>{formatDecimal(order.totalAmount, order.currency)}</span>
           </div>
+        </div>
+      )}
+
+      {reports.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-semibold mb-3">Tus reportes</h2>
+          <ul className="space-y-2">
+            {reports.map((r) => (
+              <li key={r.url}>
+                <a
+                  href={r.url ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 py-2 hover:bg-[hsl(var(--muted))]"
+                >
+                  📄 {r.name ?? 'Reporte'}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

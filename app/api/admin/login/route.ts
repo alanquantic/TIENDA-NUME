@@ -1,20 +1,27 @@
 import { NextResponse } from 'next/server';
-import { ADMIN_COOKIE, adminPassword, adminToken } from '@/lib/admin-auth';
+import { ADMIN_COOKIE, adminEmail, adminPassword, adminToken } from '@/lib/admin-auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as { password?: string };
-  const expected = adminPassword();
+  const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string };
+  const expectedPassword = adminPassword();
+  const expectedEmail = adminEmail();
 
-  if (!expected || !adminToken()) {
+  if (!expectedPassword || !adminToken()) {
     return NextResponse.json(
       { error: 'Admin no configurado (falta ADMIN_PASSWORD / ADMIN_TOKEN).' },
       { status: 500 },
     );
   }
-  if (body.password !== expected) {
-    return NextResponse.json({ error: 'Contraseña incorrecta.' }, { status: 401 });
+
+  const emailOk =
+    !expectedEmail ||
+    (body.email ?? '').trim().toLowerCase() === expectedEmail.trim().toLowerCase();
+  const passwordOk = body.password === expectedPassword;
+
+  if (!emailOk || !passwordOk) {
+    return NextResponse.json({ error: 'Correo o contraseña incorrectos.' }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true });

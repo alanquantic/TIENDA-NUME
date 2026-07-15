@@ -33,8 +33,8 @@ const sample: OrderEmailData = {
   discountAmount: '169.70',
   discountCode: 'BIENVENIDA',
   shippingAmount: '0.00',
-  taxAmount: '244.37',
-  totalAmount: '1771.67',
+  taxAmount: '0.00',
+  totalAmount: '1527.30',
   requiresShipping: true,
   shippingMethod: 'Envío estándar (México)',
   shippingAddress: {

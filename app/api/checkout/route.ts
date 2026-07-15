@@ -10,6 +10,7 @@ import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
 import { fulfillOrder } from '@/lib/fulfillment';
+import { reportForSlug } from '@/lib/report-catalog';
 
 export const runtime = 'nodejs';
 
@@ -81,19 +82,37 @@ export async function POST(req: Request) {
     })
     .returning();
 
+  // Datos de reporte por variante (para guardarlos en el ítem).
+  const reportByVariant = new Map((input.reports ?? []).map((r) => [r.variantId, r]));
+
   await db.insert(orderItems).values(
-    quote.lines.map((line) => ({
-      orderId: order.id,
-      productId: line.productId,
-      variantId: line.variantId,
-      name: line.name,
-      variantName: line.variantName,
-      sku: line.sku,
-      type: line.type,
-      unitAmount: fromMinorToDecimalString(line.unitAmountMinor),
-      quantity: line.quantity,
-      totalAmount: fromMinorToDecimalString(line.totalMinor),
-    })),
+    quote.lines.map((line) => {
+      const mapping = reportForSlug(line.slug);
+      const reportInput = reportByVariant.get(line.variantId);
+      const metadata =
+        mapping && reportInput
+          ? {
+              report: {
+                key: mapping.report,
+                person: reportInput.person,
+                partner: reportInput.partner ?? null,
+              },
+            }
+          : {};
+      return {
+        orderId: order.id,
+        productId: line.productId,
+        variantId: line.variantId,
+        name: line.name,
+        variantName: line.variantName,
+        sku: line.sku,
+        type: line.type,
+        unitAmount: fromMinorToDecimalString(line.unitAmountMinor),
+        quantity: line.quantity,
+        totalAmount: fromMinorToDecimalString(line.totalMinor),
+        metadata,
+      };
+    }),
   );
 
   // ── TEMPORAL: pago simulado ────────────────────────────────────

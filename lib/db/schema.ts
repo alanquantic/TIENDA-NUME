@@ -330,6 +330,37 @@ export const webhookEvents = pgTable(
 );
 
 // ───────────────────────────────────────────────────────────────
+// Reportes generados (integración con el generador en Railway)
+// ───────────────────────────────────────────────────────────────
+
+export const generatedReports = pgTable(
+  'generated_reports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    reportKey: text('report_key').notNull(),
+    productName: text('product_name'),
+    status: text('status').notNull().default('pending'), // pending | ready | error | skipped
+    url: text('url'),
+    error: text('error'),
+    // { person: { name, birthDate }, partner?: { name, birthDate } } — para reintentos
+    input: jsonb('input').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    // idempotencia: un reporte por (pedido, clave)
+    orderReportIdx: uniqueIndex('ux_generated_reports_order_report').on(
+      table.orderId,
+      table.reportKey,
+    ),
+    statusIdx: index('idx_generated_reports_status').on(table.status),
+  }),
+);
+
+// ───────────────────────────────────────────────────────────────
 // Tipos inferidos
 // ───────────────────────────────────────────────────────────────
 
@@ -344,3 +375,4 @@ export type ShippingRate = typeof shippingRates.$inferSelect;
 export type DiscountCode = typeof discountCodes.$inferSelect;
 export type DigitalAsset = typeof digitalAssets.$inferSelect;
 export type DownloadGrant = typeof downloadGrants.$inferSelect;
+export type GeneratedReport = typeof generatedReports.$inferSelect;

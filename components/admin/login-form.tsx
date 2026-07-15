@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export function LoginForm() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +17,7 @@ export function LoginForm() {
     const res = await fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ email, password }),
     });
     if (res.ok) {
       router.replace('/admin');
@@ -28,16 +29,28 @@ export function LoginForm() {
     }
   }
 
+  const input =
+    'w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2';
+
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-sm space-y-4 py-16">
       <h1 className="text-2xl font-semibold">Admin</h1>
+      <input
+        type="email"
+        placeholder="Correo"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        autoComplete="username"
+        autoFocus
+        className={input}
+      />
       <input
         type="password"
         placeholder="Contraseña"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        autoFocus
-        className="w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2"
+        autoComplete="current-password"
+        className={input}
       />
       {error && <p className="text-sm text-red-500">{error}</p>}
       <button

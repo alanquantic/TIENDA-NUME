@@ -51,6 +51,7 @@ export type OrderEmailData = {
   shippingMethod: string | null;
   shippingAddress: EmailAddress | null;
   downloads: { name: string; url: string }[];
+  reports?: { name: string; url: string }[];
 };
 
 function esc(s: string): string {
@@ -210,6 +211,24 @@ function downloadsBlock(data: OrderEmailData): string {
     </table>`;
 }
 
+function reportsBlock(data: OrderEmailData): string {
+  const reports = data.reports ?? [];
+  if (reports.length === 0) return '';
+  const buttons = reports
+    .map(
+      (r) => `
+      <tr><td style="padding:4px 0;">
+        <a href="${r.url}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:10px;">📄 ${esc(r.name)}</a>
+      </td></tr>`,
+    )
+    .join('');
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
+      <tr><td style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus reportes</td></tr>
+      ${buttons}
+    </table>`;
+}
+
 export function renderOrderConfirmation(data: OrderEmailData): { subject: string; html: string } {
   const body = `
     <p style="margin:0 0 14px;">Recibimos tu pago correctamente. Aquí está el resumen de tu pedido <strong style="color:${BRAND.purple};">${esc(data.number)}</strong>.</p>
@@ -217,6 +236,7 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
     <div style="height:1px;background:${BRAND.border};margin:18px 0;"></div>
     ${itemsTable(data)}
     ${addressBlock(data.shippingAddress)}
+    ${reportsBlock(data)}
     ${downloadsBlock(data)}
     ${data.requiresShipping ? `<p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Te avisaremos cuando tu pedido físico sea enviado.</p>` : ''}
   `;

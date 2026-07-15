@@ -4,14 +4,81 @@ import { db } from './db';
 import { config } from './config';
 import { sendOrderConfirmation, sendOrderFailed } from './email';
 import type { EmailAddress } from './email-templates';
+import { generateReport, isReportGeneratorConfigured } from './report-generator';
+import type { ReportKey } from './report-catalog';
 import {
   digitalAssets,
   discountCodes,
   downloadGrants,
+  generatedReports,
   orderItems,
   orders,
   productVariants,
 } from './db/schema';
+
+type ReportMeta = {
+  key: ReportKey;
+  person: { name: string; birthDate: string };
+  partner?: { name: string; birthDate: string } | null;
+};
+
+async function generateReportsForOrder(
+  orderId: string,
+  items: { name: string; metadata: unknown }[],
+): Promise<{ name: string; url: string }[]> {
+  const reportLinks: { name: string; url: string }[] = [];
+  for (const item of items) {
+    const meta = (item.metadata as { report?: ReportMeta } | null)?.report;
+    if (!meta) continue;
+
+    await db
+      .insert(generatedReports)
+      .values({
+        orderId,
+        reportKey: meta.key,
+        productName: item.name,
+        status: 'pending',
+        input: { person: meta.person, partner: meta.partner ?? null },
+      })
+      .onConflictDoNothing({
+        target: [generatedReports.orderId, generatedReports.reportKey],
+      });
+
+    const whereReport = and(
+      eq(generatedReports.orderId, orderId),
+      eq(generatedReports.reportKey, meta.key),
+    );
+
+    if (!isReportGeneratorConfigured()) {
+      await db
+        .update(generatedReports)
+        .set({ status: 'skipped', error: 'Generador no configurado', updatedAt: new Date() })
+        .where(whereReport);
+      continue;
+    }
+
+    try {
+      const { url } = await generateReport({
+        orderId,
+        report: meta.key,
+        person: meta.person,
+        partner: meta.partner ?? undefined,
+      });
+      await db
+        .update(generatedReports)
+        .set({ status: 'ready', url, error: null, updatedAt: new Date() })
+        .where(whereReport);
+      reportLinks.push({ name: item.name, url });
+    } catch (e) {
+      console.error(`[reportes] falló ${meta.key} del pedido ${orderId}:`, e);
+      await db
+        .update(generatedReports)
+        .set({ status: 'error', error: String(e), updatedAt: new Date() })
+        .where(whereReport);
+    }
+  }
+  return reportLinks;
+}
 
 type FulfillMeta = {
   paymentIntentId?: string | null;
@@ -99,6 +166,8 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
 
   if (result) {
     const { order, items, links } = result;
+    // Genera los reportes (llamadas externas, fuera de la transacción).
+    const reportLinks = await generateReportsForOrder(order.id, items);
     await sendOrderConfirmation({
       number: order.number,
       customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
@@ -122,6 +191,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
       shippingMethod: order.shippingMethod,
       shippingAddress: (order.shippingAddress as EmailAddress | null) ?? null,
       downloads: links,
+      reports: reportLinks,
     });
   }
 }

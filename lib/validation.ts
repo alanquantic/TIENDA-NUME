@@ -16,6 +16,17 @@ export const shippingAddressSchema = z.object({
   phone: z.string().nullish(),
 });
 
+export const reportPersonSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre es obligatorio.'),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de nacimiento inválida.'),
+});
+
+export const reportInputSchema = z.object({
+  variantId: z.string().uuid(),
+  person: reportPersonSchema,
+  partner: reportPersonSchema.nullish(),
+});
+
 export const checkoutSchema = z.object({
   email: z.string().email(),
   firstName: z.string().trim().min(1, 'El nombre es obligatorio.'),
@@ -31,6 +42,8 @@ export const checkoutSchema = z.object({
   shippingRateId: z.string().uuid().nullish(),
   shippingAddress: shippingAddressSchema.nullish(),
   discountCode: z.string().trim().min(1).nullish(),
+  // Datos por reporte (persona y, si aplica, pareja), indexados por variantId.
+  reports: z.array(reportInputSchema).nullish(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

@@ -132,10 +132,10 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
     throw new PricingError('Falta seleccionar un método de envío.');
   }
 
-  // Impuesto fijo sobre la base gravable (MVP: tasa global de config).
-  const taxMinor = Math.round(config.taxRate * taxableBase);
+  // Sin impuestos.
+  const taxMinor = 0;
 
-  const totalMinor = taxableBase + taxMinor + shippingMinor;
+  const totalMinor = taxableBase + shippingMinor;
 
   return {
     lines,

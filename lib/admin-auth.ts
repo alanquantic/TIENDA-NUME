@@ -11,6 +11,10 @@ export function adminPassword(): string {
   return process.env.ADMIN_PASSWORD ?? '';
 }
 
+export function adminEmail(): string {
+  return process.env.ADMIN_EMAIL ?? '';
+}
+
 /** ¿La cookie coincide con el token de admin? (comparación simple de string). */
 export function isValidAdminCookie(value: string | undefined): boolean {
   const token = adminToken();
