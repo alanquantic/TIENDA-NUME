@@ -10,7 +10,6 @@ import {
   orders,
 } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
-import { config } from '@/lib/config';
 import { ClearCart } from '@/components/clear-cart';
 
 export const dynamic = 'force-dynamic';
@@ -117,7 +116,7 @@ export default async function SuccessPage({
             {downloads.map((d) => (
               <li key={d.token}>
                 <a
-                  href={`${config.appUrl}/api/descargas/${d.token}`}
+                  href={`/api/descargas/${d.token}`}
                   className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 py-2 hover:bg-[hsl(var(--muted))]"
                 >
                   ⬇ {d.fileName}

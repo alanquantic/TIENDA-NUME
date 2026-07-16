@@ -37,6 +37,29 @@ function variantColor(
   return undefined;
 }
 
+/**
+ * URL base para las redirecciones post-compra (success/cancel).
+ * Prioridad:
+ *   1) NEXT_PUBLIC_APP_URL si apunta a un dominio real (no localhost) — canónico.
+ *   2) El origen de la propia petición (así nunca manda al buyer a localhost en
+ *      producción aunque la env esté mal/ausente).
+ * Nunca fija localhost cuando la tienda se sirve desde otro dominio.
+ */
+function resolveBaseUrl(req: Request): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  if (configured && !/localhost|127\.0\.0\.1/.test(configured)) return configured;
+
+  const origin = req.headers.get('origin');
+  if (origin && /^https?:\/\//.test(origin)) return origin.replace(/\/$/, '');
+
+  const host = req.headers.get('host');
+  if (host) {
+    const proto = req.headers.get('x-forwarded-proto') ?? 'https';
+    return `${proto}://${host}`;
+  }
+  return configured ?? config.appUrl;
+}
+
 export async function POST(req: Request) {
   let body: unknown;
   try {
@@ -53,6 +76,7 @@ export async function POST(req: Request) {
     );
   }
   const input = parsed.data;
+  const baseUrl = resolveBaseUrl(req);
 
   // 1) Precio autoritativo (recalculado desde la BD).
   let quote;
@@ -163,7 +187,7 @@ export async function POST(req: Request) {
       );
     }
     return NextResponse.json({
-      url: `${config.appUrl}/checkout/success?order=${order.id}`,
+      url: `${baseUrl}/checkout/success?order=${order.id}`,
       orderId: order.id,
     });
   }
@@ -227,8 +251,8 @@ export async function POST(req: Request) {
       customer_email: input.email,
       line_items: lineItems,
       discounts: discounts.length ? discounts : undefined,
-      success_url: `${config.appUrl}/checkout/success?order=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${config.appUrl}/checkout/cancel?order=${order.id}`,
+      success_url: `${baseUrl}/checkout/success?order=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/checkout/cancel?order=${order.id}`,
       metadata: { orderId: order.id, orderNumber: number },
       payment_intent_data: { metadata: { orderId: order.id } },
     });
