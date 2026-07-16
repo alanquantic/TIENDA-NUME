@@ -46,8 +46,13 @@ export const reportPersonSchema = z.object({
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de nacimiento inválida.'),
 });
 
+/**
+ * Datos de un reporte, indexados por su CLAVE de generador (no por variante):
+ * los reportes son únicos por pedido — si dos productos comparten un reporte
+ * (p. ej. Membresía y Kit → reporte-quien-soy), se capturan una sola vez.
+ */
 export const reportInputSchema = z.object({
-  variantId: z.string().uuid(),
+  reportKey: z.string().trim().min(1),
   person: reportPersonSchema,
   partner: reportPersonSchema.nullish(),
 });

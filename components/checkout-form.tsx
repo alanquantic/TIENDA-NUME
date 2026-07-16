@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
-import { isGeneratedReportSlug, reportForSlug } from '@/lib/report-catalog';
+import { reportsForSlug, type ReportKey } from '@/lib/report-catalog';
 import { REGIMEN_FISCAL, USO_CFDI } from '@/lib/sat-catalog';
 
 type BillingInput = {
@@ -93,31 +93,52 @@ export function CheckoutForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Solo los reportes "generados" piden datos de la persona; los estáticos
-  // (agenda/planeador/semestral) no necesitan nada extra en el checkout.
-  const reportItems = items.filter((i) => isGeneratedReportSlug(i.slug));
-
-  function getReportInput(variantId: string): ReportInput {
-    return (
-      reportInputs[variantId] ?? {
-        personName: `${firstName} ${lastName}`.trim(),
-        personBirthDate: birthDate,
-        partnerName: '',
-        partnerBirthDate: '',
+  /**
+   * Una sección por reporte ÚNICO del pedido (no por producto): los reportes se
+   * generan una sola vez por pedido, así que si dos productos comparten un
+   * reporte (Membresía y Kit → "¿Quién soy?") se piden sus datos una sola vez.
+   * Los estáticos (agenda/planeador/semestral) no piden nada.
+   */
+  const reportSections = useMemo(() => {
+    const map = new Map<ReportKey, { key: ReportKey; label: string; needsPartner: boolean; from: string[] }>();
+    for (const item of items) {
+      for (const m of reportsForSlug(item.slug)) {
+        if (m.kind !== 'generated') continue;
+        const existing = map.get(m.report);
+        if (existing) {
+          existing.needsPartner = existing.needsPartner || m.needsPartner;
+          if (!existing.from.includes(item.name)) existing.from.push(item.name);
+        } else {
+          map.set(m.report, {
+            key: m.report,
+            label: m.label,
+            needsPartner: m.needsPartner,
+            from: [item.name],
+          });
+        }
       }
-    );
+    }
+    return [...map.values()];
+  }, [items]);
+
+  function blankReportInput(): ReportInput {
+    return {
+      personName: `${firstName} ${lastName}`.trim(),
+      personBirthDate: birthDate,
+      partnerName: '',
+      partnerBirthDate: '',
+    };
   }
 
-  function setReportField(variantId: string, field: keyof ReportInput, value: string) {
-    setReportInputs((prev) => {
-      const current: ReportInput = prev[variantId] ?? {
-        personName: `${firstName} ${lastName}`.trim(),
-        personBirthDate: birthDate,
-        partnerName: '',
-        partnerBirthDate: '',
-      };
-      return { ...prev, [variantId]: { ...current, [field]: value } };
-    });
+  function getReportInput(key: string): ReportInput {
+    return reportInputs[key] ?? blankReportInput();
+  }
+
+  function setReportField(key: string, field: keyof ReportInput, value: string) {
+    setReportInputs((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? blankReportInput()), [field]: value },
+    }));
   }
 
   const requiresShipping = items.some((i) => i.type === 'physical');
@@ -178,13 +199,12 @@ export function CheckoutForm({
               }
             : null,
           discountCode: discountCode.trim() || null,
-          reports: reportItems.map((i) => {
-            const inp = getReportInput(i.variantId);
-            const m = reportForSlug(i.slug)!;
+          reports: reportSections.map((s) => {
+            const inp = getReportInput(s.key);
             return {
-              variantId: i.variantId,
+              reportKey: s.key,
               person: { name: inp.personName.trim(), birthDate: inp.personBirthDate },
-              ...(m.needsPartner
+              ...(s.needsPartner
                 ? { partner: { name: inp.partnerName.trim(), birthDate: inp.partnerBirthDate } }
                 : {}),
             };
@@ -285,31 +305,35 @@ export function CheckoutForm({
           </p>
         </section>
 
-        {reportItems.length > 0 && (
+        {reportSections.length > 0 && (
           <section className="space-y-4">
             <div>
               <h2 className="font-semibold">Datos para tus reportes</h2>
               <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                Cada reporte se genera con estos datos. Por defecto usamos tu nombre; edítalo si el
-                reporte es para otra persona.
+                Cada reporte se genera por separado: puedes usar una persona distinta en cada uno.
+                Por defecto usamos tu nombre.
               </p>
             </div>
 
-            {reportItems.map((item) => {
-              const mapping = reportForSlug(item.slug)!;
-              const inp = getReportInput(item.variantId);
+            {reportSections.map((s) => {
+              const inp = getReportInput(s.key);
               return (
                 <div
-                  key={item.variantId}
+                  key={s.key}
                   className="space-y-3 rounded-xl border border-[hsl(var(--border))] p-4"
                 >
-                  <p className="text-sm font-medium text-[hsl(var(--primary))]">{item.name}</p>
+                  <div>
+                    <p className="text-sm font-medium text-[hsl(var(--primary))]">{s.label}</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Incluido en: {s.from.join(' · ')}
+                    </p>
+                  </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <input
                       required
                       placeholder="Nombre completo"
                       value={inp.personName}
-                      onChange={(e) => setReportField(item.variantId, 'personName', e.target.value)}
+                      onChange={(e) => setReportField(s.key, 'personName', e.target.value)}
                       className={inputCls}
                     />
                     <label className="flex flex-col">
@@ -320,15 +344,13 @@ export function CheckoutForm({
                         required
                         type="date"
                         value={inp.personBirthDate}
-                        onChange={(e) =>
-                          setReportField(item.variantId, 'personBirthDate', e.target.value)
-                        }
+                        onChange={(e) => setReportField(s.key, 'personBirthDate', e.target.value)}
                         className={inputCls}
                       />
                     </label>
                   </div>
 
-                  {mapping.needsPartner && (
+                  {s.needsPartner && (
                     <div className="space-y-3 border-t border-[hsl(var(--border))] pt-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
                         Datos de la pareja
@@ -338,9 +360,7 @@ export function CheckoutForm({
                           required
                           placeholder="Nombre completo de la pareja"
                           value={inp.partnerName}
-                          onChange={(e) =>
-                            setReportField(item.variantId, 'partnerName', e.target.value)
-                          }
+                          onChange={(e) => setReportField(s.key, 'partnerName', e.target.value)}
                           className={inputCls}
                         />
                         <label className="flex flex-col">
@@ -352,7 +372,7 @@ export function CheckoutForm({
                             type="date"
                             value={inp.partnerBirthDate}
                             onChange={(e) =>
-                              setReportField(item.variantId, 'partnerBirthDate', e.target.value)
+                              setReportField(s.key, 'partnerBirthDate', e.target.value)
                             }
                             className={inputCls}
                           />

@@ -10,7 +10,17 @@ import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
 import { fulfillOrder } from '@/lib/fulfillment';
-import { reportForSlug, AGENDA_2025_COLORS } from '@/lib/report-catalog';
+import { reportsForSlug, AGENDA_2025_COLORS, type ReportKey } from '@/lib/report-catalog';
+
+/** Lo que se guarda en orderItems.metadata.reports (lo lee el fulfillment). */
+type ReportMetaOut = {
+  key: ReportKey;
+  kind: 'static' | 'generated';
+  label: string;
+  variant?: string;
+  person?: { name: string; birthDate: string };
+  partner?: { name: string; birthDate: string } | null;
+};
 
 export const runtime = 'nodejs';
 
@@ -125,38 +135,41 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  // Datos de reporte por variante (para guardarlos en el ítem).
-  const reportByVariant = new Map((input.reports ?? []).map((r) => [r.variantId, r]));
+  // Datos de reporte por CLAVE (los reportes son únicos por pedido).
+  const reportByKey = new Map((input.reports ?? []).map((r) => [r.reportKey, r]));
 
   await db.insert(orderItems).values(
     quote.lines.map((line) => {
-      const mapping = reportForSlug(line.slug);
-      let metadata: Record<string, unknown> = {};
-      if (mapping?.kind === 'static') {
-        // PDF pre-hecho: sin person/partner. Agenda 2025 lleva `variant` (color).
-        metadata = {
-          report: {
-            key: mapping.report,
-            kind: 'static',
-            ...(mapping.needsVariant
-              ? { variant: variantColor(line.variantAttributes, line.variantName) }
-              : {}),
-          },
-        };
-      } else if (mapping) {
-        // Generado: requiere los datos capturados en el checkout.
-        const reportInput = reportByVariant.get(line.variantId);
-        if (reportInput) {
-          metadata = {
-            report: {
-              key: mapping.report,
-              kind: 'generated',
-              person: reportInput.person,
-              partner: reportInput.partner ?? null,
+      // Un producto puede entregar varios reportes (membresías, kits, bundles).
+      const reportMetas = reportsForSlug(line.slug).flatMap((m): ReportMetaOut[] => {
+        if (m.kind === 'static') {
+          // PDF pre-hecho: sin person/partner. Agenda 2025 lleva `variant` (color).
+          return [
+            {
+              key: m.report,
+              kind: 'static' as const,
+              label: m.label,
+              ...(m.needsVariant
+                ? { variant: variantColor(line.variantAttributes, line.variantName) }
+                : {}),
             },
-          };
+          ];
         }
-      }
+        // Generado: usa los datos capturados para ESA clave de reporte.
+        const reportInput = reportByKey.get(m.report);
+        if (!reportInput) return [];
+        return [
+          {
+            key: m.report,
+            kind: 'generated' as const,
+            label: m.label,
+            person: reportInput.person,
+            // Solo los que lo piden reciben pareja (los demás darían 422).
+            partner: m.needsPartner ? (reportInput.partner ?? null) : null,
+          },
+        ];
+      });
+      const metadata: Record<string, unknown> = reportMetas.length ? { reports: reportMetas } : {};
       return {
         orderId: order.id,
         productId: line.productId,

@@ -20,71 +20,92 @@ type ReportMeta = {
   key: ReportKey;
   /** 'generated' → lleva person/partner; 'static' → PDF pre-hecho (+ variant). */
   kind?: 'generated' | 'static';
+  /** Nombre a mostrar (distingue los reportes de un bundle). */
+  label?: string;
   person?: { name: string; birthDate: string } | null;
   partner?: { name: string; birthDate: string } | null;
   /** Color elegido para estáticos con versiones (agenda 2025). */
   variant?: string | null;
 };
 
+/**
+ * Reportes de un ítem. Acepta el formato nuevo (`reports: []`, un producto
+ * puede entregar varios) y el antiguo (`report: {}`) de pedidos previos.
+ */
+function reportMetasOf(metadata: unknown): ReportMeta[] {
+  const m = metadata as { report?: ReportMeta; reports?: ReportMeta[] } | null;
+  if (m?.reports?.length) return m.reports;
+  if (m?.report) return [m.report];
+  return [];
+}
+
 async function generateReportsForOrder(
   orderId: string,
   items: { name: string; metadata: unknown }[],
 ): Promise<{ name: string; url: string }[]> {
   const reportLinks: { name: string; url: string }[] = [];
+  // Los reportes son únicos por pedido: si dos productos comparten una clave
+  // (Membresía y Kit → reporte-quien-soy) se genera y se enlista una sola vez.
+  // El generador guarda en md5(order_id)/<clave>.pdf: repetir la clave en el
+  // mismo pedido sobrescribiría el mismo archivo.
+  const done = new Set<string>();
   for (const item of items) {
-    const meta = (item.metadata as { report?: ReportMeta } | null)?.report;
-    if (!meta) continue;
+    for (const meta of reportMetasOf(item.metadata)) {
+      if (done.has(meta.key)) continue;
+      done.add(meta.key);
+      const displayName = meta.label ?? item.name;
 
-    await db
-      .insert(generatedReports)
-      .values({
-        orderId,
-        reportKey: meta.key,
-        productName: item.name,
-        status: 'pending',
-        input: {
-          kind: meta.kind ?? 'generated',
-          person: meta.person ?? null,
-          partner: meta.partner ?? null,
-          variant: meta.variant ?? null,
-        },
-      })
-      .onConflictDoNothing({
-        target: [generatedReports.orderId, generatedReports.reportKey],
-      });
-
-    const whereReport = and(
-      eq(generatedReports.orderId, orderId),
-      eq(generatedReports.reportKey, meta.key),
-    );
-
-    if (!isReportGeneratorConfigured()) {
       await db
-        .update(generatedReports)
-        .set({ status: 'skipped', error: 'Generador no configurado', updatedAt: new Date() })
-        .where(whereReport);
-      continue;
-    }
+        .insert(generatedReports)
+        .values({
+          orderId,
+          reportKey: meta.key,
+          productName: displayName,
+          status: 'pending',
+          input: {
+            kind: meta.kind ?? 'generated',
+            person: meta.person ?? null,
+            partner: meta.partner ?? null,
+            variant: meta.variant ?? null,
+          },
+        })
+        .onConflictDoNothing({
+          target: [generatedReports.orderId, generatedReports.reportKey],
+        });
 
-    try {
-      const { url } = await generateReport({
-        orderId,
-        report: meta.key,
-        variant: meta.variant ?? undefined,
-        person: meta.person ?? undefined,
-        partner: meta.partner ?? undefined,
-      });
-      await db
-        .update(generatedReports)
-        .set({ status: 'ready', url, error: null, updatedAt: new Date() })
-        .where(whereReport);
-      reportLinks.push({ name: item.name, url });
-    } catch (e) {
-      console.error(`[reportes] falló ${meta.key} del pedido ${orderId}:`, e);
-      await db
-        .update(generatedReports)
-        .set({ status: 'error', error: String(e), updatedAt: new Date() })
-        .where(whereReport);
+      const whereReport = and(
+        eq(generatedReports.orderId, orderId),
+        eq(generatedReports.reportKey, meta.key),
+      );
+
+      if (!isReportGeneratorConfigured()) {
+        await db
+          .update(generatedReports)
+          .set({ status: 'skipped', error: 'Generador no configurado', updatedAt: new Date() })
+          .where(whereReport);
+        continue;
+      }
+
+      try {
+        const { url } = await generateReport({
+          orderId,
+          report: meta.key,
+          variant: meta.variant ?? undefined,
+          person: meta.person ?? undefined,
+          partner: meta.partner ?? undefined,
+        });
+        await db
+          .update(generatedReports)
+          .set({ status: 'ready', url, error: null, updatedAt: new Date() })
+          .where(whereReport);
+        reportLinks.push({ name: displayName, url });
+      } catch (e) {
+        console.error(`[reportes] falló ${meta.key} del pedido ${orderId}:`, e);
+        await db
+          .update(generatedReports)
+          .set({ status: 'error', error: String(e), updatedAt: new Date() })
+          .where(whereReport);
+      }
     }
   }
   return reportLinks;
