@@ -13,6 +13,7 @@ const SECTION_ORDER = [
   'libro',
   'reportes-numerologicos',
   'membresias',
+  'licencias',
   'certificaciones',
 ];
 

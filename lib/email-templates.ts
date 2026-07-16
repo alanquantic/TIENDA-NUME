@@ -13,7 +13,12 @@ const BRAND = {
   soft: '#f3eefb',
   green: '#15803d',
   red: '#b91c1c',
+  noteBg: '#fbf7ff',
+  noteBorder: '#c9a6f2',
 };
+
+/** Logo de marca. Debe ser una URL absoluta y pública (los correos no leen assets locales). */
+const LOGO_URL = 'https://web-nume.vercel.app/images/logo_favicon.png';
 
 export type EmailAddress = {
   name?: string;
@@ -52,6 +57,8 @@ export type OrderEmailData = {
   shippingAddress: EmailAddress | null;
   downloads: { name: string; url: string }[];
   reports?: { name: string; url: string }[];
+  /** Avisos según lo comprado (membresía, licencia, certificación). */
+  notes?: string[];
 };
 
 function esc(s: string): string {
@@ -84,10 +91,14 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
       <tr>
         <td style="background:${BRAND.purple};background-image:linear-gradient(120deg,${BRAND.purple},${BRAND.fuchsia});padding:22px 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-            <td style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:.3px;">
+            <td width="44" style="vertical-align:middle;padding-right:12px;">
+              <img src="${LOGO_URL}" width="40" height="40" alt=""
+                   style="display:block;width:40px;height:40px;border:0;outline:none;text-decoration:none;border-radius:50%;background:#ffffff;">
+            </td>
+            <td style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:.3px;vertical-align:middle;">
               ${store}
             </td>
-            <td align="right" style="color:rgba(255,255,255,.8);font-size:12px;">Numerología Cotidiana</td>
+            <td align="right" style="color:rgba(255,255,255,.8);font-size:12px;vertical-align:middle;">Numerología Cotidiana</td>
           </tr></table>
         </td>
       </tr>
@@ -229,6 +240,24 @@ function reportsBlock(data: OrderEmailData): string {
     </table>`;
 }
 
+function notesBlock(data: OrderEmailData): string {
+  const notes = data.notes ?? [];
+  if (notes.length === 0) return '';
+  const rows = notes
+    .map(
+      (n) => `
+      <tr><td style="padding:10px 14px;background:${BRAND.noteBg};border-left:3px solid ${BRAND.noteBorder};border-radius:6px;font-size:13px;line-height:1.6;color:${BRAND.text};">
+        ${esc(n)}
+      </td></tr>
+      <tr><td style="height:8px;line-height:8px;font-size:0;">&nbsp;</td></tr>`,
+    )
+    .join('');
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
+      ${rows}
+    </table>`;
+}
+
 export function renderOrderConfirmation(data: OrderEmailData): { subject: string; html: string } {
   const body = `
     <p style="margin:0 0 14px;">Recibimos tu pago correctamente. Aquí está el resumen de tu pedido <strong style="color:${BRAND.purple};">${esc(data.number)}</strong>.</p>
@@ -238,6 +267,7 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
     ${addressBlock(data.shippingAddress)}
     ${reportsBlock(data)}
     ${downloadsBlock(data)}
+    ${notesBlock(data)}
     ${data.requiresShipping ? `<p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Te avisaremos cuando tu pedido físico sea enviado.</p>` : ''}
   `;
   return {

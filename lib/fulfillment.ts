@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
 import { sendOrderConfirmation, sendOrderFailed } from './email';
@@ -7,6 +7,14 @@ import type { EmailAddress } from './email-templates';
 import { generateReport, isReportGeneratorConfigured } from './report-generator';
 import type { ReportKey } from './report-catalog';
 import {
+  GROUP_EMAIL_NOTE,
+  groupForProduct,
+  hasExternalHook,
+  type ProductGroup,
+} from './product-groups';
+import { notifyExternalPurchase } from './external-hooks';
+import {
+  categories,
   digitalAssets,
   discountCodes,
   downloadGrants,
@@ -14,6 +22,7 @@ import {
   orderItems,
   orders,
   productVariants,
+  products,
 } from './db/schema';
 
 type ReportMeta = {
@@ -111,6 +120,22 @@ async function generateReportsForOrder(
   return reportLinks;
 }
 
+type ProductInfo = { slug: string; categorySlug: string | null };
+
+/** slug + categoría de cada producto del pedido (para clasificar por grupo). */
+async function productInfoFor(
+  items: { productId: string | null }[],
+): Promise<Map<string, ProductInfo>> {
+  const ids = [...new Set(items.map((i) => i.productId).filter((v): v is string => !!v))];
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({ id: products.id, slug: products.slug, categorySlug: categories.slug })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(inArray(products.id, ids));
+  return new Map(rows.map((r) => [r.id, { slug: r.slug, categorySlug: r.categorySlug }]));
+}
+
 type FulfillMeta = {
   paymentIntentId?: string | null;
   customerId?: string | null;
@@ -199,6 +224,24 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     const { order, items, links } = result;
     // Genera los reportes (llamadas externas, fuera de la transacción).
     const reportLinks = await generateReportsForOrder(order.id, items);
+
+    // Clasifica lo comprado: notas del correo + avisos a sistemas externos.
+    const info = await productInfoFor(items);
+    const groupOf = (productId: string | null): ProductGroup | null => {
+      const pi = productId ? info.get(productId) : undefined;
+      return pi ? groupForProduct(pi.slug, pi.categorySlug) : null;
+    };
+
+    const notes: string[] = [];
+    const seen = new Set<ProductGroup>();
+    for (const item of items) {
+      const group = groupOf(item.productId);
+      if (!group || seen.has(group)) continue;
+      seen.add(group);
+      const note = GROUP_EMAIL_NOTE[group];
+      if (note) notes.push(note);
+    }
+
     await sendOrderConfirmation({
       number: order.number,
       customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
@@ -223,7 +266,39 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
       shippingAddress: (order.shippingAddress as EmailAddress | null) ?? null,
       downloads: links,
       reports: reportLinks,
+      notes,
     });
+
+    // Avisos a sistemas externos (membresías, licencias, numerathum, kit).
+    // Best-effort: nunca lanzan, no rompen el fulfillment ni el correo.
+    for (const item of items) {
+      const group = groupOf(item.productId);
+      if (!group || !hasExternalHook(group)) continue;
+      const pi = item.productId ? info.get(item.productId) : undefined;
+      if (!pi) continue;
+      await notifyExternalPurchase({
+        kind: group,
+        orderId: order.id,
+        orderNumber: order.number,
+        currency: order.currency,
+        paidAt: new Date().toISOString(),
+        customer: {
+          email: order.customerEmail,
+          firstName: order.customerFirstName,
+          lastName: order.customerLastName,
+          phone: order.customerPhone,
+          birthDate: order.customerBirthDate,
+        },
+        product: {
+          slug: pi.slug,
+          name: item.name,
+          variantName: item.variantName,
+          quantity: item.quantity,
+          unitAmount: item.unitAmount,
+          totalAmount: item.totalAmount,
+        },
+      });
+    }
   }
 }
 
