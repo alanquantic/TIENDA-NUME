@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       code: d.code.trim().toUpperCase(),
       type: d.type,
       value: d.value,
+      scope: d.scope,
+      productId: d.scope === 'product' ? (d.productId || null) : null,
       minSubtotal: d.minSubtotal ? d.minSubtotal : null,
       maxRedemptions: d.maxRedemptions ?? null,
       expiresAt: d.expiresAt ? new Date(d.expiresAt) : null,

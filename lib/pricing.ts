@@ -60,6 +60,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
       status: products.status,
       currency: products.currency,
       images: products.images,
+      maxPerOrder: products.maxPerOrder,
     })
     .from(productVariants)
     .innerJoin(products, eq(productVariants.productId, products.id))
@@ -112,11 +113,27 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
     });
   }
 
+  // Límite de unidades por pedido (agregado por PRODUCTO, no por variante:
+  // así no se burla el tope comprando 1 de cada variante).
+  const qtyByProduct = new Map<string, number>();
+  for (const line of lines) {
+    qtyByProduct.set(line.productId, (qtyByProduct.get(line.productId) ?? 0) + line.quantity);
+  }
+  for (const [productId, qty] of qtyByProduct) {
+    const row = rows.find((r) => r.productId === productId);
+    const max = row?.maxPerOrder;
+    if (max != null && qty > max) {
+      throw new PricingError(
+        `Solo puedes comprar ${max} ${max === 1 ? 'unidad' : 'unidades'} de "${row?.name}" por pedido.`,
+      );
+    }
+  }
+
   // Descuento
   let discountMinor = 0;
   let discountCode: string | null = null;
   if (input.discountCode) {
-    const applied = await applyDiscount(input.discountCode, subtotalMinor);
+    const applied = await applyDiscount(input.discountCode, subtotalMinor, lines);
     discountMinor = applied.amountMinor;
     discountCode = applied.code;
   }
@@ -158,6 +175,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
 async function applyDiscount(
   code: string,
   subtotalMinor: number,
+  lines: PricedLine[],
 ): Promise<{ code: string; amountMinor: number }> {
   const normalized = code.trim().toUpperCase();
   const [row] = await db
@@ -173,16 +191,32 @@ async function applyDiscount(
   if (row.maxRedemptions != null && row.timesRedeemed >= row.maxRedemptions) {
     throw new PricingError('El cupón alcanzó su límite de usos.');
   }
+  // El mínimo siempre se evalúa contra el subtotal del carrito.
   if (row.minSubtotal && subtotalMinor < toMinor(row.minSubtotal)) {
     throw new PricingError('El subtotal no alcanza el mínimo del cupón.');
   }
 
+  // Base sobre la que aplica: todo el carrito, o solo las líneas del producto.
+  let baseMinor = subtotalMinor;
+  if (row.scope === 'product') {
+    if (!row.productId) {
+      throw new PricingError('El cupón no está configurado correctamente.');
+    }
+    baseMinor = lines
+      .filter((l) => l.productId === row.productId)
+      .reduce((sum, l) => sum + l.totalMinor, 0);
+    if (baseMinor === 0) {
+      throw new PricingError('El cupón no aplica a los productos de tu carrito.');
+    }
+  }
+
   let amountMinor = 0;
   if (row.type === 'percent') {
-    amountMinor = Math.round((subtotalMinor * parseFloat(row.value)) / 100);
+    amountMinor = Math.round((baseMinor * parseFloat(row.value)) / 100);
   } else {
     amountMinor = toMinor(row.value);
   }
-  amountMinor = Math.min(amountMinor, subtotalMinor);
+  // Nunca descuenta más que su base (ni deja el total negativo).
+  amountMinor = Math.min(amountMinor, baseMinor);
   return { code: normalized, amountMinor };
 }

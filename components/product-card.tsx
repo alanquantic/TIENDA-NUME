@@ -24,6 +24,7 @@ export function ProductCard({ product }: { product: CatalogCard }) {
       image: product.image,
       type: product.type,
       maxStock: product.maxStock,
+      maxPerOrder: product.maxPerOrder,
     });
     show('Agregado al carrito');
   }

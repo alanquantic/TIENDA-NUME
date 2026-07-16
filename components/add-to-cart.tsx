@@ -22,9 +22,20 @@ type Props = {
   image: string | null;
   currency: string;
   variants: VariantOption[];
+  /** Tope de unidades por pedido (null = sin tope). */
+  maxPerOrder: number | null;
 };
 
-export function AddToCart({ productId, slug, name, type, image, currency, variants }: Props) {
+export function AddToCart({
+  productId,
+  slug,
+  name,
+  type,
+  image,
+  currency,
+  variants,
+  maxPerOrder,
+}: Props) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
   const [variantId, setVariantId] = useState(variants[0]?.id ?? '');
@@ -34,6 +45,9 @@ export function AddToCart({ productId, slug, name, type, image, currency, varian
   const variant = variants.find((v) => v.id === variantId) ?? variants[0];
   const maxStock = type === 'physical' && variant?.trackInventory ? variant.stock : null;
   const soldOut = maxStock !== null && maxStock <= 0;
+  // Tope visible: el menor entre stock y límite por pedido.
+  const cap = Math.min(maxStock ?? Infinity, maxPerOrder ?? Infinity);
+  const limitedToOne = maxPerOrder === 1;
 
   function handleAdd() {
     if (!variant || soldOut) return;
@@ -49,6 +63,7 @@ export function AddToCart({ productId, slug, name, type, image, currency, varian
         image,
         type,
         maxStock,
+        maxPerOrder,
       },
       qty,
     );
@@ -78,17 +93,25 @@ export function AddToCart({ productId, slug, name, type, image, currency, varian
         </label>
       )}
 
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-[hsl(var(--muted-foreground))]">Cantidad</label>
-        <input
-          type="number"
-          min={1}
-          max={maxStock ?? 99}
-          value={qty}
-          onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
-          className="w-20 rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2"
-        />
-      </div>
+      {limitedToOne ? (
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          Límite: 1 por pedido.
+        </p>
+      ) : (
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-[hsl(var(--muted-foreground))]">Cantidad</label>
+          <input
+            type="number"
+            min={1}
+            max={Number.isFinite(cap) ? cap : 99}
+            value={qty}
+            onChange={(e) =>
+              setQty(Math.max(1, Math.min(Number(e.target.value) || 1, Number.isFinite(cap) ? cap : 99)))
+            }
+            className="w-20 rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2"
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button

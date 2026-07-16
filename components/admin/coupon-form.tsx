@@ -3,11 +3,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function CouponForm() {
+export type CouponProductOption = { id: string; name: string };
+
+export function CouponForm({ products }: { products: CouponProductOption[] }) {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [type, setType] = useState<'percent' | 'fixed'>('percent');
   const [value, setValue] = useState('');
+  const [scope, setScope] = useState<'cart' | 'product'>('cart');
+  const [productId, setProductId] = useState('');
   const [minSubtotal, setMinSubtotal] = useState('');
   const [maxRedemptions, setMaxRedemptions] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -26,6 +30,8 @@ export function CouponForm() {
         code,
         type,
         value,
+        scope,
+        productId: scope === 'product' ? productId : null,
         minSubtotal: minSubtotal || null,
         maxRedemptions: maxRedemptions ? Number(maxRedemptions) : null,
         expiresAt: expiresAt || null,
@@ -35,6 +41,8 @@ export function CouponForm() {
     if (res.ok) {
       setCode('');
       setValue('');
+      setScope('cart');
+      setProductId('');
       setMinSubtotal('');
       setMaxRedemptions('');
       setExpiresAt('');
@@ -94,6 +102,42 @@ export function CouponForm() {
           />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className={label}>Aplica a</label>
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value as 'cart' | 'product')}
+            className={input}
+          >
+            <option value="cart">Total del carrito</option>
+            <option value="product">Un producto específico</option>
+          </select>
+        </div>
+        {scope === 'product' && (
+          <div>
+            <label className={label}>Producto</label>
+            <select
+              required
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+              className={input}
+            >
+              <option value="">Selecciona…</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+      {scope === 'product' && (
+        <p className="text-xs text-[hsl(var(--muted-foreground))]">
+          El descuento solo se calcula sobre las líneas de ese producto, no sobre el carrito completo.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={label}>Máx. usos (opcional)</label>

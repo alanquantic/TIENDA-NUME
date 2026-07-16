@@ -20,6 +20,7 @@ export type CatalogCard = {
   inStock: boolean;
   variantId: string;
   maxStock: number | null;
+  maxPerOrder: number | null;
   categorySlug: string | null;
   categoryName: string | null;
 };
@@ -41,6 +42,7 @@ export async function listProducts(
       type: products.type,
       images: products.images,
       currency: products.currency,
+      maxPerOrder: products.maxPerOrder,
       categorySlug: categories.slug,
       categoryName: categories.name,
       variantId: productVariants.id,
@@ -76,6 +78,7 @@ export async function listProducts(
         inStock: existing ? existing.inStock || inStock : inStock,
         variantId: r.variantId,
         maxStock,
+        maxPerOrder: r.maxPerOrder,
         categorySlug: r.categorySlug,
         categoryName: r.categoryName,
       });
@@ -139,6 +142,7 @@ export type CartVariantData = {
   image: string | null;
   type: 'digital' | 'physical';
   maxStock: number | null;
+  maxPerOrder: number | null;
 };
 
 export type ReconciledLine =
@@ -158,6 +162,7 @@ const CART_FIELDS = {
   type: products.type,
   currency: products.currency,
   images: products.images,
+  maxPerOrder: products.maxPerOrder,
 } as const;
 
 type CartRow = {
@@ -173,6 +178,7 @@ type CartRow = {
   type: 'digital' | 'physical';
   currency: string;
   images: unknown;
+  maxPerOrder: number | null;
 };
 
 function toCartData(r: CartRow): CartVariantData {
@@ -188,6 +194,7 @@ function toCartData(r: CartRow): CartVariantData {
     image: images[0] ?? null,
     type: r.type,
     maxStock: r.type === 'physical' && r.trackInventory ? r.stock : null,
+    maxPerOrder: r.maxPerOrder,
   };
 }
 

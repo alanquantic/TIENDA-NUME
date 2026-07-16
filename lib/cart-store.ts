@@ -17,7 +17,14 @@ export type CartItem = {
   quantity: number;
   /** Stock máximo para físicos; null = sin límite (digital). */
   maxStock: number | null;
+  /** Tope de unidades por pedido (membresías, licencias…); null = sin tope. */
+  maxPerOrder?: number | null;
 };
+
+/** Tope efectivo de un ítem: el menor entre stock y límite por pedido. */
+export function itemCap(item: Pick<CartItem, 'maxStock' | 'maxPerOrder'>): number {
+  return Math.min(item.maxStock ?? Infinity, item.maxPerOrder ?? Infinity);
+}
 
 type ReconcileResult = { removed: number; remapped: number };
 
@@ -39,7 +46,7 @@ export const useCart = create<CartState>()(
       add: (item, quantity = 1) =>
         set((state) => {
           const existing = state.items.find((i) => i.variantId === item.variantId);
-          const cap = item.maxStock ?? Infinity;
+          const cap = itemCap(item);
           if (existing) {
             const next = Math.min(existing.quantity + quantity, cap);
             return {
@@ -61,7 +68,7 @@ export const useCart = create<CartState>()(
           items: state.items
             .map((i) => {
               if (i.variantId !== variantId) return i;
-              const cap = i.maxStock ?? Infinity;
+              const cap = itemCap(i);
               return { ...i, quantity: Math.max(1, Math.min(quantity, cap)) };
             })
             .filter((i) => i.quantity > 0),
@@ -95,8 +102,9 @@ export const useCart = create<CartState>()(
               continue;
             }
             const merged = { ...item, ...r.data } as CartItem;
-            if (merged.maxStock != null && merged.maxStock > 0) {
-              merged.quantity = Math.min(item.quantity, merged.maxStock);
+            const cap = itemCap(merged);
+            if (Number.isFinite(cap) && cap > 0) {
+              merged.quantity = Math.min(item.quantity, cap);
             }
             next.push(merged);
             if (r.status === 'remapped') remapped++;

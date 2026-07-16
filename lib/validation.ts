@@ -114,18 +114,26 @@ export type AdminProductInput = z.infer<typeof adminProductSchema>;
 
 // ── Admin: alta de cupón ────────────────────────────────────────
 
-export const adminCouponSchema = z.object({
-  code: z
-    .string()
-    .trim()
-    .min(2)
-    .regex(/^[A-Za-z0-9_-]+$/, 'Solo letras, números, guion y guion bajo.'),
-  type: z.enum(['percent', 'fixed']),
-  value: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Valor inválido.'),
-  minSubtotal: z.string().regex(/^\d+(\.\d{1,2})?$/).nullish().or(z.literal('')),
-  maxRedemptions: z.number().int().positive().nullish(),
-  expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().or(z.literal('')),
-  isActive: z.boolean().default(true),
-});
+export const adminCouponSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .min(2)
+      .regex(/^[A-Za-z0-9_-]+$/, 'Solo letras, números, guion y guion bajo.'),
+    type: z.enum(['percent', 'fixed']),
+    value: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Valor inválido.'),
+    // 'cart' = total del carrito; 'product' = solo un producto.
+    scope: z.enum(['cart', 'product']).default('cart'),
+    productId: z.string().uuid().nullish().or(z.literal('')),
+    minSubtotal: z.string().regex(/^\d+(\.\d{1,2})?$/).nullish().or(z.literal('')),
+    maxRedemptions: z.number().int().positive().nullish(),
+    expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().or(z.literal('')),
+    isActive: z.boolean().default(true),
+  })
+  .refine((d) => d.scope !== 'product' || !!d.productId, {
+    message: 'Elige el producto al que aplica el cupón.',
+    path: ['productId'],
+  });
 
 export type AdminCouponInput = z.infer<typeof adminCouponSchema>;

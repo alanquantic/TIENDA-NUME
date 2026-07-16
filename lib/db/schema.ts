@@ -49,6 +49,13 @@ export const paymentProviderEnum = pgEnum('payment_provider', [
 
 export const discountTypeEnum = pgEnum('discount_type', ['percent', 'fixed']);
 
+/**
+ * Alcance del cupón:
+ * - 'cart':    se aplica al total del carrito.
+ * - 'product': solo descuenta las líneas de `productId`.
+ */
+export const discountScopeEnum = pgEnum('discount_scope', ['cart', 'product']);
+
 export const webhookEventStatusEnum = pgEnum('webhook_event_status', [
   'pending',
   'processed',
@@ -105,6 +112,9 @@ export const products = pgTable(
     images: jsonb('images').notNull().default([]),
     // Peso en gramos para cálculo/estimación de envío (solo físicos).
     weightGrams: integer('weight_grams'),
+    // Máximo de unidades por pedido (null = sin límite). 1 en membresías,
+    // licencias, certificaciones, numerathum y kit primavera.
+    maxPerOrder: integer('max_per_order'),
     metadata: jsonb('metadata').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -189,6 +199,9 @@ export const discountCodes = pgTable('discount_codes', {
   type: discountTypeEnum('type').notNull(),
   // Para 'percent' es el porcentaje (10 = 10%); para 'fixed' es el monto.
   value: decimal('value', { precision: 10, scale: 2 }).notNull(),
+  // 'cart' = total del carrito; 'product' = solo las líneas de productId.
+  scope: discountScopeEnum('scope').notNull().default('cart'),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }),
   minSubtotal: decimal('min_subtotal', { precision: 10, scale: 2 }),
   maxRedemptions: integer('max_redemptions'),
   timesRedeemed: integer('times_redeemed').notNull().default(0),

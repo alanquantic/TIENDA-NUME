@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useCart } from '@/lib/cart-store';
+import { itemCap, useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
 
@@ -64,14 +64,20 @@ export function CartView() {
                 {item.type === 'digital' ? 'Digital' : 'Físico'}
               </p>
               <div className="mt-2 flex items-center gap-3">
-                <input
-                  type="number"
-                  min={1}
-                  max={item.maxStock ?? 99}
-                  value={item.quantity}
-                  onChange={(e) => setQuantity(item.variantId, Number(e.target.value) || 1)}
-                  className="w-16 rounded-lg border border-[hsl(var(--border))] bg-transparent px-2 py-1"
-                />
+                {item.maxPerOrder === 1 ? (
+                  <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                    1 por pedido
+                  </span>
+                ) : (
+                  <input
+                    type="number"
+                    min={1}
+                    max={Number.isFinite(itemCap(item)) ? itemCap(item) : 99}
+                    value={item.quantity}
+                    onChange={(e) => setQuantity(item.variantId, Number(e.target.value) || 1)}
+                    className="w-16 rounded-lg border border-[hsl(var(--border))] bg-transparent px-2 py-1"
+                  />
+                )}
                 <button
                   onClick={() => remove(item.variantId)}
                   className="text-sm text-red-500 hover:underline"

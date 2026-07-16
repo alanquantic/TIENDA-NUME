@@ -1,6 +1,6 @@
-import { desc } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { discountCodes } from '@/lib/db/schema';
+import { discountCodes, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
 import { config } from '@/lib/config';
 import { CouponForm } from '@/components/admin/coupon-form';
@@ -11,6 +11,12 @@ const fmtDate = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' });
 
 export default async function AdminCoupons() {
   const rows = await db.select().from(discountCodes).orderBy(desc(discountCodes.createdAt));
+  const productList = await db
+    .select({ id: products.id, name: products.name })
+    .from(products)
+    .where(eq(products.status, 'active'))
+    .orderBy(asc(products.name));
+  const productName = new Map(productList.map((p) => [p.id, p.name]));
 
   return (
     <div className="space-y-8">
@@ -23,6 +29,7 @@ export default async function AdminCoupons() {
               <tr>
                 <th className="px-4 py-3 font-medium">Código</th>
                 <th className="px-4 py-3 font-medium">Descuento</th>
+                <th className="px-4 py-3 font-medium">Aplica a</th>
                 <th className="px-4 py-3 font-medium">Usos</th>
                 <th className="px-4 py-3 font-medium">Expira</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
@@ -39,6 +46,15 @@ export default async function AdminCoupons() {
                     {c.minSubtotal
                       ? ` (mín. ${formatDecimal(c.minSubtotal, config.currency)})`
                       : ''}
+                  </td>
+                  <td className="px-4 py-3">
+                    {c.scope === 'product' ? (
+                      <span title="Solo este producto">
+                        {(c.productId && productName.get(c.productId)) ?? 'Producto eliminado'}
+                      </span>
+                    ) : (
+                      <span className="text-[hsl(var(--muted-foreground))]">Todo el carrito</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {c.timesRedeemed}
@@ -59,7 +75,7 @@ export default async function AdminCoupons() {
         </div>
       )}
 
-      <CouponForm />
+      <CouponForm products={productList} />
     </div>
   );
 }
