@@ -55,3 +55,44 @@ export const GROUPS_WITH_EXTERNAL_HOOK: ExternalHookGroup[] = [
 export function hasExternalHook(group: ProductGroup): group is ExternalHookGroup {
   return (GROUPS_WITH_EXTERNAL_HOOK as ProductGroup[]).includes(group);
 }
+
+// ───────────────────────────────────────────────────────────────
+// Vigencia (duración del acceso que otorga cada producto)
+// ───────────────────────────────────────────────────────────────
+
+export type DurationUnit = 'day' | 'month' | 'year';
+export type ProductDuration = { value: number; unit: DurationUnit };
+
+export type ProductAccessConfig = {
+  /** Código estable del plan, para mapear del lado receptor. */
+  planCode: string;
+  duration: ProductDuration;
+};
+
+/**
+ * Cuánto dura el acceso que da cada producto. Confirmado con el cliente
+ * el 2026-07-16: la Membresía 180 son 6 MESES y la 360 son 12 MESES
+ * (el número del nombre es comercial, no días).
+ */
+export const PRODUCT_ACCESS: Record<string, ProductAccessConfig> = {
+  'membresia-180': { planCode: 'membresia-180', duration: { value: 6, unit: 'month' } },
+  'membresia-360': { planCode: 'membresia-360', duration: { value: 12, unit: 'month' } },
+  'licencia-software-arithmax-1-ano': {
+    planCode: 'arithmax-1-ano',
+    duration: { value: 1, unit: 'year' },
+  },
+  'licencia-software-arithmax-3-anos': {
+    planCode: 'arithmax-3-anos',
+    duration: { value: 3, unit: 'year' },
+  },
+  'kit-primavera': { planCode: 'kit-primavera', duration: { value: 1, unit: 'month' } },
+  [NUMERATHUM_SLUG]: {
+    planCode: 'numerathum-oraculo-365',
+    duration: { value: 1, unit: 'year' },
+  },
+};
+
+/** Vigencia del producto, o null si no otorga un acceso con caducidad. */
+export function accessForProduct(slug: string | null): ProductAccessConfig | null {
+  return slug ? (PRODUCT_ACCESS[slug] ?? null) : null;
+}

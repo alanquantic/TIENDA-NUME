@@ -12,7 +12,11 @@ import {
   hasExternalHook,
   type ProductGroup,
 } from './product-groups';
-import { notifyExternalPurchase } from './external-hooks';
+import {
+  notifyExternalPurchase,
+  type ExternalHookKind,
+  type ItemLike,
+} from './external-hooks';
 import {
   categories,
   digitalAssets,
@@ -270,33 +274,35 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     });
 
     // Avisos a sistemas externos (membresías, licencias, numerathum, kit).
-    // Best-effort: nunca lanzan, no rompen el fulfillment ni el correo.
+    // UNO por grupo presente en el pedido (no uno por producto), con el pedido
+    // completo. Best-effort: nunca lanzan, no rompen el fulfillment ni el correo.
+    const toItemLike = (item: (typeof items)[number]): ItemLike => ({
+      slug: item.productId ? (info.get(item.productId)?.slug ?? null) : null,
+      name: item.name,
+      variantName: item.variantName,
+      sku: item.sku,
+      type: item.type,
+      quantity: item.quantity,
+      unitAmount: item.unitAmount,
+      totalAmount: item.totalAmount,
+    });
+    const allItems = items.map(toItemLike);
+
+    const byGroup = new Map<ExternalHookKind, ItemLike[]>();
     for (const item of items) {
       const group = groupOf(item.productId);
       if (!group || !hasExternalHook(group)) continue;
-      const pi = item.productId ? info.get(item.productId) : undefined;
-      if (!pi) continue;
+      const list = byGroup.get(group) ?? [];
+      list.push(toItemLike(item));
+      byGroup.set(group, list);
+    }
+
+    for (const [kind, triggerItems] of byGroup) {
       await notifyExternalPurchase({
-        kind: group,
-        orderId: order.id,
-        orderNumber: order.number,
-        currency: order.currency,
-        paidAt: new Date().toISOString(),
-        customer: {
-          email: order.customerEmail,
-          firstName: order.customerFirstName,
-          lastName: order.customerLastName,
-          phone: order.customerPhone,
-          birthDate: order.customerBirthDate,
-        },
-        product: {
-          slug: pi.slug,
-          name: item.name,
-          variantName: item.variantName,
-          quantity: item.quantity,
-          unitAmount: item.unitAmount,
-          totalAmount: item.totalAmount,
-        },
+        kind,
+        order: { ...order, paidAt: order.paidAt ?? new Date() },
+        items: allItems,
+        triggerItems,
       });
     }
   }
