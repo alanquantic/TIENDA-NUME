@@ -19,6 +19,7 @@ const BRAND = {
 
 /** Logo de marca. Debe ser una URL absoluta y pública (los correos no leen assets locales). */
 const LOGO_URL = 'https://web-nume.vercel.app/images/logo_favicon.png';
+const EMAIL_STORE_NAME = 'Tienda Numerología Cotidiana';
 
 export type EmailAddress = {
   name?: string;
@@ -75,7 +76,7 @@ function money(value: string, currency: string): string {
 
 /** Envoltura común: cabecera de marca + contenido + pie. */
 function layout(opts: { preheader: string; heading: string; accent: string; body: string }): string {
-  const store = esc(config.storeName);
+  const store = esc(EMAIL_STORE_NAME);
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -95,7 +96,7 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
               <img src="${LOGO_URL}" width="40" height="40" alt=""
                    style="display:block;width:40px;height:40px;border:0;outline:none;text-decoration:none;border-radius:50%;background:#ffffff;">
             </td>
-            <td style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:.3px;vertical-align:middle;">
+            <td style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:.2px;vertical-align:middle;">
               ${store}
             </td>
             <td align="right" style="color:rgba(255,255,255,.8);font-size:12px;vertical-align:middle;">Numerología Cotidiana</td>
