@@ -1,97 +1,94 @@
 import 'server-only';
-import type { ExternalHookGroup } from './product-groups';
+import { createHmac } from 'node:crypto';
+import {
+  buildPurchasePayload,
+  envVarFor,
+  type ExternalHookKind,
+  type ExternalPurchasePayload,
+  type ItemLike,
+  type OrderLike,
+} from './external-purchase';
 
 /**
- * Avisos a sistemas externos cuando se compra cierto producto (membresías,
- * licencias Arithmax, Numerathum, Kit Primavera).
+ * Envío del aviso a sistemas externos cuando se completa una compra de cierto
+ * grupo (membresías, licencias Arithmax, Numerathum, Kit Primavera).
  *
- * ⚠️ PENDIENTE DE CONFIGURAR — se retomará más adelante.
- * Hoy están INACTIVOS: si la variable de entorno del endpoint no existe, la
- * función solo registra en consola y no envía nada. Para activarlos, define la
- * URL correspondiente en el entorno y (si aplica) el secreto compartido:
+ * El OBJETO y su armado viven en `lib/external-purchase.ts` (puro y testeable);
+ * aquí solo está el transporte (HTTP + firma), que es server-only porque usa
+ * node:crypto y el secreto compartido.
  *
- *   MEMBERSHIP_WEBHOOK_URL=https://...     ← membresías 180/360
- *   LICENSE_WEBHOOK_URL=https://...        ← licencias Arithmax 1/3 años
- *   NUMERATHUM_WEBHOOK_URL=https://...     ← Numerathum Oráculo 365
- *   KIT_PRIMAVERA_WEBHOOK_URL=https://...  ← Kit Primavera
- *   EXTERNAL_WEBHOOK_SECRET=...            ← opcional: firma HMAC-SHA256
+ * Se dispara UNA vez por grupo presente en el pedido (no una por producto) y
+ * siempre lleva el pedido completo + el cliente.
  *
- * Cuando se retome, revisar con el proveedor: formato exacto del payload,
- * autenticación y política de reintentos.
+ * Son TRES destinos (el ruteo vive en `ENDPOINT_ENV`, en external-purchase):
+ *
+ *   MEMBERSHIP_WEBHOOK_URL=https://...      ← 1. membresías 180/360
+ *   LICENSE_WEBHOOK_URL=https://...         ← 2. licencias Arithmax 1/3 años
+ *   KIT_NUMERATHUM_WEBHOOK_URL=https://...  ← 3. Kit Primavera Y Numerathum
+ *   EXTERNAL_WEBHOOK_SECRET=...             ← opcional: firma HMAC-SHA256
+ *
+ * ⚠️ INACTIVO mientras no exista la variable de entorno del endpoint: en ese
+ * caso solo deja rastro en consola y no envía nada.
  */
 
-export type PurchaseCustomer = {
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  phone: string | null;
-  birthDate: string | null;
-};
+export type {
+  ExternalHookKind,
+  ExternalPurchasePayload,
+  ItemLike,
+  OrderLike,
+} from './external-purchase';
+export { buildPurchasePayload, EXTERNAL_EVENT, ENDPOINT_ENV, envVarFor } from './external-purchase';
 
-export type PurchaseProduct = {
-  slug: string;
-  name: string;
-  variantName: string | null;
-  quantity: number;
-  unitAmount: string;
-  totalAmount: string;
-};
-
-/** 'membership' | 'license' | 'numerathum' | 'kit-primavera' */
-export type ExternalHookKind = ExternalHookGroup;
-
-export type PurchaseNotification = {
-  kind: ExternalHookKind;
-  orderId: string;
-  orderNumber: string;
-  currency: string;
-  paidAt: string | null;
-  customer: PurchaseCustomer;
-  product: PurchaseProduct;
-};
-
-const ENDPOINT_ENV: Record<ExternalHookKind, string> = {
-  membership: 'MEMBERSHIP_WEBHOOK_URL',
-  license: 'LICENSE_WEBHOOK_URL',
-  numerathum: 'NUMERATHUM_WEBHOOK_URL',
-  'kit-primavera': 'KIT_PRIMAVERA_WEBHOOK_URL',
-};
-
-function endpointFor(kind: ExternalHookKind): string | null {
-  return process.env[ENDPOINT_ENV[kind]] || null;
+export function endpointFor(kind: ExternalHookKind): string | null {
+  return process.env[envVarFor(kind)] || null;
 }
 
 /**
- * Envía el aviso al endpoint externo. Best-effort: NUNCA lanza, para no romper
- * el fulfillment ni el correo de confirmación (igual que el envío de correo).
- * Si el endpoint no está configurado, solo deja rastro en consola.
+ * Envía el aviso. Best-effort: NUNCA lanza, para no romper el fulfillment ni el
+ * correo de confirmación (misma política que el envío de correo).
+ * Devuelve el payload enviado (o el que se habría enviado) para poder loguear.
  */
-export async function notifyExternalPurchase(payload: PurchaseNotification): Promise<void> {
-  const url = endpointFor(payload.kind);
+export async function notifyExternalPurchase(input: {
+  kind: ExternalHookKind;
+  order: OrderLike;
+  items: ItemLike[];
+  triggerItems: ItemLike[];
+}): Promise<ExternalPurchasePayload> {
+  const payload = buildPurchasePayload(input);
+  const url = endpointFor(input.kind);
+
   if (!url) {
     console.info(
-      `[hook:${payload.kind}] (sin ${ENDPOINT_ENV[payload.kind]}) se habría enviado ` +
-        `pedido ${payload.orderNumber} · ${payload.product.slug} · ${payload.customer.email}`,
+      `[hook:${input.kind}] (sin ${envVarFor(input.kind)}) se habría enviado ` +
+        `pedido ${payload.order.number} · ${payload.customer.email} · ` +
+        `${payload.triggeredBy.map((i) => i.slug ?? i.name).join(', ')}`,
     );
-    return;
+    return payload;
   }
 
   try {
+    // Se firma EXACTAMENTE el mismo string que se envía como cuerpo.
     const body = JSON.stringify(payload);
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Nume-Event': payload.event,
+      'X-Nume-Kind': payload.kind,
+      'X-Nume-Delivery': payload.deliveryId,
+    };
 
-    // Firma opcional, mismo esquema que el generador de reportes.
     const secret = process.env.EXTERNAL_WEBHOOK_SECRET;
     if (secret) {
-      const { createHmac } = await import('node:crypto');
       headers['X-Signature'] = createHmac('sha256', secret).update(body).digest('hex');
     }
 
     const res = await fetch(url, { method: 'POST', headers, body, cache: 'no-store' });
     if (!res.ok) {
-      console.error(`[hook:${payload.kind}] ${url} respondió ${res.status} para ${payload.orderNumber}`);
+      console.error(
+        `[hook:${input.kind}] ${url} respondió ${res.status} para ${payload.order.number}`,
+      );
     }
   } catch (err) {
-    console.error(`[hook:${payload.kind}] error enviando ${payload.orderNumber}:`, err);
+    console.error(`[hook:${input.kind}] error enviando ${payload.order.number}:`, err);
   }
+  return payload;
 }
