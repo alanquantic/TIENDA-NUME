@@ -35,7 +35,7 @@ export const shippingAddressSchema = z.object({
   line1: z.string().min(1),
   line2: z.string().nullish(),
   city: z.string().min(1),
-  state: z.string().nullish(),
+  state: z.string().trim().min(1, 'Selecciona un estado.'),
   postalCode: z.string().min(1),
   country: z.string().length(2),
   phone: z.string().nullish(),

@@ -34,20 +34,51 @@ export type ShippingRateDTO = {
 
 const COUNTRIES = [
   ['MX', 'México'],
-  ['US', 'Estados Unidos'],
-  ['ES', 'España'],
-  ['CO', 'Colombia'],
-  ['AR', 'Argentina'],
-  ['CL', 'Chile'],
-  ['PE', 'Perú'],
+] as const;
+
+const MEXICO_STATES = [
+  'Aguascalientes',
+  'Baja California',
+  'Baja California Sur',
+  'Campeche',
+  'Chiapas',
+  'Chihuahua',
+  'Ciudad de México',
+  'Coahuila',
+  'Colima',
+  'Durango',
+  'Estado de México',
+  'Guanajuato',
+  'Guerrero',
+  'Hidalgo',
+  'Jalisco',
+  'Michoacán',
+  'Morelos',
+  'Nayarit',
+  'Nuevo León',
+  'Oaxaca',
+  'Puebla',
+  'Querétaro',
+  'Quintana Roo',
+  'San Luis Potosí',
+  'Sinaloa',
+  'Sonora',
+  'Tabasco',
+  'Tamaulipas',
+  'Tlaxcala',
+  'Veracruz',
+  'Yucatán',
+  'Zacatecas',
 ] as const;
 
 export function CheckoutForm({
   shippingRates,
+  physicalProductSlugs,
   currency,
   simulate = false,
 }: {
   shippingRates: ShippingRateDTO[];
+  physicalProductSlugs: string[];
   currency: string;
   simulate?: boolean;
 }) {
@@ -141,13 +172,19 @@ export function CheckoutForm({
     }));
   }
 
-  const requiresShipping = items.some((i) => i.type === 'physical');
+  const physicalSlugs = useMemo(
+    () => new Set(physicalProductSlugs),
+    [physicalProductSlugs],
+  );
+  const requiresShipping = items.some(
+    (item) => item.type === 'physical' || physicalSlugs.has(item.slug),
+  );
   const subtotalMinor = items.reduce((s, i) => s + toMinor(i.priceAmount) * i.quantity, 0);
 
   const applicableRates = useMemo(
     () =>
       shippingRates.filter(
-        (r) => r.countries.length === 0 || r.countries.includes(country),
+        (rate) => rate.countries.includes(country),
       ),
     [shippingRates, country],
   );
@@ -410,12 +447,21 @@ export function CheckoutForm({
                 onChange={(e) => setAddress({ ...address, city: e.target.value })}
                 className={inputCls}
               />
-              <input
-                placeholder="Estado"
+              <select
+                required
                 value={address.state}
                 onChange={(e) => setAddress({ ...address, state: e.target.value })}
                 className={inputCls}
-              />
+              >
+                <option value="" disabled>
+                  Selecciona tu estado
+                </option>
+                {MEXICO_STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <input
