@@ -25,7 +25,7 @@ import {
  *   MEMBERSHIP_WEBHOOK_URL=https://...      ← 1. membresías 180/360
  *   LICENSE_WEBHOOK_URL=https://...         ← 2. licencias Arithmax 1/3 años
  *   KIT_NUMERATHUM_WEBHOOK_URL=https://...  ← 3. Kit Primavera Y Numerathum
- *   EXTERNAL_WEBHOOK_SECRET=...             ← opcional: firma HMAC-SHA256
+ *   STORE_WEBHOOK_SECRET=...                ← firma HMAC-SHA256 (mismo valor en el API receptor)
  *
  * ⚠️ INACTIVO mientras no exista la variable de entorno del endpoint: en ese
  * caso solo deja rastro en consola y no envía nada.
@@ -76,9 +76,14 @@ export async function notifyExternalPurchase(input: {
       'X-Nume-Delivery': payload.deliveryId,
     };
 
-    const secret = process.env.EXTERNAL_WEBHOOK_SECRET;
+    const secret = process.env.STORE_WEBHOOK_SECRET;
     if (secret) {
       headers['X-Signature'] = createHmac('sha256', secret).update(body).digest('hex');
+    } else {
+      console.warn(
+        `[hook:${input.kind}] sin STORE_WEBHOOK_SECRET: se envía SIN firma (X-Signature). ` +
+          `Si el endpoint valida firma, responderá 401.`,
+      );
     }
 
     const res = await fetch(url, { method: 'POST', headers, body, cache: 'no-store' });
