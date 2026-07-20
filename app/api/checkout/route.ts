@@ -135,8 +135,11 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  // Datos de reporte por CLAVE (los reportes son únicos por pedido).
-  const reportByKey = new Map((input.reports ?? []).map((r) => [r.reportKey, r]));
+  // Datos de reporte por (variantId, reportKey). Dos productos que compartan el
+  // mismo reportKey capturan datos por separado (regalo para otra persona).
+  const reportByVariantAndKey = new Map(
+    (input.reports ?? []).map((r) => [`${r.variantId}:${r.reportKey}`, r]),
+  );
 
   await db.insert(orderItems).values(
     quote.lines.map((line) => {
@@ -155,8 +158,8 @@ export async function POST(req: Request) {
             },
           ];
         }
-        // Generado: usa los datos capturados para ESA clave de reporte.
-        const reportInput = reportByKey.get(m.report);
+        // Generado: usa los datos capturados para ESTA variante + reporte.
+        const reportInput = reportByVariantAndKey.get(`${line.variantId}:${m.report}`);
         if (!reportInput) return [];
         return [
           {

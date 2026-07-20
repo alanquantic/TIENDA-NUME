@@ -17,6 +17,17 @@ export type GenerateInput = {
   /** Requerido en reportes generados; omitir en estáticos. birthDate = "YYYY-MM-DD" */
   person?: { name: string; birthDate: string };
   partner?: { name: string; birthDate: string };
+  /**
+   * Sufijo de instancia para desambiguar cuando un mismo pedido genera VARIAS
+   * copias del mismo `report` con datos distintos (Membresía + Kit → dos
+   * "quien-soy" con personas diferentes).
+   *
+   * El generador debe usar este valor en la ruta de almacenamiento
+   * (p. ej. `md5(order_id)/<report>-<instance>.pdf`) para no sobreescribir.
+   * Si el generador aún no lo soporta, ambos PDFs comparten ruta y el segundo
+   * pisa al primero.
+   */
+  instance?: string;
 };
 
 /**
@@ -41,6 +52,9 @@ export async function generateReport(input: GenerateInput): Promise<{ url: strin
   };
   if (input.variant) {
     payload.variant = input.variant;
+  }
+  if (input.instance) {
+    payload.instance = input.instance;
   }
   if (input.person) {
     payload.person = { name: input.person.name, birth_date: input.person.birthDate };
