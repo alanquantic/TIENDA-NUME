@@ -13,6 +13,8 @@ type StoredInput = {
   person?: { name: string; birthDate: string } | null;
   partner?: { name: string; birthDate: string } | null;
   variant?: string | null;
+  /** Sufijo por-item para desambiguar múltiples copias del mismo reportKey. */
+  instance?: string | null;
 };
 
 /**
@@ -51,12 +53,19 @@ export async function GET(req: Request) {
       continue;
     }
     try {
+      // Si el registro es viejo y no trae instance, deriva uno del orderItemId
+      // para que coincida con la ruta que ya usa el generador (si soporta el
+      // sufijo). Los registros nuevos siempre traen instance en el input.
+      const fallbackInstance = r.orderItemId?.replace(/-/g, '').slice(0, 12);
+      const instance = input.instance ?? fallbackInstance ?? undefined;
+
       const { url } = await generateReport({
         orderId: r.orderId,
         report: r.reportKey as ReportKey,
         variant: input.variant ?? undefined,
         person: input.person ?? undefined,
         partner: input.partner ?? undefined,
+        instance,
       });
       await db
         .update(generatedReports)

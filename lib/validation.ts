@@ -47,11 +47,13 @@ export const reportPersonSchema = z.object({
 });
 
 /**
- * Datos de un reporte, indexados por su CLAVE de generador (no por variante):
- * los reportes son únicos por pedido — si dos productos comparten un reporte
- * (p. ej. Membresía y Kit → reporte-quien-soy), se capturan una sola vez.
+ * Datos de un reporte, indexados por (variantId, reportKey): cada ítem del
+ * carrito que entregue un reporte generado necesita su propia captura, incluso
+ * si dos productos comparten el mismo reportKey (Membresía + Kit → "quien-soy"
+ * se capturan por separado, típicamente porque uno es regalo para otra persona).
  */
 export const reportInputSchema = z.object({
+  variantId: z.string().uuid(),
   reportKey: z.string().trim().min(1),
   person: reportPersonSchema,
   partner: reportPersonSchema.nullish(),
