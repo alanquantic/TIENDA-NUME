@@ -34,20 +34,51 @@ export type ShippingRateDTO = {
 
 const COUNTRIES = [
   ['MX', 'México'],
-  ['US', 'Estados Unidos'],
-  ['ES', 'España'],
-  ['CO', 'Colombia'],
-  ['AR', 'Argentina'],
-  ['CL', 'Chile'],
-  ['PE', 'Perú'],
+] as const;
+
+const MEXICO_STATES = [
+  'Aguascalientes',
+  'Baja California',
+  'Baja California Sur',
+  'Campeche',
+  'Chiapas',
+  'Chihuahua',
+  'Ciudad de México',
+  'Coahuila',
+  'Colima',
+  'Durango',
+  'Estado de México',
+  'Guanajuato',
+  'Guerrero',
+  'Hidalgo',
+  'Jalisco',
+  'Michoacán',
+  'Morelos',
+  'Nayarit',
+  'Nuevo León',
+  'Oaxaca',
+  'Puebla',
+  'Querétaro',
+  'Quintana Roo',
+  'San Luis Potosí',
+  'Sinaloa',
+  'Sonora',
+  'Tabasco',
+  'Tamaulipas',
+  'Tlaxcala',
+  'Veracruz',
+  'Yucatán',
+  'Zacatecas',
 ] as const;
 
 export function CheckoutForm({
   shippingRates,
+  physicalProductSlugs,
   currency,
   simulate = false,
 }: {
   shippingRates: ShippingRateDTO[];
+  physicalProductSlugs: string[];
   currency: string;
   simulate?: boolean;
 }) {
@@ -94,31 +125,34 @@ export function CheckoutForm({
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Una sección por reporte ÚNICO del pedido (no por producto): los reportes se
-   * generan una sola vez por pedido, así que si dos productos comparten un
-   * reporte (Membresía y Kit → "¿Quién soy?") se piden sus datos una sola vez.
-   * Los estáticos (agenda/planeador/semestral) no piden nada.
+   * Una sección por (variante del carrito × reporte generado). Dos productos
+   * que compartan un reporte (Membresía y Kit → "¿Quién soy?") aparecen como
+   * secciones separadas: el comprador puede regalar uno a otra persona y
+   * capturar datos distintos. Los estáticos (agenda/planeador) no piden nada.
    */
   const reportSections = useMemo(() => {
-    const map = new Map<ReportKey, { key: ReportKey; label: string; needsPartner: boolean; from: string[] }>();
+    const sections: {
+      sectionKey: string;
+      variantId: string;
+      reportKey: ReportKey;
+      label: string;
+      needsPartner: boolean;
+      from: string;
+    }[] = [];
     for (const item of items) {
       for (const m of reportsForSlug(item.slug)) {
         if (m.kind !== 'generated') continue;
-        const existing = map.get(m.report);
-        if (existing) {
-          existing.needsPartner = existing.needsPartner || m.needsPartner;
-          if (!existing.from.includes(item.name)) existing.from.push(item.name);
-        } else {
-          map.set(m.report, {
-            key: m.report,
-            label: m.label,
-            needsPartner: m.needsPartner,
-            from: [item.name],
-          });
-        }
+        sections.push({
+          sectionKey: `${item.variantId}:${m.report}`,
+          variantId: item.variantId,
+          reportKey: m.report,
+          label: m.label,
+          needsPartner: m.needsPartner,
+          from: item.name,
+        });
       }
     }
-    return [...map.values()];
+    return sections;
   }, [items]);
 
   function blankReportInput(): ReportInput {
@@ -141,13 +175,19 @@ export function CheckoutForm({
     }));
   }
 
-  const requiresShipping = items.some((i) => i.type === 'physical');
+  const physicalSlugs = useMemo(
+    () => new Set(physicalProductSlugs),
+    [physicalProductSlugs],
+  );
+  const requiresShipping = items.some(
+    (item) => item.type === 'physical' || physicalSlugs.has(item.slug),
+  );
   const subtotalMinor = items.reduce((s, i) => s + toMinor(i.priceAmount) * i.quantity, 0);
 
   const applicableRates = useMemo(
     () =>
       shippingRates.filter(
-        (r) => r.countries.length === 0 || r.countries.includes(country),
+        (rate) => rate.countries.includes(country),
       ),
     [shippingRates, country],
   );
@@ -200,9 +240,10 @@ export function CheckoutForm({
             : null,
           discountCode: discountCode.trim() || null,
           reports: reportSections.map((s) => {
-            const inp = getReportInput(s.key);
+            const inp = getReportInput(s.sectionKey);
             return {
-              reportKey: s.key,
+              variantId: s.variantId,
+              reportKey: s.reportKey,
               person: { name: inp.personName.trim(), birthDate: inp.personBirthDate },
               ...(s.needsPartner
                 ? { partner: { name: inp.partnerName.trim(), birthDate: inp.partnerBirthDate } }
@@ -249,6 +290,7 @@ export function CheckoutForm({
 
   const inputCls =
     'w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2';
+  const labelCls = 'mb-1 text-xs text-[hsl(var(--muted-foreground))]';
 
   return (
     <form onSubmit={handleSubmit} className="grid lg:grid-cols-3 gap-8">
@@ -256,42 +298,60 @@ export function CheckoutForm({
         <section className="space-y-3">
           <h2 className="font-semibold">Tus datos</h2>
           <div className="grid grid-cols-2 gap-3">
-            <input
-              required
-              placeholder="Nombre(s)"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className={inputCls}
-            />
-            <input
-              required
-              placeholder="Apellidos"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <input
-            type="email"
-            required
-            placeholder="tu@correo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              required
-              type="tel"
-              placeholder="Teléfono"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className={inputCls}
-            />
             <label className="flex flex-col">
-              <span className="text-xs text-[hsl(var(--muted-foreground))] mb-1">
-                Fecha de nacimiento
+              <span className={labelCls}>
+                Nombre(s) <Req />
               </span>
+              <input
+                required
+                placeholder="Nombre(s)"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={inputCls}
+              />
+            </label>
+            <label className="flex flex-col">
+              <span className={labelCls}>
+                Apellidos <Req />
+              </span>
+              <input
+                required
+                placeholder="Apellidos"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={inputCls}
+              />
+            </label>
+          </div>
+          <label className="flex flex-col">
+            <span className={labelCls}>
+              Correo <Req />
+            </span>
+            <input
+              type="email"
+              required
+              placeholder="tu@correo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputCls}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col">
+              <span className={labelCls}>
+                Teléfono <Req />
+              </span>
+              <input
+                required
+                type="tel"
+                placeholder="Teléfono"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={inputCls}
+              />
+            </label>
+            <label className="flex flex-col">
+              <span className={labelCls}>Fecha de nacimiento</span>
               <input
                 type="date"
                 value={birthDate}
@@ -316,35 +376,44 @@ export function CheckoutForm({
             </div>
 
             {reportSections.map((s) => {
-              const inp = getReportInput(s.key);
+              const inp = getReportInput(s.sectionKey);
               return (
                 <div
-                  key={s.key}
+                  key={s.sectionKey}
                   className="space-y-3 rounded-xl border border-[hsl(var(--border))] p-4"
                 >
                   <div>
                     <p className="text-sm font-medium text-[hsl(var(--primary))]">{s.label}</p>
                     <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                      Incluido en: {s.from.join(' · ')}
+                      Incluido en: {s.from}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input
-                      required
-                      placeholder="Nombre completo"
-                      value={inp.personName}
-                      onChange={(e) => setReportField(s.key, 'personName', e.target.value)}
-                      className={inputCls}
-                    />
                     <label className="flex flex-col">
-                      <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
-                        Fecha de nacimiento
+                      <span className={labelCls}>
+                        Nombre completo <Req />
+                      </span>
+                      <input
+                        required
+                        placeholder="Nombre completo"
+                        value={inp.personName}
+                        onChange={(e) =>
+                          setReportField(s.sectionKey, 'personName', e.target.value)
+                        }
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="flex flex-col">
+                      <span className={labelCls}>
+                        Fecha de nacimiento <Req />
                       </span>
                       <input
                         required
                         type="date"
                         value={inp.personBirthDate}
-                        onChange={(e) => setReportField(s.key, 'personBirthDate', e.target.value)}
+                        onChange={(e) =>
+                          setReportField(s.sectionKey, 'personBirthDate', e.target.value)
+                        }
                         className={inputCls}
                       />
                     </label>
@@ -356,23 +425,30 @@ export function CheckoutForm({
                         Datos de la pareja
                       </p>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <input
-                          required
-                          placeholder="Nombre completo de la pareja"
-                          value={inp.partnerName}
-                          onChange={(e) => setReportField(s.key, 'partnerName', e.target.value)}
-                          className={inputCls}
-                        />
                         <label className="flex flex-col">
-                          <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
-                            Fecha de nacimiento de la pareja
+                          <span className={labelCls}>
+                            Nombre completo de la pareja <Req />
+                          </span>
+                          <input
+                            required
+                            placeholder="Nombre completo de la pareja"
+                            value={inp.partnerName}
+                            onChange={(e) =>
+                              setReportField(s.sectionKey, 'partnerName', e.target.value)
+                            }
+                            className={inputCls}
+                          />
+                        </label>
+                        <label className="flex flex-col">
+                          <span className={labelCls}>
+                            Fecha de nacimiento de la pareja <Req />
                           </span>
                           <input
                             required
                             type="date"
                             value={inp.partnerBirthDate}
                             onChange={(e) =>
-                              setReportField(s.key, 'partnerBirthDate', e.target.value)
+                              setReportField(s.sectionKey, 'partnerBirthDate', e.target.value)
                             }
                             className={inputCls}
                           />
@@ -389,13 +465,18 @@ export function CheckoutForm({
         {requiresShipping && (
           <section className="space-y-3">
             <h2 className="font-semibold">Dirección de envío</h2>
-            <input
-              required
-              placeholder="Calle y número"
-              value={address.line1}
-              onChange={(e) => setAddress({ ...address, line1: e.target.value })}
-              className={inputCls}
-            />
+            <label className="flex flex-col">
+              <span className={labelCls}>
+                Calle y número <Req />
+              </span>
+              <input
+                required
+                placeholder="Calle y número"
+                value={address.line1}
+                onChange={(e) => setAddress({ ...address, line1: e.target.value })}
+                className={inputCls}
+              />
+            </label>
             <input
               placeholder="Interior, colonia (opcional)"
               value={address.line2}
@@ -403,39 +484,68 @@ export function CheckoutForm({
               className={inputCls}
             />
             <div className="grid grid-cols-2 gap-3">
-              <input
-                required
-                placeholder="Ciudad"
-                value={address.city}
-                onChange={(e) => setAddress({ ...address, city: e.target.value })}
-                className={inputCls}
-              />
-              <input
-                placeholder="Estado"
-                value={address.state}
-                onChange={(e) => setAddress({ ...address, state: e.target.value })}
-                className={inputCls}
-              />
+              <label className="flex flex-col">
+                <span className={labelCls}>
+                  Ciudad <Req />
+                </span>
+                <input
+                  required
+                  placeholder="Ciudad"
+                  value={address.city}
+                  onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                  className={inputCls}
+                />
+              </label>
+              <label className="flex flex-col">
+                <span className={labelCls}>
+                  Estado <Req />
+                </span>
+                <select
+                  required
+                  value={address.state}
+                  onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="" disabled>
+                    Selecciona tu estado
+                  </option>
+                  {MEXICO_STATES.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <input
-                required
-                placeholder="Código postal"
-                value={address.postalCode}
-                onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
-                className={inputCls}
-              />
-              <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className={inputCls}
-              >
-                {COUNTRIES.map(([code, label]) => (
-                  <option key={code} value={code}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <label className="flex flex-col">
+                <span className={labelCls}>
+                  Código postal <Req />
+                </span>
+                <input
+                  required
+                  placeholder="Código postal"
+                  value={address.postalCode}
+                  onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
+                  className={inputCls}
+                />
+              </label>
+              <label className="flex flex-col">
+                <span className={labelCls}>
+                  País <Req />
+                </span>
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className={inputCls}
+                >
+                  {COUNTRIES.map(([code, label]) => (
+                    <option key={code} value={code}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <h3 className="font-medium pt-2">Método de envío</h3>
             {applicableRates.length === 0 ? (
@@ -496,27 +606,37 @@ export function CheckoutForm({
                 Datos fiscales del receptor. Deben coincidir con tu Constancia de Situación Fiscal.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input
-                  required
-                  placeholder="RFC"
-                  value={billing.rfc}
-                  onChange={(e) =>
-                    setBilling({ ...billing, rfc: e.target.value.toUpperCase() })
-                  }
-                  className={inputCls}
-                />
-                <input
-                  required
-                  placeholder="Razón social / Nombre fiscal"
-                  value={billing.razonSocial}
-                  onChange={(e) => setBilling({ ...billing, razonSocial: e.target.value })}
-                  className={inputCls}
-                />
+                <label className="flex flex-col">
+                  <span className={labelCls}>
+                    RFC <Req />
+                  </span>
+                  <input
+                    required
+                    placeholder="RFC"
+                    value={billing.rfc}
+                    onChange={(e) =>
+                      setBilling({ ...billing, rfc: e.target.value.toUpperCase() })
+                    }
+                    className={inputCls}
+                  />
+                </label>
+                <label className="flex flex-col">
+                  <span className={labelCls}>
+                    Razón social / Nombre fiscal <Req />
+                  </span>
+                  <input
+                    required
+                    placeholder="Razón social / Nombre fiscal"
+                    value={billing.razonSocial}
+                    onChange={(e) => setBilling({ ...billing, razonSocial: e.target.value })}
+                    className={inputCls}
+                  />
+                </label>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col">
-                  <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
-                    Régimen fiscal
+                  <span className={labelCls}>
+                    Régimen fiscal <Req />
                   </span>
                   <select
                     required
@@ -533,8 +653,8 @@ export function CheckoutForm({
                   </select>
                 </label>
                 <label className="flex flex-col">
-                  <span className="mb-1 text-xs text-[hsl(var(--muted-foreground))]">
-                    Uso de CFDI
+                  <span className={labelCls}>
+                    Uso de CFDI <Req />
                   </span>
                   <select
                     required
@@ -552,14 +672,19 @@ export function CheckoutForm({
                 </label>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input
-                  required
-                  inputMode="numeric"
-                  placeholder="Código postal fiscal"
-                  value={billing.postalCode}
-                  onChange={(e) => setBilling({ ...billing, postalCode: e.target.value })}
-                  className={inputCls}
-                />
+                <label className="flex flex-col">
+                  <span className={labelCls}>
+                    Código postal fiscal <Req />
+                  </span>
+                  <input
+                    required
+                    inputMode="numeric"
+                    placeholder="Código postal fiscal"
+                    value={billing.postalCode}
+                    onChange={(e) => setBilling({ ...billing, postalCode: e.target.value })}
+                    className={inputCls}
+                  />
+                </label>
                 <input
                   type="email"
                   placeholder="Correo para la factura (opcional)"
@@ -632,4 +757,8 @@ function Row({ label, value }: { label: string; value: string }) {
       <span>{value}</span>
     </div>
   );
+}
+
+function Req() {
+  return <span className="text-red-500">*</span>;
 }

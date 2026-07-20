@@ -143,9 +143,12 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
   // Envío (solo si hay físicos y se eligió tarifa)
   let shippingMinor = 0;
   let shippingMethod: string | null = null;
+  const shippingCountry = input.shippingAddress?.country ?? null;
+  if (requiresShipping && shippingCountry?.toUpperCase() !== 'MX') {
+    throw new PricingError('Por el momento, los productos físicos solo se envían dentro de México.');
+  }
   if (requiresShipping && input.shippingRateId) {
-    const country = input.shippingAddress?.country ?? null;
-    const rate = await resolveShippingRate(input.shippingRateId, country, subtotalMinor);
+    const rate = await resolveShippingRate(input.shippingRateId, shippingCountry, subtotalMinor);
     if (!rate) throw new PricingError('El método de envío seleccionado no es válido.');
     shippingMinor = rate.amountMinor;
     shippingMethod = rate.name;
