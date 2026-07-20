@@ -54,24 +54,23 @@ function reportMetasOf(metadata: unknown): ReportMeta[] {
 
 async function generateReportsForOrder(
   orderId: string,
-  items: { name: string; metadata: unknown }[],
+  items: { id: string; name: string; metadata: unknown }[],
 ): Promise<{ name: string; url: string }[]> {
   const reportLinks: { name: string; url: string }[] = [];
-  // Los reportes son únicos por pedido: si dos productos comparten una clave
-  // (Membresía y Kit → reporte-quien-soy) se genera y se enlista una sola vez.
-  // El generador guarda en md5(order_id)/<clave>.pdf: repetir la clave en el
-  // mismo pedido sobrescribiría el mismo archivo.
-  const done = new Set<string>();
+  // Un pedido puede pedir el MISMO reportKey varias veces con datos distintos
+  // (Membresía + Kit → dos "quien-soy" para personas diferentes). Cada instancia
+  // se genera por (orderItem, reportKey) y se le envía `instance` al generador
+  // para que guarde en ruta distinta.
   for (const item of items) {
     for (const meta of reportMetasOf(item.metadata)) {
-      if (done.has(meta.key)) continue;
-      done.add(meta.key);
       const displayName = meta.label ?? item.name;
+      const instance = item.id.replace(/-/g, '').slice(0, 12);
 
       await db
         .insert(generatedReports)
         .values({
           orderId,
+          orderItemId: item.id,
           reportKey: meta.key,
           productName: displayName,
           status: 'pending',
@@ -80,14 +79,20 @@ async function generateReportsForOrder(
             person: meta.person ?? null,
             partner: meta.partner ?? null,
             variant: meta.variant ?? null,
+            instance,
           },
         })
         .onConflictDoNothing({
-          target: [generatedReports.orderId, generatedReports.reportKey],
+          target: [
+            generatedReports.orderId,
+            generatedReports.orderItemId,
+            generatedReports.reportKey,
+          ],
         });
 
       const whereReport = and(
         eq(generatedReports.orderId, orderId),
+        eq(generatedReports.orderItemId, item.id),
         eq(generatedReports.reportKey, meta.key),
       );
 
@@ -106,6 +111,7 @@ async function generateReportsForOrder(
           variant: meta.variant ?? undefined,
           person: meta.person ?? undefined,
           partner: meta.partner ?? undefined,
+          instance,
         });
         await db
           .update(generatedReports)

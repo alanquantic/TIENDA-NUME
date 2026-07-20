@@ -10,7 +10,7 @@ import {
   type ProductDuration,
 } from './product-groups';
 
-/** 'membership' | 'license' | 'numerathum' | 'kit-primavera' */
+/** 'membership' | 'license' | 'numerathum' | 'kit-primavera' | 'agenda-fisica-2026' */
 export type ExternalHookKind = ExternalHookGroup;
 
 export const EXTERNAL_EVENT = 'purchase.completed' as const;
@@ -19,9 +19,9 @@ export const EXTERNAL_EVENT = 'purchase.completed' as const;
  * Ruteo: qué endpoint recibe cada grupo. Son TRES destinos —
  *   1. membresías            → MEMBERSHIP_WEBHOOK_URL
  *   2. licencias Arithmax    → LICENSE_WEBHOOK_URL
- *   3. kit primavera Y numerathum → KIT_NUMERATHUM_WEBHOOK_URL (comparten)
+ *   3. kit primavera, numerathum Y agenda física 2026 → KIT_NUMERATHUM_WEBHOOK_URL
  *
- * Kit y Numerathum van al MISMO endpoint a propósito; el receptor los
+ * Los tres del destino 3 van al MISMO endpoint a propósito; el receptor los
  * distingue por el campo `kind` del payload.
  */
 export const ENDPOINT_ENV: Record<ExternalHookKind, string> = {
@@ -29,6 +29,7 @@ export const ENDPOINT_ENV: Record<ExternalHookKind, string> = {
   license: 'LICENSE_WEBHOOK_URL',
   numerathum: 'KIT_NUMERATHUM_WEBHOOK_URL',
   'kit-primavera': 'KIT_NUMERATHUM_WEBHOOK_URL',
+  'agenda-fisica-2026': 'KIT_NUMERATHUM_WEBHOOK_URL',
 };
 
 /** Nombre de la variable de entorno con el endpoint de ese grupo. */

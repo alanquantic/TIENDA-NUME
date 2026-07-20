@@ -2,7 +2,13 @@
 // (nota en el correo y/o aviso a un sistema externo). Sin dependencias
 // server-only: lo pueden usar tanto el fulfillment como la UI.
 
-export type ProductGroup = 'membership' | 'license' | 'certification' | 'numerathum' | 'kit-primavera';
+export type ProductGroup =
+  | 'membership'
+  | 'license'
+  | 'certification'
+  | 'numerathum'
+  | 'kit-primavera'
+  | 'agenda-fisica-2026';
 
 export const MEMBERSHIP_SLUGS = ['membresia-180', 'membresia-360'] as const;
 
@@ -13,6 +19,7 @@ export const LICENSE_SLUGS = [
 
 export const NUMERATHUM_SLUG = 'numerathum-oraculo-365-agenda-numerologica-2026-digital-pdf';
 export const KIT_PRIMAVERA_SLUG = 'kit-primavera';
+export const AGENDA_FISICA_2026_SLUG = 'agenda-numerologica-2026-fisica';
 
 /** Las certificaciones se identifican por CATEGORÍA (la lista puede crecer). */
 export const CERTIFICATION_CATEGORY_SLUG = 'certificaciones';
@@ -23,6 +30,7 @@ export function groupForProduct(slug: string, categorySlug?: string | null): Pro
   if ((LICENSE_SLUGS as readonly string[]).includes(slug)) return 'license';
   if (slug === NUMERATHUM_SLUG) return 'numerathum';
   if (slug === KIT_PRIMAVERA_SLUG) return 'kit-primavera';
+  if (slug === AGENDA_FISICA_2026_SLUG) return 'agenda-fisica-2026';
   if (categorySlug === CERTIFICATION_CATEGORY_SLUG) return 'certification';
   return null;
 }
@@ -40,6 +48,7 @@ export const GROUP_EMAIL_NOTE: Record<ProductGroup, string | null> = {
     'Sobre tu certificación: ¡gracias por inscribirte! En unos momentos te contactamos para darte tus accesos.',
   numerathum: null,
   'kit-primavera': null,
+  'agenda-fisica-2026': null,
 };
 
 /** Grupos que avisan a un sistema externo al comprarse (las certificaciones no). */
@@ -50,6 +59,7 @@ export const GROUPS_WITH_EXTERNAL_HOOK: ExternalHookGroup[] = [
   'license',
   'numerathum',
   'kit-primavera',
+  'agenda-fisica-2026',
 ];
 
 export function hasExternalHook(group: ProductGroup): group is ExternalHookGroup {

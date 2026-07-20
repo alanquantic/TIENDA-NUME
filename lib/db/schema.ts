@@ -358,6 +358,13 @@ export const generatedReports = pgTable(
     orderId: uuid('order_id')
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
+    // Ítem del pedido que produjo este reporte. Permite que un pedido tenga
+    // dos productos que entreguen el MISMO reportKey con datos distintos
+    // (regalo: Membresía para persona A + Kit para persona B, ambos con
+    // "reporte-quien-soy").
+    orderItemId: uuid('order_item_id').references(() => orderItems.id, {
+      onDelete: 'cascade',
+    }),
     reportKey: text('report_key').notNull(),
     productName: text('product_name'),
     status: text('status').notNull().default('pending'), // pending | ready | error | skipped
@@ -369,9 +376,10 @@ export const generatedReports = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    // idempotencia: un reporte por (pedido, clave)
-    orderReportIdx: uniqueIndex('ux_generated_reports_order_report').on(
+    // idempotencia: un reporte por (pedido, ítem, clave)
+    orderItemReportIdx: uniqueIndex('ux_generated_reports_order_item_report').on(
       table.orderId,
+      table.orderItemId,
       table.reportKey,
     ),
     statusIdx: index('idx_generated_reports_status').on(table.status),

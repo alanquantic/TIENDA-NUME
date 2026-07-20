@@ -73,12 +73,20 @@ export default async function AdminHome() {
                     {p.price ? formatDecimal(p.price, p.currency) : '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/productos/${p.slug}`}
-                      className="text-[hsl(var(--muted-foreground))] hover:underline"
-                    >
-                      Ver ↗
-                    </Link>
+                    <div className="flex justify-end gap-3">
+                      <Link
+                        href={`/admin/productos/${p.id}/editar`}
+                        className="text-[hsl(var(--primary))] hover:underline"
+                      >
+                        Editar
+                      </Link>
+                      <Link
+                        href={`/productos/${p.slug}`}
+                        className="text-[hsl(var(--muted-foreground))] hover:underline"
+                      >
+                        Ver ↗
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
