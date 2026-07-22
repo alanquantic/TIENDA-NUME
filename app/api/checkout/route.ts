@@ -197,8 +197,12 @@ export async function POST(req: Request) {
       await fulfillOrder(order.id, { paymentIntentId: `SIMULADO-${number}` });
     } catch (err) {
       console.error('Fulfillment simulado falló', err);
+      // En modo simulado (solo pruebas) devolvemos el detalle real para poder
+      // diagnosticar desde la pestaña Red del navegador. Esta rama nunca se
+      // alcanza con pagos reales, así que no filtra nada en producción.
+      const detail = err instanceof Error ? err.message : String(err);
       return NextResponse.json(
-        { error: 'No se pudo completar la compra simulada.' },
+        { error: 'No se pudo completar la compra simulada.', detail },
         { status: 500 },
       );
     }
