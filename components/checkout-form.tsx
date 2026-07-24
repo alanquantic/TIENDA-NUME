@@ -360,10 +360,16 @@ export function CheckoutForm({
               />
             </label>
           </div>
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            📧 Escribe bien tu correo: ahí recibirás la confirmación de tu compra y tus
-            descargas. No necesitas crear una cuenta.
-          </p>
+          <div className="rounded-xl border-2 border-[hsl(var(--accent))] bg-[hsl(var(--secondary))] p-4">
+            <p className="text-base font-semibold">
+              📧 Escribe bien tu correo electrónico
+            </p>
+            <p className="mt-1 text-sm leading-relaxed">
+              A este correo te llegará la <strong>confirmación de tu compra</strong> y
+              tus <strong>reportes y/o accesos</strong>. Revísalo con calma antes de
+              continuar. No necesitas crear una cuenta.
+            </p>
+          </div>
         </section>
 
         {reportSections.length > 0 && (
@@ -740,6 +746,10 @@ export function CheckoutForm({
           </p>
         )}
 
+        <p className="rounded-lg bg-[hsl(var(--primary-soft))] px-3 py-2.5 text-sm leading-relaxed">
+          📩 Al terminar tu compra, <strong>revisa y mantente al pendiente de tu
+          correo</strong>: ahí encontrarás tus reportes y/o accesos.
+        </p>
         {simulate && (
           <p className="rounded-lg bg-[hsl(var(--muted))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
             🧪 Modo de prueba: se simula un pago exitoso, no se cobra nada.
