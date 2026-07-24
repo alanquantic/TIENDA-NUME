@@ -65,7 +65,7 @@ export function CartView() {
               </p>
               <div className="mt-2 flex items-center gap-3">
                 {item.maxPerOrder === 1 ? (
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                  <span className="text-sm text-[hsl(var(--muted-foreground))]">
                     1 por pedido
                   </span>
                 ) : (
@@ -98,12 +98,12 @@ export function CartView() {
           <span className="text-[hsl(var(--muted-foreground))]">Subtotal</span>
           <span className="font-semibold">{formatMoney(subtotalMinor, currency)}</span>
         </div>
-        <p className="text-xs text-[hsl(var(--muted-foreground))]">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
           Envío e impuestos se calculan en el checkout.
         </p>
         <Link
           href="/checkout"
-          className="block text-center rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3 font-medium"
+          className="block text-center rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3.5 text-lg font-semibold"
         >
           Proceder al pago
         </Link>

@@ -289,14 +289,14 @@ export function CheckoutForm({
   }
 
   const inputCls =
-    'w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2';
-  const labelCls = 'mb-1 text-xs text-[hsl(var(--muted-foreground))]';
+    'w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2.5 text-base';
+  const labelCls = 'mb-1 text-sm font-medium';
 
   return (
     <form onSubmit={handleSubmit} className="grid lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-8">
         <section className="space-y-3">
-          <h2 className="font-semibold">Tus datos</h2>
+          <h2 className="text-xl font-semibold">Tus datos</h2>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col">
               <span className={labelCls}>
@@ -360,16 +360,27 @@ export function CheckoutForm({
               />
             </label>
           </div>
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">
-            Recibirás la confirmación y las descargas en este correo. No necesitas cuenta.
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            📧 Escribe bien tu correo: ahí recibirás la confirmación de tu compra y tus
+            descargas. No necesitas crear una cuenta.
           </p>
         </section>
 
         {reportSections.length > 0 && (
           <section className="space-y-4">
             <div>
-              <h2 className="font-semibold">Datos para tus reportes</h2>
-              <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+              <h2 className="text-xl font-semibold">Datos para tus reportes</h2>
+              <div className="mt-3 rounded-xl border-2 border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft))] p-4">
+                <p className="text-base font-semibold text-[hsl(var(--primary))]">
+                  ✍️ Importante: estos datos se usan para crear tus reportes
+                </p>
+                <p className="mt-1 text-sm leading-relaxed">
+                  El nombre completo y la fecha de nacimiento que escribas aquí aparecerán
+                  en tu reporte y se usan para hacer los cálculos. Por favor revisa con
+                  calma que estén escritos correctamente antes de pagar.
+                </p>
+              </div>
+              <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
                 Cada reporte se genera por separado: puedes usar una persona distinta en cada uno.
                 Por defecto usamos tu nombre.
               </p>
@@ -383,8 +394,8 @@ export function CheckoutForm({
                   className="space-y-3 rounded-xl border border-[hsl(var(--border))] p-4"
                 >
                   <div>
-                    <p className="text-sm font-medium text-[hsl(var(--primary))]">{s.label}</p>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    <p className="text-base font-semibold text-[hsl(var(--primary))]">{s.label}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
                       Incluido en: {s.from}
                     </p>
                   </div>
@@ -421,7 +432,7 @@ export function CheckoutForm({
 
                   {s.needsPartner && (
                     <div className="space-y-3 border-t border-[hsl(var(--border))] pt-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                      <p className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
                         Datos de la pareja
                       </p>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -464,7 +475,7 @@ export function CheckoutForm({
 
         {requiresShipping && (
           <section className="space-y-3">
-            <h2 className="font-semibold">Dirección de envío</h2>
+            <h2 className="text-xl font-semibold">Dirección de envío</h2>
             <label className="flex flex-col">
               <span className={labelCls}>
                 Calle y número <Req />
@@ -581,7 +592,7 @@ export function CheckoutForm({
         )}
 
         <section className="space-y-2">
-          <h2 className="font-semibold">Cupón</h2>
+          <h2 className="text-xl font-semibold">Cupón</h2>
           <input
             placeholder="Código de descuento (opcional)"
             value={discountCode}
@@ -602,7 +613,7 @@ export function CheckoutForm({
 
           {wantsInvoice && (
             <div className="space-y-3 rounded-xl border border-[hsl(var(--border))] p-4">
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
                 Datos fiscales del receptor. Deben coincidir con tu Constancia de Situación Fiscal.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -699,7 +710,7 @@ export function CheckoutForm({
       </div>
 
       <aside className="h-fit border border-[hsl(var(--border))] rounded-xl p-6 space-y-3">
-        <h2 className="font-semibold">Resumen</h2>
+        <h2 className="text-xl font-semibold">Resumen</h2>
         <ul className="space-y-1 text-sm">
           {items.map((i) => (
             <li key={i.variantId} className="flex justify-between gap-2">
@@ -724,13 +735,13 @@ export function CheckoutForm({
           <span>{formatMoney(totalMinor, currency)}</span>
         </div>
         {discountCode.trim() && (
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
             El cupón se valida y aplica en el pago.
           </p>
         )}
 
         {simulate && (
-          <p className="rounded-lg bg-[hsl(var(--muted))] px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">
+          <p className="rounded-lg bg-[hsl(var(--muted))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
             🧪 Modo de prueba: se simula un pago exitoso, no se cobra nada.
           </p>
         )}
@@ -738,12 +749,12 @@ export function CheckoutForm({
         <button
           type="submit"
           disabled={loading || (requiresShipping && applicableRates.length === 0)}
-          className="w-full rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3 font-medium disabled:opacity-50"
+          className="w-full rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3.5 text-lg font-semibold disabled:opacity-50"
         >
           {loading ? 'Procesando…' : simulate ? 'Simular compra' : 'Pagar'}
         </button>
-        <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
-          {simulate ? 'Compra de prueba sin cargo.' : 'Pago seguro con Stripe.'}
+        <p className="text-sm text-[hsl(var(--muted-foreground))] text-center">
+          {simulate ? 'Compra de prueba sin cargo.' : '🔒 Pago seguro con Stripe.'}
         </p>
       </aside>
     </form>

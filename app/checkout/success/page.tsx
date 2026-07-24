@@ -67,6 +67,27 @@ export default async function SuccessPage({
         )}
       </div>
 
+      <div className="mt-8 rounded-xl border-2 border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft))] p-5 text-center">
+        <p className="text-lg font-semibold text-[hsl(var(--primary))]">
+          📩 Muy importante: revisa tu correo electrónico
+        </p>
+        <p className="mt-2 text-base leading-relaxed">
+          {order ? (
+            <>
+              Te enviamos a <strong>{order.customerEmail}</strong> la confirmación de tu
+              compra y tus reportes para descargar.
+            </>
+          ) : (
+            <>
+              En tu correo recibirás la confirmación de tu compra y tus reportes para
+              descargar.
+            </>
+          )}{' '}
+          Si no lo encuentras en unos minutos, busca en la carpeta de{' '}
+          <strong>spam o &ldquo;Promociones&rdquo;</strong>.
+        </p>
+      </div>
+
       {order && (
         <div className="mt-10 border border-[hsl(var(--border))] rounded-xl p-6">
           <ul className="divide-y divide-[hsl(var(--border))]">
@@ -91,7 +112,10 @@ export default async function SuccessPage({
 
       {reports.length > 0 && (
         <div className="mt-8">
-          <h2 className="font-semibold mb-3">Tus reportes</h2>
+          <h2 className="text-xl font-semibold mb-1">Tus reportes</h2>
+          <p className="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
+            👇 Da clic en un botón para abrir o descargar tu reporte.
+          </p>
           <ul className="space-y-2">
             {reports.map((r) => (
               <li key={r.url}>
@@ -99,9 +123,9 @@ export default async function SuccessPage({
                   href={r.url ?? '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 py-2 hover:bg-[hsl(var(--muted))]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-5 py-2.5 text-base font-medium hover:bg-[hsl(var(--muted))]"
                 >
-                  📄 {r.name ?? 'Reporte'}
+                  📄 {r.name ?? 'Reporte'} ⬇️
                 </a>
               </li>
             ))}
@@ -111,15 +135,18 @@ export default async function SuccessPage({
 
       {downloads.length > 0 && (
         <div className="mt-8">
-          <h2 className="font-semibold mb-3">Tus descargas</h2>
+          <h2 className="text-xl font-semibold mb-1">Tus descargas</h2>
+          <p className="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
+            👇 Da clic en un botón para descargar tu archivo.
+          </p>
           <ul className="space-y-2">
             {downloads.map((d) => (
               <li key={d.token}>
                 <a
                   href={`/api/descargas/${d.token}`}
-                  className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 py-2 hover:bg-[hsl(var(--muted))]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-5 py-2.5 text-base font-medium hover:bg-[hsl(var(--muted))]"
                 >
-                  ⬇ {d.fileName}
+                  ⬇️ {d.fileName}
                 </a>
               </li>
             ))}
@@ -128,7 +155,7 @@ export default async function SuccessPage({
       )}
 
       {order && !isPaid && (
-        <p className="mt-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
+        <p className="mt-8 text-center text-base text-[hsl(var(--muted-foreground))]">
           Estamos confirmando tu pago. Si compraste productos digitales, tus enlaces
           aparecerán aquí en unos segundos — actualiza la página.
         </p>

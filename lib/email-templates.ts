@@ -104,13 +104,13 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
         </td>
       </tr>
       <tr><td style="padding:32px 28px 8px;">
-        <h1 style="margin:0 0 6px;font-size:22px;line-height:1.25;color:${opts.accent};font-family:Roboto,Arial,sans-serif;">${esc(opts.heading)}</h1>
+        <h1 style="margin:0 0 6px;font-size:24px;line-height:1.25;color:${opts.accent};font-family:Roboto,Arial,sans-serif;">${esc(opts.heading)}</h1>
       </td></tr>
-      <tr><td style="padding:0 28px 28px;color:${BRAND.text};font-size:14px;line-height:1.6;">
+      <tr><td style="padding:0 28px 28px;color:${BRAND.text};font-size:15px;line-height:1.6;">
         ${opts.body}
       </td></tr>
       <tr>
-        <td style="padding:20px 28px;background:${BRAND.soft};border-top:1px solid ${BRAND.border};color:${BRAND.muted};font-size:12px;line-height:1.6;font-family:Roboto,Arial,sans-serif;">
+        <td style="padding:20px 28px;background:${BRAND.soft};border-top:1px solid ${BRAND.border};color:${BRAND.muted};font-size:13px;line-height:1.6;font-family:Roboto,Arial,sans-serif;">
           ${store} · ¿Dudas? Responde a este correo y te ayudamos.<br>
           <a href="${config.appUrl}" style="color:${BRAND.purple};text-decoration:none;">${esc(config.appUrl.replace(/^https?:\/\//, ''))}</a>
         </td>
@@ -211,14 +211,17 @@ function downloadsBlock(data: OrderEmailData): string {
   const buttons = data.downloads
     .map(
       (d) => `
-      <tr><td style="padding:4px 0;">
-        <a href="${d.url}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:10px;">⬇ ${esc(d.name)}</a>
+      <tr><td style="padding:5px 0;">
+        <a href="${d.url}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">⬇️ ${esc(d.name)}</a>
       </td></tr>`,
     )
     .join('');
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
-      <tr><td style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus descargas</td></tr>
+      <tr><td style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus descargas</td></tr>
+      <tr><td style="padding-bottom:10px;font-size:15px;line-height:1.6;color:${BRAND.text};">
+        👇 <strong>Da clic en cada botón morado</strong> para descargar tu archivo.
+      </td></tr>
       ${buttons}
     </table>`;
 }
@@ -229,14 +232,19 @@ function reportsBlock(data: OrderEmailData): string {
   const buttons = reports
     .map(
       (r) => `
-      <tr><td style="padding:4px 0;">
-        <a href="${r.url}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:10px;">📄 ${esc(r.name)}</a>
+      <tr><td style="padding:5px 0;">
+        <a href="${r.url}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">📄 ${esc(r.name)} ⬇️</a>
       </td></tr>`,
     )
     .join('');
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
-      <tr><td style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus reportes</td></tr>
+      <tr><td style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus reportes</td></tr>
+      <tr><td style="padding:12px 14px;background:${BRAND.noteBg};border-left:3px solid ${BRAND.noteBorder};border-radius:6px;font-size:15px;line-height:1.6;color:${BRAND.text};">
+        👇 <strong>Da clic en cada botón de abajo</strong> para abrir o descargar tu reporte.
+        Puedes guardarlo en tu teléfono o computadora para leerlo cuando quieras.
+      </td></tr>
+      <tr><td style="height:10px;line-height:10px;font-size:0;">&nbsp;</td></tr>
       ${buttons}
     </table>`;
 }
