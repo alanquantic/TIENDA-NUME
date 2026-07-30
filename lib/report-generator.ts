@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
 import { isAIReportKey } from './ai-report-products';
+import { reportGeneratorConfig } from './config';
 import type { ReportKey } from './report-catalog';
 
 const GENERATOR_URL = process.env.REPORT_GENERATOR_URL ?? '';
@@ -156,4 +157,28 @@ export async function getAIReportJob(jobId: string): Promise<AIJobStatusResponse
     throw new Error(`Estado job ${res.status}: ${data?.error ?? 'desconocido'}`);
   }
   return data;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function waitForAIReportJob(
+  jobId: string,
+  opts?: { timeoutMs?: number; intervalMs?: number },
+): Promise<AIJobStatusResponse> {
+  const timeoutMs = opts?.timeoutMs ?? reportGeneratorConfig.aiPollTimeoutMs;
+  const intervalMs = opts?.intervalMs ?? reportGeneratorConfig.aiPollIntervalMs;
+  const started = Date.now();
+
+  while (true) {
+    const job = await getAIReportJob(jobId);
+    if (job.status === 'done' || job.status === 'error') {
+      return job;
+    }
+    if (Date.now() - started >= timeoutMs) {
+      return job;
+    }
+    await sleep(intervalMs);
+  }
 }

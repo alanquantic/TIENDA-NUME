@@ -15,6 +15,12 @@ function envFlag(value: string | undefined): boolean {
   return v === 'true' || v === '1' || v === 'yes' || v === 'on';
 }
 
+function envInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export const config = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3002',
   storeName: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Tienda',
@@ -38,4 +44,9 @@ export const emailConfig = {
   // verificado, p. ej. "Tienda Nume <pedidos@numerologia-cotidiana.com>".
   from: process.env.EMAIL_FROM ?? 'Tienda Nume <onboarding@resend.dev>',
   replyTo: process.env.EMAIL_REPLY_TO || undefined,
+} as const;
+
+export const reportGeneratorConfig = {
+  aiPollTimeoutMs: envInt(process.env.REPORT_AI_POLL_TIMEOUT_MS, 45000),
+  aiPollIntervalMs: envInt(process.env.REPORT_AI_POLL_INTERVAL_MS, 2500),
 } as const;

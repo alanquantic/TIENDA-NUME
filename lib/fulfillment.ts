@@ -1,10 +1,15 @@
 import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
-import { config } from './config';
+import { config, reportGeneratorConfig } from './config';
 import { sendOrderConfirmation, sendOrderFailed } from './email';
 import type { EmailAddress } from './email-templates';
-import { isReportGeneratorConfigured, submitReport } from './report-generator';
+import {
+  getAIReportJob,
+  isReportGeneratorConfigured,
+  submitReport,
+  waitForAIReportJob,
+} from './report-generator';
 import { reportEngineForKey, type ReportEngine, type ReportKey } from './report-catalog';
 import {
   GROUP_EMAIL_NOTE,
@@ -54,6 +59,59 @@ type StoredReportInput = {
   previewUrl?: string | null;
   jsonUrl?: string | null;
 };
+
+async function settleAIReportNow(input: {
+  rowId: string;
+  displayName: string;
+  jobId: string;
+  storedInput: StoredReportInput;
+}): Promise<{ name: string; url: string } | null> {
+  const job = await waitForAIReportJob(input.jobId, {
+    timeoutMs: reportGeneratorConfig.aiPollTimeoutMs,
+    intervalMs: reportGeneratorConfig.aiPollIntervalMs,
+  });
+
+  if (job.status === 'done' && job.result?.pdf?.url) {
+    await db
+      .update(generatedReports)
+      .set({
+        status: 'ready',
+        url: job.result.pdf.url,
+        error: null,
+        input: {
+          ...input.storedInput,
+          jobId: input.jobId,
+          previewUrl: job.result.html?.url ?? null,
+          jsonUrl: job.result.json?.url ?? null,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(generatedReports.id, input.rowId));
+    return { name: input.displayName, url: job.result.pdf.url };
+  }
+
+  if (job.status === 'error') {
+    await db
+      .update(generatedReports)
+      .set({
+        status: 'error',
+        error: job.error ?? 'El job IA terminó con error.',
+        updatedAt: new Date(),
+      })
+      .where(eq(generatedReports.id, input.rowId));
+    return null;
+  }
+
+  await db
+    .update(generatedReports)
+    .set({
+      status: job.status,
+      error: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(generatedReports.id, input.rowId));
+  return null;
+}
 
 /**
  * Reportes de un item. Acepta el formato nuevo (`reports: []`, un producto
@@ -112,6 +170,11 @@ async function generateReportsForOrder(
         eq(generatedReports.orderItemId, item.id),
         eq(generatedReports.reportKey, meta.key),
       );
+      const [existingRow] = await db
+        .select({ id: generatedReports.id })
+        .from(generatedReports)
+        .where(whereReport)
+        .limit(1);
 
       if (!isReportGeneratorConfigured()) {
         await db
@@ -149,6 +212,18 @@ async function generateReportsForOrder(
             updatedAt: new Date(),
           })
           .where(whereReport);
+
+        if (existingRow) {
+          const settled = await settleAIReportNow({
+            rowId: existingRow.id,
+            displayName,
+            jobId: result.jobId,
+            storedInput,
+          });
+          if (settled) {
+            reportLinks.push(settled);
+          }
+        }
       } catch (error) {
         console.error(`[reportes] fallo ${meta.key} del pedido ${orderId}:`, error);
         await db
