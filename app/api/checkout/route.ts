@@ -10,12 +10,18 @@ import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
 import { fulfillOrder } from '@/lib/fulfillment';
-import { reportsForSlug, AGENDA_2025_COLORS, type ReportKey } from '@/lib/report-catalog';
+import {
+  reportsForSlug,
+  AGENDA_2025_COLORS,
+  type ReportEngine,
+  type ReportKey,
+} from '@/lib/report-catalog';
 
 /** Lo que se guarda en orderItems.metadata.reports (lo lee el fulfillment). */
 type ReportMetaOut = {
   key: ReportKey;
   kind: 'static' | 'generated';
+  engine?: ReportEngine;
   label: string;
   variant?: string;
   person?: { name: string; birthDate: string };
@@ -151,6 +157,7 @@ export async function POST(req: Request) {
             {
               key: m.report,
               kind: 'static' as const,
+              engine: m.engine,
               label: m.label,
               ...(m.needsVariant
                 ? { variant: variantColor(line.variantAttributes, line.variantName) }
@@ -165,6 +172,7 @@ export async function POST(req: Request) {
           {
             key: m.report,
             kind: 'generated' as const,
+            engine: m.engine,
             label: m.label,
             person: reportInput.person,
             // Solo los que lo piden reciben pareja (los demás darían 422).

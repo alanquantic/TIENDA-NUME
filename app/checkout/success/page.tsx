@@ -15,6 +15,10 @@ import { ClearCart } from '@/components/clear-cart';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Gracias por tu compra' };
 
+type StoredReportInput = {
+  previewUrl?: string | null;
+};
+
 export default async function SuccessPage({
   searchParams,
 }: {
@@ -40,12 +44,30 @@ export default async function SuccessPage({
         .where(eq(downloadGrants.orderId, order.id))
     : [];
 
-  const reports = order
+  const reportRows = order
     ? await db
-        .select({ name: generatedReports.productName, url: generatedReports.url })
+        .select({
+          name: generatedReports.productName,
+          url: generatedReports.url,
+          status: generatedReports.status,
+          input: generatedReports.input,
+        })
         .from(generatedReports)
-        .where(and(eq(generatedReports.orderId, order.id), eq(generatedReports.status, 'ready')))
+        .where(eq(generatedReports.orderId, order.id))
     : [];
+
+  const readyReports = reportRows
+    .filter((report) => report.status === 'ready' && report.url)
+    .map((report) => ({
+      name: report.name ?? 'Reporte',
+      pdfUrl: report.url as string,
+      previewUrl: ((report.input ?? {}) as StoredReportInput).previewUrl ?? null,
+    }));
+
+  const pendingReports = reportRows.filter(
+    (report) => report.status !== 'ready' && report.status !== 'error' && report.status !== 'skipped',
+  );
+  const failedReports = reportRows.filter((report) => report.status === 'error');
 
   const isPaid = order?.status === 'paid' || order?.status === 'fulfilled';
 
@@ -89,44 +111,77 @@ export default async function SuccessPage({
       </div>
 
       {order && (
-        <div className="mt-10 border border-[hsl(var(--border))] rounded-xl p-6">
+        <div className="mt-10 rounded-xl border border-[hsl(var(--border))] p-6">
           <ul className="divide-y divide-[hsl(var(--border))]">
-            {items.map((i) => (
-              <li key={i.id} className="py-3 flex justify-between gap-2">
+            {items.map((item) => (
+              <li key={item.id} className="flex justify-between gap-2 py-3">
                 <span>
-                  {i.name}
-                  {i.variantName ? ` — ${i.variantName}` : ''} × {i.quantity}
+                  {item.name}
+                  {item.variantName ? ` — ${item.variantName}` : ''} × {item.quantity}
                 </span>
                 <span className="font-medium">
-                  {formatDecimal(i.totalAmount, order.currency)}
+                  {formatDecimal(item.totalAmount, order.currency)}
                 </span>
               </li>
             ))}
           </ul>
-          <div className="mt-4 pt-4 border-t border-[hsl(var(--border))] flex justify-between font-semibold">
+          <div className="mt-4 flex justify-between border-t border-[hsl(var(--border))] pt-4 font-semibold">
             <span>Total</span>
             <span>{formatDecimal(order.totalAmount, order.currency)}</span>
           </div>
         </div>
       )}
 
-      {reports.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-1">Tus reportes</h2>
-          <p className="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
-            👇 Da clic en un botón para abrir o descargar tu reporte.
+      {pendingReports.length > 0 && (
+        <div className="mt-8 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 p-5">
+          <h2 className="text-xl font-semibold">Tus reportes se están generando</h2>
+          <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
+            Algunos reportes usan generación dinámica. Actualiza esta página en unos
+            minutos para verlos listos.
           </p>
-          <ul className="space-y-2">
-            {reports.map((r) => (
-              <li key={r.url}>
-                <a
-                  href={r.url ?? '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-5 py-2.5 text-base font-medium hover:bg-[hsl(var(--muted))]"
-                >
-                  📄 {r.name ?? 'Reporte'} ⬇️
-                </a>
+          <ul className="mt-3 space-y-2 text-sm">
+            {pendingReports.map((report, index) => (
+              <li key={`${report.name ?? 'reporte'}-${index}`} className="rounded-lg border border-[hsl(var(--border))] px-3 py-2">
+                {report.name ?? 'Reporte'} · {report.status}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {readyReports.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-1 text-xl font-semibold">Tus reportes</h2>
+          <p className="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
+            👇 Abre la vista web o descarga el PDF de cada reporte.
+          </p>
+          <ul className="space-y-3">
+            {readyReports.map((report) => (
+              <li
+                key={`${report.name}-${report.pdfUrl}`}
+                className="rounded-xl border border-[hsl(var(--border))] p-4"
+              >
+                <p className="font-medium">{report.name}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {report.previewUrl && (
+                    <a
+                      href={report.previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 py-2 text-sm font-medium hover:bg-[hsl(var(--muted))]"
+                    >
+                      Ver reporte
+                    </a>
+                  )}
+                  <a
+                    href={report.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 py-2 text-sm font-medium hover:bg-[hsl(var(--muted))]"
+                  >
+                    Descargar PDF
+                  </a>
+                </div>
               </li>
             ))}
           </ul>
@@ -135,18 +190,18 @@ export default async function SuccessPage({
 
       {downloads.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-1">Tus descargas</h2>
+          <h2 className="mb-1 text-xl font-semibold">Tus descargas</h2>
           <p className="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
             👇 Da clic en un botón para descargar tu archivo.
           </p>
           <ul className="space-y-2">
-            {downloads.map((d) => (
-              <li key={d.token}>
+            {downloads.map((download) => (
+              <li key={download.token}>
                 <a
-                  href={`/api/descargas/${d.token}`}
+                  href={`/api/descargas/${download.token}`}
                   className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-5 py-2.5 text-base font-medium hover:bg-[hsl(var(--muted))]"
                 >
-                  ⬇️ {d.fileName}
+                  ⬇️ {download.fileName}
                 </a>
               </li>
             ))}
@@ -154,10 +209,17 @@ export default async function SuccessPage({
         </div>
       )}
 
+      {failedReports.length > 0 && (
+        <p className="mt-8 text-center text-sm text-red-500">
+          Hay reportes que aún no pudieron terminarse. Intenta actualizar esta página
+          más tarde.
+        </p>
+      )}
+
       {order && !isPaid && (
         <p className="mt-8 text-center text-base text-[hsl(var(--muted-foreground))]">
           Estamos confirmando tu pago. Si compraste productos digitales, tus enlaces
-          aparecerán aquí en unos segundos — actualiza la página.
+          aparecerán aquí en unos segundos; actualiza la página.
         </p>
       )}
 
