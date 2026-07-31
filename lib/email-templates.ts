@@ -17,7 +17,7 @@ const BRAND = {
   noteBorder: '#c9a6f2',
 };
 
-/** Logo de marca. Debe ser una URL absoluta y pública (los correos no leen assets locales). */
+// Logo de marca. Debe ser una URL absoluta y pública.
 const LOGO_URL = 'https://web-nume.vercel.app/images/logo_favicon.png';
 const EMAIL_STORE_NAME = 'Tienda Numerología Cotidiana';
 
@@ -59,7 +59,7 @@ export type OrderEmailData = {
   downloads: { name: string; url: string }[];
   reports?: { name: string; url: string }[];
   pendingReports?: { name: string }[];
-  /** Avisos según lo comprado (membresía, licencia, certificación). */
+  // Avisos según lo comprado (membresía, licencia, certificación).
   notes?: string[];
 };
 
@@ -83,7 +83,7 @@ function money(value: string, currency: string): string {
   return formatDecimal(value, currency);
 }
 
-/** Envoltura común: cabecera de marca + contenido + pie. */
+// Envoltura común: cabecera de marca + contenido + pie.
 function layout(opts: { preheader: string; heading: string; accent: string; body: string }): string {
   const store = esc(EMAIL_STORE_NAME);
   return `<!doctype html>
@@ -134,14 +134,14 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
 function itemsTable(data: OrderEmailData): string {
   const rows = data.items
     .map(
-      (i) => `
+      (item) => `
       <tr>
         <td style="padding:10px 0;border-bottom:1px solid ${BRAND.border};font-size:14px;color:${BRAND.text};">
-          ${esc(i.name)}${i.variantName ? ` <span style="color:${BRAND.muted};">— ${esc(i.variantName)}</span>` : ''}
-          <span style="color:${BRAND.muted};font-size:12px;"> × ${i.quantity}</span>
-          <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:${BRAND.soft};color:${BRAND.purple};font-size:10px;text-transform:uppercase;letter-spacing:.4px;">${i.type === 'digital' ? 'Digital' : 'Físico'}</span>
+          ${esc(item.name)}${item.variantName ? ` <span style="color:${BRAND.muted};">— ${esc(item.variantName)}</span>` : ''}
+          <span style="color:${BRAND.muted};font-size:12px;"> × ${item.quantity}</span>
+          <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:${BRAND.soft};color:${BRAND.purple};font-size:10px;text-transform:uppercase;letter-spacing:.4px;">${item.type === 'digital' ? 'Digital' : 'Físico'}</span>
         </td>
-        <td align="right" style="padding:10px 0;border-bottom:1px solid ${BRAND.border};font-size:14px;color:${BRAND.text};white-space:nowrap;">${money(i.totalAmount, data.currency)}</td>
+        <td align="right" style="padding:10px 0;border-bottom:1px solid ${BRAND.border};font-size:14px;color:${BRAND.text};white-space:nowrap;">${money(item.totalAmount, data.currency)}</td>
       </tr>`,
     )
     .join('');
@@ -191,6 +191,7 @@ function customerBlock(data: OrderEmailData): string {
   ]
     .filter(Boolean)
     .join('<br>');
+
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;">
       <tr><td style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:6px;">Cliente</td></tr>
@@ -200,14 +201,16 @@ function customerBlock(data: OrderEmailData): string {
 
 function addressBlock(addr: EmailAddress | null): string {
   if (!addr) return '';
+
   const parts = [
     esc(addr.name ?? ''),
     esc(addr.line1 ?? '') + (addr.line2 ? `, ${esc(addr.line2)}` : ''),
     `${esc(addr.city ?? '')}${addr.state ? `, ${esc(addr.state)}` : ''} ${esc(addr.postalCode ?? '')}`.trim(),
     esc(addr.country ?? ''),
   ]
-    .filter((p) => p && p.trim())
+    .filter((part) => part && part.trim())
     .join('<br>');
+
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 4px;">
       <tr><td style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:6px;">Envío</td></tr>
@@ -217,14 +220,16 @@ function addressBlock(addr: EmailAddress | null): string {
 
 function downloadsBlock(data: OrderEmailData): string {
   if (data.downloads.length === 0) return '';
+
   const buttons = data.downloads
     .map(
-      (d) => `
+      (download) => `
       <tr><td style="padding:5px 0;">
-        <a href="${d.url}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">⬇️ ${esc(d.name)}</a>
+        <a href="${download.url}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">⬇️ ${esc(download.name)}</a>
       </td></tr>`,
     )
     .join('');
+
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
       <tr><td style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus descargas</td></tr>
@@ -238,14 +243,16 @@ function downloadsBlock(data: OrderEmailData): string {
 function reportsBlock(data: OrderEmailData): string {
   const reports = data.reports ?? [];
   if (reports.length === 0) return '';
+
   const buttons = reports
     .map(
-      (r) => `
+      (report) => `
       <tr><td style="padding:5px 0;">
-        <a href="${r.url}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">📄 ${esc(r.name)} ⬇️</a>
+        <a href="${report.url}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">📄 ${esc(report.name)} ⬇️</a>
       </td></tr>`,
     )
     .join('');
+
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
       <tr><td style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Tus reportes</td></tr>
@@ -261,14 +268,16 @@ function reportsBlock(data: OrderEmailData): string {
 function pendingReportsBlock(data: OrderEmailData): string {
   const reports = data.pendingReports ?? [];
   if (reports.length === 0) return '';
+
   const list = reports
     .map((report) => `<li style="margin-bottom:4px;">${esc(report.name)}</li>`)
     .join('');
+
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
       <tr><td style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Reportes IA en proceso</td></tr>
       <tr><td style="padding:12px 14px;background:${BRAND.noteBg};border-left:3px solid ${BRAND.noteBorder};border-radius:6px;font-size:15px;line-height:1.6;color:${BRAND.text};">
-        Tu compra incluye reportes con generaciÃ³n dinÃ¡mica. En unos minutos recibirÃ¡s <strong>otro correo</strong> con el enlace final cuando cada reporte estÃ© listo.
+        Tu compra incluye reportes con generación dinámica. Ya estamos preparándolos y recibirás <strong>otro correo</strong> con el enlace final cuando cada reporte esté listo. El tiempo estimado de entrega es de <strong>5 a 30 minutos</strong>.
       </td></tr>
       <tr><td style="height:10px;line-height:10px;font-size:0;">&nbsp;</td></tr>
       <tr><td style="font-size:14px;color:${BRAND.text};"><ul style="margin:0;padding-left:18px;">${list}</ul></td></tr>
@@ -278,15 +287,17 @@ function pendingReportsBlock(data: OrderEmailData): string {
 function notesBlock(data: OrderEmailData): string {
   const notes = data.notes ?? [];
   if (notes.length === 0) return '';
+
   const rows = notes
     .map(
-      (n) => `
+      (note) => `
       <tr><td style="padding:10px 14px;background:${BRAND.noteBg};border-left:3px solid ${BRAND.noteBorder};border-radius:6px;font-size:13px;line-height:1.6;color:${BRAND.text};">
-        ${esc(n)}
+        ${esc(note)}
       </td></tr>
       <tr><td style="height:8px;line-height:8px;font-size:0;">&nbsp;</td></tr>`,
     )
     .join('');
+
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
       ${rows}
@@ -306,6 +317,7 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
     ${notesBlock(data)}
     ${data.requiresShipping ? `<p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Te avisaremos cuando tu pedido físico sea enviado.</p>` : ''}
   `;
+
   return {
     subject: `Confirmación de tu pedido ${data.number}`,
     html: layout({
@@ -319,18 +331,19 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
 
 export function renderReportReady(data: ReportReadyEmailData): { subject: string; html: string } {
   const body = `
-    <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya estÃ¡ listo.</p>
+    <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya está listo.</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
       ${data.previewUrl ? `<tr><td style="padding:5px 0;"><a href="${data.previewUrl}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Ver reporte</a></td></tr>` : ''}
       <tr><td style="padding:5px 0;"><a href="${data.pdfUrl}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Descargar PDF</a></td></tr>
     </table>
-    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si el botÃ³n no abre de inmediato, espera unos segundos e intenta de nuevo.</p>
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si el botón no abre de inmediato, espera unos segundos e intenta de nuevo.</p>
   `;
+
   return {
-    subject: `Tu reporte ${data.reportName} ya estÃ¡ listo`,
+    subject: `Tu reporte ${data.reportName} ya está listo`,
     html: layout({
-      preheader: `Tu reporte ${data.reportName} ya estÃ¡ disponible`,
-      heading: 'Tu reporte ya estÃ¡ listo',
+      preheader: `Tu reporte ${data.reportName} ya está disponible`,
+      heading: 'Tu reporte ya está listo',
       accent: BRAND.fuchsia,
       body,
     }),
@@ -341,8 +354,9 @@ export function renderOrderFailed(
   data: Pick<OrderEmailData, 'number' | 'customerName' | 'currency' | 'items' | 'totalAmount'>,
 ): { subject: string; html: string } {
   const list = data.items
-    .map((i) => `<li style="margin-bottom:4px;">${esc(i.name)} <span style="color:${BRAND.muted};">× ${i.quantity}</span></li>`)
+    .map((item) => `<li style="margin-bottom:4px;">${esc(item.name)} <span style="color:${BRAND.muted};">× ${item.quantity}</span></li>`)
     .join('');
+
   const body = `
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, no pudimos completar el pago de tu pedido <strong>${esc(data.number)}</strong>, así que <strong>no se realizó ningún cargo</strong>.</p>
     ${list ? `<p style="margin:0 0 6px;color:${BRAND.muted};font-size:13px;">Tu carrito:</p><ul style="margin:0 0 14px;padding-left:18px;color:${BRAND.text};font-size:14px;">${list}</ul>` : ''}
@@ -350,6 +364,7 @@ export function renderOrderFailed(
     <a href="${config.appUrl}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Volver a la tienda</a>
     <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si crees que fue un error o necesitas ayuda, responde a este correo.</p>
   `;
+
   return {
     subject: `No pudimos completar tu pedido ${data.number}`,
     html: layout({

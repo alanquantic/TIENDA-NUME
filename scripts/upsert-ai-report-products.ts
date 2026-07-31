@@ -47,6 +47,7 @@ async function upsertProduct(categoryId: string, product: (typeof AI_REPORT_PROD
         status: 'active',
         categoryId,
         currency: config.currency,
+        images: [product.imagePath],
         updatedAt: new Date(),
         metadata: {
           ...(existing.metadata as Record<string, unknown>),
@@ -104,7 +105,7 @@ async function upsertProduct(categoryId: string, product: (typeof AI_REPORT_PROD
       status: 'active',
       categoryId,
       currency: config.currency,
-      images: [],
+      images: [product.imagePath],
       metadata: {
         source: 'codex-ai-reports',
         reportKey: product.report,
