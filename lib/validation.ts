@@ -113,8 +113,13 @@ export const adminProductSchema = z
     stock: z.number().int().min(0).nullish(),
   })
   .refine(
-    (d) => d.type !== 'digital' || (!!d.fileUrl && !!d.fileName),
-    { message: 'Un producto digital requiere URL y nombre de archivo.', path: ['fileUrl'] },
+    (d) =>
+      d.type !== 'digital' ||
+      ((!d.fileUrl && !d.fileName) || (!!d.fileUrl && !!d.fileName)),
+    {
+      message: 'Si capturas un archivo digital, incluye URL y nombre de archivo.',
+      path: ['fileUrl'],
+    },
   );
 
 export type AdminProductInput = z.infer<typeof adminProductSchema>;

@@ -98,7 +98,8 @@ export async function PATCH(
     });
   }
 
-  // Digital asset: upsert simple sobre el primero, o eliminar si el producto ya no es digital.
+  // Digital asset: upsert simple sobre el primero; si el digital queda sin archivo,
+  // eliminamos el asset para permitir guardar el producto sin PDF adjunto.
   if (d.type === 'digital' && d.fileUrl && d.fileName) {
     const [asset] = await db
       .select()
@@ -124,7 +125,7 @@ export async function PATCH(
         downloadLimit: d.downloadLimit ?? null,
       });
     }
-  } else if (d.type === 'physical') {
+  } else {
     await db.delete(digitalAssets).where(eq(digitalAssets.productId, existing.id));
   }
 
