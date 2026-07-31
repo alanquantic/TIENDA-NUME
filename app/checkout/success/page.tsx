@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   digitalAssets,
@@ -65,7 +65,10 @@ export default async function SuccessPage({
     }));
 
   const pendingReports = reportRows.filter(
-    (report) => report.status !== 'ready' && report.status !== 'error' && report.status !== 'skipped',
+    (report) =>
+      report.status !== 'ready' &&
+      report.status !== 'error' &&
+      report.status !== 'skipped',
   );
   const failedReports = reportRows.filter((report) => report.status === 'error');
 
@@ -136,12 +139,16 @@ export default async function SuccessPage({
         <div className="mt-8 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 p-5">
           <h2 className="text-xl font-semibold">Tus reportes se están generando</h2>
           <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
-            Algunos reportes usan generación dinámica. Actualiza esta página en unos
-            minutos para verlos listos.
+            Algunos reportes usan generación dinámica. Ya estamos preparándolos y te los
+            enviaremos por correo en cuanto estén listos. El tiempo estimado es de 5 a
+            30 minutos.
           </p>
           <ul className="mt-3 space-y-2 text-sm">
             {pendingReports.map((report, index) => (
-              <li key={`${report.name ?? 'reporte'}-${index}`} className="rounded-lg border border-[hsl(var(--border))] px-3 py-2">
+              <li
+                key={`${report.name ?? 'reporte'}-${index}`}
+                className="rounded-lg border border-[hsl(var(--border))] px-3 py-2"
+              >
                 {report.name ?? 'Reporte'} · {report.status}
               </li>
             ))}
