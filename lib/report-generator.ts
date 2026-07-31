@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
 import { isAIReportKey } from './ai-report-products';
-import { reportGeneratorConfig } from './config';
+import { config, reportGeneratorConfig } from './config';
 import type { ReportKey } from './report-catalog';
 
 const GENERATOR_URL = process.env.REPORT_GENERATOR_URL ?? '';
@@ -24,6 +24,7 @@ export type GenerateInput = {
    * copias del mismo `report` con datos distintos.
    */
   instance?: string;
+  notify?: { reportRowId: string };
 };
 
 type AIJobStatus = 'queued' | 'running' | 'done' | 'error';
@@ -49,6 +50,12 @@ export type SubmitReportResult =
   | { mode: 'legacy'; url: string }
   | { mode: 'ai'; jobId: string; status: AIJobStatus };
 
+type GeneratorNotifyPayload = {
+  callback_url: string;
+  callback_secret: string;
+  report_row_id: string;
+};
+
 function signedBody(payload: Record<string, unknown>): {
   body: string;
   signature: string;
@@ -71,7 +78,19 @@ function basePayload(input: GenerateInput): Record<string, unknown> {
   if (input.partner) {
     payload.partner = { name: input.partner.name, birth_date: input.partner.birthDate };
   }
+  const notify = buildNotifyPayload(input.notify?.reportRowId);
+  if (notify) payload.notify = notify;
   return payload;
+}
+
+function buildNotifyPayload(reportRowId: string | undefined): GeneratorNotifyPayload | null {
+  if (!reportRowId || !reportGeneratorConfig.readyWebhookSecret) return null;
+  const baseUrl = config.appUrl.replace(/\/$/, '');
+  return {
+    callback_url: `${baseUrl}/api/reports/ready`,
+    callback_secret: reportGeneratorConfig.readyWebhookSecret,
+    report_row_id: reportRowId,
+  };
 }
 
 async function postJSON<T>(path: string, payload: Record<string, unknown>): Promise<T> {
@@ -157,28 +176,4 @@ export async function getAIReportJob(jobId: string): Promise<AIJobStatusResponse
     throw new Error(`Estado job ${res.status}: ${data?.error ?? 'desconocido'}`);
   }
   return data;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function waitForAIReportJob(
-  jobId: string,
-  opts?: { timeoutMs?: number; intervalMs?: number },
-): Promise<AIJobStatusResponse> {
-  const timeoutMs = opts?.timeoutMs ?? reportGeneratorConfig.aiPollTimeoutMs;
-  const intervalMs = opts?.intervalMs ?? reportGeneratorConfig.aiPollIntervalMs;
-  const started = Date.now();
-
-  while (true) {
-    const job = await getAIReportJob(jobId);
-    if (job.status === 'done' || job.status === 'error') {
-      return job;
-    }
-    if (Date.now() - started >= timeoutMs) {
-      return job;
-    }
-    await sleep(intervalMs);
-  }
 }

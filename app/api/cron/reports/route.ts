@@ -12,6 +12,7 @@ import {
   type ReportEngine,
   type ReportKey,
 } from '@/lib/report-catalog';
+import { markGeneratedReportReady } from '@/lib/report-ready';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -101,22 +102,12 @@ export async function GET(req: Request) {
 
         const job = await getAIReportJob(input.jobId);
         if (job.status === 'done' && job.result?.pdf?.url) {
-          await db
-            .update(generatedReports)
-            .set({
-              status: 'ready',
-              url: job.result.pdf.url,
-              error: null,
-              input: {
-                ...input,
-                engine,
-                instance: instance ?? null,
-                previewUrl: job.result.html?.url ?? null,
-                jsonUrl: job.result.json?.url ?? null,
-              },
-              updatedAt: new Date(),
-            })
-            .where(eq(generatedReports.id, reportRow.id));
+          await markGeneratedReportReady({
+            rowId: reportRow.id,
+            pdfUrl: job.result.pdf.url,
+            previewUrl: job.result.html?.url ?? null,
+            jsonUrl: job.result.json?.url ?? null,
+          });
           ready++;
           continue;
         }

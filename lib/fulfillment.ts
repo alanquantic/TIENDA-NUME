@@ -1,15 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
-import { config, reportGeneratorConfig } from './config';
+import { config } from './config';
 import { sendOrderConfirmation, sendOrderFailed } from './email';
 import type { EmailAddress } from './email-templates';
-import {
-  getAIReportJob,
-  isReportGeneratorConfigured,
-  submitReport,
-  waitForAIReportJob,
-} from './report-generator';
+import { isReportGeneratorConfigured, submitReport } from './report-generator';
 import { reportEngineForKey, type ReportEngine, type ReportKey } from './report-catalog';
 import {
   GROUP_EMAIL_NOTE,
@@ -36,15 +31,11 @@ import {
 
 type ReportMeta = {
   key: ReportKey;
-  /** 'generated' -> lleva person/partner; 'static' -> PDF pre-hecho (+ variant). */
   kind?: 'generated' | 'static';
-  /** 'ai' usa el contrato asincrono nuevo; 'legacy' mantiene el flujo viejo. */
   engine?: ReportEngine;
-  /** Nombre a mostrar (distingue los reportes de un bundle). */
   label?: string;
   person?: { name: string; birthDate: string } | null;
   partner?: { name: string; birthDate: string } | null;
-  /** Color elegido para estaticos con versiones (agenda 2025). */
   variant?: string | null;
 };
 
@@ -60,63 +51,6 @@ type StoredReportInput = {
   jsonUrl?: string | null;
 };
 
-async function settleAIReportNow(input: {
-  rowId: string;
-  displayName: string;
-  jobId: string;
-  storedInput: StoredReportInput;
-}): Promise<{ name: string; url: string } | null> {
-  const job = await waitForAIReportJob(input.jobId, {
-    timeoutMs: reportGeneratorConfig.aiPollTimeoutMs,
-    intervalMs: reportGeneratorConfig.aiPollIntervalMs,
-  });
-
-  if (job.status === 'done' && job.result?.pdf?.url) {
-    await db
-      .update(generatedReports)
-      .set({
-        status: 'ready',
-        url: job.result.pdf.url,
-        error: null,
-        input: {
-          ...input.storedInput,
-          jobId: input.jobId,
-          previewUrl: job.result.html?.url ?? null,
-          jsonUrl: job.result.json?.url ?? null,
-        },
-        updatedAt: new Date(),
-      })
-      .where(eq(generatedReports.id, input.rowId));
-    return { name: input.displayName, url: job.result.pdf.url };
-  }
-
-  if (job.status === 'error') {
-    await db
-      .update(generatedReports)
-      .set({
-        status: 'error',
-        error: job.error ?? 'El job IA terminó con error.',
-        updatedAt: new Date(),
-      })
-      .where(eq(generatedReports.id, input.rowId));
-    return null;
-  }
-
-  await db
-    .update(generatedReports)
-    .set({
-      status: job.status,
-      error: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(generatedReports.id, input.rowId));
-  return null;
-}
-
-/**
- * Reportes de un item. Acepta el formato nuevo (`reports: []`, un producto
- * puede entregar varios) y el antiguo (`report: {}`) de pedidos previos.
- */
 function reportMetasOf(metadata: unknown): ReportMeta[] {
   const meta = metadata as { report?: ReportMeta; reports?: ReportMeta[] } | null;
   if (meta?.reports?.length) return meta.reports;
@@ -127,12 +61,10 @@ function reportMetasOf(metadata: unknown): ReportMeta[] {
 async function generateReportsForOrder(
   orderId: string,
   items: { id: string; name: string; metadata: unknown }[],
-): Promise<{ name: string; url: string }[]> {
+): Promise<{ reportLinks: { name: string; url: string }[]; pendingAiReports: { name: string }[] }> {
   const reportLinks: { name: string; url: string }[] = [];
+  const pendingAiReports: { name: string }[] = [];
 
-  // Un pedido puede pedir el MISMO reportKey varias veces con datos distintos.
-  // Cada instancia se genera por (orderItem, reportKey) y se le envia
-  // `instance` al generador para guardar en ruta distinta.
   for (const item of items) {
     for (const meta of reportMetasOf(item.metadata)) {
       const displayName = meta.label ?? item.name;
@@ -192,6 +124,7 @@ async function generateReportsForOrder(
           person: meta.person ?? undefined,
           partner: meta.partner ?? undefined,
           instance,
+          notify: existingRow ? { reportRowId: existingRow.id } : undefined,
         });
 
         if (result.mode === 'legacy') {
@@ -203,6 +136,7 @@ async function generateReportsForOrder(
           continue;
         }
 
+        pendingAiReports.push({ name: displayName });
         await db
           .update(generatedReports)
           .set({
@@ -212,18 +146,6 @@ async function generateReportsForOrder(
             updatedAt: new Date(),
           })
           .where(whereReport);
-
-        if (existingRow) {
-          const settled = await settleAIReportNow({
-            rowId: existingRow.id,
-            displayName,
-            jobId: result.jobId,
-            storedInput,
-          });
-          if (settled) {
-            reportLinks.push(settled);
-          }
-        }
       } catch (error) {
         console.error(`[reportes] fallo ${meta.key} del pedido ${orderId}:`, error);
         await db
@@ -234,12 +156,11 @@ async function generateReportsForOrder(
     }
   }
 
-  return reportLinks;
+  return { reportLinks, pendingAiReports };
 }
 
 type ProductInfo = { slug: string; categorySlug: string | null };
 
-/** slug + categoria de cada producto del pedido (para clasificar por grupo). */
 async function productInfoFor(
   items: { productId: string | null }[],
 ): Promise<Map<string, ProductInfo>> {
@@ -258,10 +179,6 @@ type FulfillMeta = {
   customerId?: string | null;
 };
 
-/**
- * Finaliza un pedido tras confirmarse el pago. Idempotente: si el pedido ya
- * esta pagado, no hace nada. Todo ocurre en una transaccion.
- */
 export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Promise<void> {
   const result = await db.transaction(async (tx) => {
     const [order] = await tx
@@ -289,7 +206,6 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
 
     const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
 
-    // 1) Descontar stock de fisicos (guardado contra sobreventa).
     for (const item of items) {
       if (item.type === 'physical' && item.variantId) {
         await tx
@@ -304,7 +220,6 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
       }
     }
 
-    // 2) Generar permisos de descarga de digitales.
     const links: { name: string; url: string }[] = [];
     for (const item of items) {
       if (item.type !== 'digital' || !item.productId) continue;
@@ -326,7 +241,6 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
       }
     }
 
-    // 3) Contar redencion del cupon.
     if (order.discountCode) {
       await tx
         .update(discountCodes)
@@ -340,9 +254,8 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   if (!result) return;
 
   const { order, items, links } = result;
-  const reportLinks = await generateReportsForOrder(order.id, items);
+  const { reportLinks, pendingAiReports } = await generateReportsForOrder(order.id, items);
 
-  // Clasifica lo comprado: notas del correo + avisos a sistemas externos.
   const info = await productInfoFor(items);
   const groupOf = (productId: string | null): ProductGroup | null => {
     const productInfo = productId ? info.get(productId) : undefined;
@@ -383,12 +296,10 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     shippingAddress: (order.shippingAddress as EmailAddress | null) ?? null,
     downloads: links,
     reports: reportLinks,
+    pendingReports: pendingAiReports,
     notes,
   });
 
-  // Avisos a sistemas externos (membresias, licencias, numerathum, kit).
-  // UNO por grupo presente en el pedido (no uno por producto), con el pedido
-  // completo. Best-effort: nunca lanzan, no rompen el fulfillment ni el correo.
   const toItemLike = (item: (typeof items)[number]): ItemLike => ({
     slug: item.productId ? (info.get(item.productId)?.slug ?? null) : null,
     name: item.name,
@@ -420,10 +331,6 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   }
 }
 
-/**
- * Envia el correo de "compra no completada" para un pedido. Llamar cuando el
- * pago falla o la sesion de pago expira (webhook de la pasarela).
- */
 export async function notifyOrderFailed(orderId: string): Promise<void> {
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!order) return;
