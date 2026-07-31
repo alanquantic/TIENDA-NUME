@@ -58,8 +58,17 @@ export type OrderEmailData = {
   shippingAddress: EmailAddress | null;
   downloads: { name: string; url: string }[];
   reports?: { name: string; url: string }[];
+  pendingReports?: { name: string }[];
   /** Avisos según lo comprado (membresía, licencia, certificación). */
   notes?: string[];
+};
+
+export type ReportReadyEmailData = {
+  customerName: string;
+  customerEmail: string;
+  reportName: string;
+  pdfUrl: string;
+  previewUrl?: string | null;
 };
 
 function esc(s: string): string {
@@ -249,6 +258,23 @@ function reportsBlock(data: OrderEmailData): string {
     </table>`;
 }
 
+function pendingReportsBlock(data: OrderEmailData): string {
+  const reports = data.pendingReports ?? [];
+  if (reports.length === 0) return '';
+  const list = reports
+    .map((report) => `<li style="margin-bottom:4px;">${esc(report.name)}</li>`)
+    .join('');
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
+      <tr><td style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:${BRAND.muted};padding-bottom:8px;">Reportes IA en proceso</td></tr>
+      <tr><td style="padding:12px 14px;background:${BRAND.noteBg};border-left:3px solid ${BRAND.noteBorder};border-radius:6px;font-size:15px;line-height:1.6;color:${BRAND.text};">
+        Tu compra incluye reportes con generaciÃ³n dinÃ¡mica. En unos minutos recibirÃ¡s <strong>otro correo</strong> con el enlace final cuando cada reporte estÃ© listo.
+      </td></tr>
+      <tr><td style="height:10px;line-height:10px;font-size:0;">&nbsp;</td></tr>
+      <tr><td style="font-size:14px;color:${BRAND.text};"><ul style="margin:0;padding-left:18px;">${list}</ul></td></tr>
+    </table>`;
+}
+
 function notesBlock(data: OrderEmailData): string {
   const notes = data.notes ?? [];
   if (notes.length === 0) return '';
@@ -275,6 +301,7 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
     ${itemsTable(data)}
     ${addressBlock(data.shippingAddress)}
     ${reportsBlock(data)}
+    ${pendingReportsBlock(data)}
     ${downloadsBlock(data)}
     ${notesBlock(data)}
     ${data.requiresShipping ? `<p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Te avisaremos cuando tu pedido físico sea enviado.</p>` : ''}
@@ -285,6 +312,26 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
       preheader: `Gracias por tu compra — pedido ${data.number}`,
       heading: '¡Gracias por tu compra!',
       accent: BRAND.purple,
+      body,
+    }),
+  };
+}
+
+export function renderReportReady(data: ReportReadyEmailData): { subject: string; html: string } {
+  const body = `
+    <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya estÃ¡ listo.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
+      ${data.previewUrl ? `<tr><td style="padding:5px 0;"><a href="${data.previewUrl}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Ver reporte</a></td></tr>` : ''}
+      <tr><td style="padding:5px 0;"><a href="${data.pdfUrl}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Descargar PDF</a></td></tr>
+    </table>
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si el botÃ³n no abre de inmediato, espera unos segundos e intenta de nuevo.</p>
+  `;
+  return {
+    subject: `Tu reporte ${data.reportName} ya estÃ¡ listo`,
+    html: layout({
+      preheader: `Tu reporte ${data.reportName} ya estÃ¡ disponible`,
+      heading: 'Tu reporte ya estÃ¡ listo',
+      accent: BRAND.fuchsia,
       body,
     }),
   };

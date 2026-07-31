@@ -3,7 +3,9 @@ import { emailConfig } from './config';
 import {
   renderOrderConfirmation,
   renderOrderFailed,
+  renderReportReady,
   type OrderEmailData,
+  type ReportReadyEmailData,
 } from './email-templates';
 
 let _resend: Resend | null = null;
@@ -54,5 +56,10 @@ export async function sendOrderFailed(
   >,
 ): Promise<void> {
   const { subject, html } = renderOrderFailed(data);
+  await sendEmail({ to: data.customerEmail, subject, html });
+}
+
+export async function sendReportReady(data: ReportReadyEmailData): Promise<void> {
+  const { subject, html } = renderReportReady(data);
   await sendEmail({ to: data.customerEmail, subject, html });
 }

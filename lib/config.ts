@@ -39,3 +39,7 @@ export const emailConfig = {
   from: process.env.EMAIL_FROM ?? 'Tienda Nume <onboarding@resend.dev>',
   replyTo: process.env.EMAIL_REPLY_TO || undefined,
 } as const;
+
+export const reportGeneratorConfig = {
+  readyWebhookSecret: process.env.REPORT_READY_WEBHOOK_SECRET ?? '',
+} as const;

@@ -12,6 +12,7 @@
         "db:migrate": "drizzle-kit migrate",
         "db:push": "drizzle-kit push",
         "db:seed": "tsx lib/db/seed.ts",
+        "db:seed:ai-reports": "tsx scripts/upsert-ai-report-products.ts",
         "db:import": "tsx lib/db/import-wc.ts",
         "db:studio": "drizzle-kit studio"
     },
