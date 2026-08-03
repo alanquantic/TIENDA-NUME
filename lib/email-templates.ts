@@ -3,7 +3,7 @@ import { formatDecimal } from './money';
 
 // Paleta de marca (nume) en HEX para correo (los clientes no leen variables CSS).
 const BRAND = {
-  purple: '#4B1D95',
+  purple: '#693061',
   fuchsia: '#A816B6',
   text: '#2b2340',
   muted: '#6b6480',
