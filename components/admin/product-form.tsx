@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { slugify } from '@/lib/slug';
+import { isReportSlug } from '@/lib/report-catalog';
 import { MediaLibraryModal } from '@/components/admin/media-library-modal';
 import { FileUploadField } from '@/components/admin/file-upload-field';
 
@@ -37,6 +38,9 @@ export function ProductForm({
 }) {
   const router = useRouter();
   const productId = initialValues?.id;
+  // El slug de un producto-reporte es la llave del mapeo PRODUCT_TO_REPORTS;
+  // cambiarlo desconecta el producto del generador de reportes.
+  const slugLocked = mode === 'edit' && isReportSlug(initialValues?.slug ?? '');
 
   const [type, setType] = useState<'digital' | 'physical'>(
     initialValues?.type ?? 'digital',
@@ -65,7 +69,7 @@ export function ProductForm({
 
   function onNameChange(v: string) {
     setName(v);
-    if (!slugEdited) setSlug(slugify(v));
+    if (!slugEdited && !slugLocked) setSlug(slugify(v));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -143,12 +147,19 @@ export function ProductForm({
           <input
             required
             value={slug}
+            disabled={slugLocked}
             onChange={(e) => {
               setSlug(e.target.value);
               setSlugEdited(true);
             }}
-            className={input}
+            className={`${input} ${slugLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
           />
+          {slugLocked && (
+            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+              Este slug está vinculado a la generación de reportes y no se puede
+              cambiar. El nombre y los demás campos sí son editables.
+            </p>
+          )}
         </div>
 
         <div>
