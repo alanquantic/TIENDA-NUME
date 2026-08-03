@@ -3,6 +3,7 @@ import { and, eq, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { digitalAssets, productVariants, products } from '@/lib/db/schema';
 import { adminProductSchema } from '@/lib/validation';
+import { isReportSlug } from '@/lib/report-catalog';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,20 @@ export async function PATCH(
 
   if (!existing) {
     return NextResponse.json({ error: 'Producto no encontrado.' }, { status: 404 });
+  }
+
+  // El slug de un producto-reporte es la llave con la que el checkout y el
+  // fulfillment deciden qué reportes generar (PRODUCT_TO_REPORTS): renombrarlo
+  // desconecta el producto del generador sin ningún error visible.
+  if (isReportSlug(existing.slug) && d.slug !== existing.slug) {
+    return NextResponse.json(
+      {
+        error:
+          `El slug "${existing.slug}" está vinculado a la generación de reportes y no se puede cambiar. ` +
+          'Puedes editar el nombre y los demás campos.',
+      },
+      { status: 409 },
+    );
   }
 
   // Slug único (excepto para el mismo producto).

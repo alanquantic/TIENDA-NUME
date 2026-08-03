@@ -12,8 +12,8 @@ export type AIReportProductDefinition = {
 export const AI_REPORT_PRODUCTS: readonly AIReportProductDefinition[] = [
   {
     report: 'quien-soy',
-    slug: 'reporte-ia-quien-soy',
-    name: 'Reporte IA: ¿Quién soy?',
+    slug: 'quien-soy',
+    name: '¿Quién soy?',
     label: '¿Quién soy?',
     imagePath: '/images/reportes/quien-soy.png',
     description:
@@ -21,8 +21,8 @@ export const AI_REPORT_PRODUCTS: readonly AIReportProductDefinition[] = [
   },
   {
     report: 'amor',
-    slug: 'reporte-ia-numerologia-en-el-amor',
-    name: 'Reporte IA: Numerología en el amor',
+    slug: 'numerologia-en-el-amor',
+    name: 'Numerología en el amor',
     label: 'Numerología en el amor',
     imagePath: '/images/reportes/numerologia-en-el-amor.png',
     description:
@@ -30,8 +30,8 @@ export const AI_REPORT_PRODUCTS: readonly AIReportProductDefinition[] = [
   },
   {
     report: 'trabajo',
-    slug: 'reporte-ia-numerologia-en-el-trabajo',
-    name: 'Reporte IA: Numerología en el trabajo',
+    slug: 'numerologia-en-el-trabajo',
+    name: 'Numerología en el trabajo',
     label: 'Numerología en el trabajo',
     imagePath: '/images/reportes/numerologia-en-el-trabajo.png',
     description:
@@ -39,8 +39,8 @@ export const AI_REPORT_PRODUCTS: readonly AIReportProductDefinition[] = [
   },
   {
     report: 'bienestar',
-    slug: 'reporte-ia-energia-vital-y-bienestar',
-    name: 'Reporte IA: Mi energía vital y bienestar',
+    slug: 'mi-energia-vital-y-bienestar',
+    name: 'Mi energía vital y bienestar',
     label: 'Mi energía vital y bienestar',
     imagePath: '/images/reportes/mi-energia-vital-y-bienestar.png',
     description:
@@ -48,8 +48,8 @@ export const AI_REPORT_PRODUCTS: readonly AIReportProductDefinition[] = [
   },
   {
     report: 'proposito',
-    slug: 'reporte-ia-proposito-y-camino-de-vida',
-    name: 'Reporte IA: Mi propósito y camino de vida',
+    slug: 'mi-proposito-y-camino-de-vida',
+    name: 'Mi propósito y camino de vida',
     label: 'Mi propósito y camino de vida',
     imagePath: '/images/reportes/mi-proposito-y-camino-de-vida.png',
     description:
