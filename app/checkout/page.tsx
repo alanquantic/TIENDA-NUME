@@ -1,15 +1,51 @@
 import type { Metadata } from 'next';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { products, shippingRates } from '@/lib/db/schema';
+import { orders, products, shippingRates } from '@/lib/db/schema';
 import { config } from '@/lib/config';
-import { CheckoutForm, type ShippingRateDTO } from '@/components/checkout-form';
+import { getSessionUser } from '@/lib/nume-session';
+import {
+  CheckoutForm,
+  type CheckoutPrefill,
+  type ShippingRateDTO,
+} from '@/components/checkout-form';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Checkout' };
 
+/**
+ * Con sesión iniciada, precarga los datos del cliente: el correo viene de la
+ * sesión y el resto del pedido más reciente con ese correo (la API de nume no
+ * expone nombre/fecha en /auth/me). Todo queda editable: sigue siendo checkout
+ * de invitado.
+ */
+async function prefillForSession(): Promise<CheckoutPrefill | null> {
+  const user = await getSessionUser();
+  if (!user) return null;
+
+  const [lastOrder] = await db
+    .select({
+      firstName: orders.customerFirstName,
+      lastName: orders.customerLastName,
+      phone: orders.customerPhone,
+      birthDate: orders.customerBirthDate,
+    })
+    .from(orders)
+    .where(sql`lower(${orders.customerEmail}) = ${user.email.trim().toLowerCase()}`)
+    .orderBy(desc(orders.createdAt))
+    .limit(1);
+
+  return {
+    email: user.email,
+    firstName: lastOrder?.firstName ?? '',
+    lastName: lastOrder?.lastName ?? '',
+    phone: lastOrder?.phone ?? '',
+    birthDate: lastOrder?.birthDate ?? '',
+  };
+}
+
 export default async function CheckoutPage() {
-  const [rates, physicalProducts] = await Promise.all([
+  const [rates, physicalProducts, prefill] = await Promise.all([
     db
       .select()
       .from(shippingRates)
@@ -19,6 +55,7 @@ export default async function CheckoutPage() {
       .select({ slug: products.slug })
       .from(products)
       .where(and(eq(products.status, 'active'), eq(products.type, 'physical'))),
+    prefillForSession(),
   ]);
 
   const dto: ShippingRateDTO[] = rates.map((r) => ({
@@ -47,6 +84,7 @@ export default async function CheckoutPage() {
         physicalProductSlugs={physicalProducts.map((product) => product.slug)}
         currency={config.currency}
         simulate={config.simulatePayments}
+        prefill={prefill}
       />
     </div>
   );
