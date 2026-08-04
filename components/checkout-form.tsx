@@ -71,16 +71,27 @@ const MEXICO_STATES = [
   'Zacatecas',
 ] as const;
 
+export type CheckoutPrefill = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  birthDate: string;
+};
+
 export function CheckoutForm({
   shippingRates,
   physicalProductSlugs,
   currency,
   simulate = false,
+  prefill = null,
 }: {
   shippingRates: ShippingRateDTO[];
   physicalProductSlugs: string[];
   currency: string;
   simulate?: boolean;
+  /** Datos del cliente con sesión iniciada (editable; el checkout sigue siendo de invitado). */
+  prefill?: CheckoutPrefill | null;
 }) {
   const { items, reconcile } = useCart();
   const show = useToast((s) => s.show);
@@ -96,11 +107,11 @@ export function CheckoutForm({
     });
   }, [reconcile, show]);
 
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [email, setEmail] = useState(prefill?.email ?? '');
+  const [firstName, setFirstName] = useState(prefill?.firstName ?? '');
+  const [lastName, setLastName] = useState(prefill?.lastName ?? '');
+  const [phone, setPhone] = useState(prefill?.phone ?? '');
+  const [birthDate, setBirthDate] = useState(prefill?.birthDate ?? '');
   const [country, setCountry] = useState('MX');
   const [address, setAddress] = useState({
     line1: '',

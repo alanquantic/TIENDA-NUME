@@ -82,12 +82,57 @@ async function handleAccount(req: NextRequest) {
   return res;
 }
 
+/**
+ * Sesión opcional en /checkout: si hay cookies, renueva el access token vencido
+ * para que el prefill del formulario funcione; si no hay sesión (o el refresh
+ * falla), el checkout continúa como invitado — nunca redirige a login.
+ */
+async function handleOptionalSession(req: NextRequest) {
+  const accessToken = req.cookies.get(ACCESS_COOKIE)?.value;
+  const refreshToken = req.cookies.get(REFRESH_COOKIE)?.value;
+
+  if (!accessToken && !refreshToken) return NextResponse.next();
+
+  if (accessToken) {
+    const meResponse = await fetchMe(accessToken);
+    if (meResponse.ok || meResponse.status !== 401) return NextResponse.next();
+  }
+
+  if (!refreshToken) return NextResponse.next();
+
+  const refreshResponse = await fetch(`${NUME_API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+    cache: 'no-store',
+  });
+
+  if (!refreshResponse.ok) {
+    const res = NextResponse.next();
+    clearSessionCookies(res);
+    return res;
+  }
+
+  const refreshed = (await refreshResponse.json()) as AuthSessionResponse;
+  req.cookies.set(ACCESS_COOKIE, refreshed.access_token);
+  req.cookies.set(REFRESH_COOKIE, refreshed.refresh_token);
+  const res = NextResponse.next({ request: { headers: req.headers } });
+  res.cookies.set({ name: ACCESS_COOKIE, value: refreshed.access_token, ...sessionCookieOptions });
+  res.cookies.set({ name: REFRESH_COOKIE, value: refreshed.refresh_token, ...sessionCookieOptions });
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── Cuenta del cliente (sesión de nume) ──────────────────────
   if (pathname.startsWith('/cuenta') && pathname !== '/cuenta/login') {
     return handleAccount(req);
+  }
+
+  // ── Checkout: sesión opcional para precargar datos ───────────
+  if (pathname === '/checkout') {
+    return handleOptionalSession(req);
   }
 
   // ── Panel admin (cookie local ADMIN_TOKEN) ───────────────────
@@ -119,5 +164,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*', '/cuenta/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*', '/cuenta/:path*', '/checkout'],
 };
