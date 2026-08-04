@@ -1,10 +1,11 @@
-import { ChevronDownIcon, MenuIcon, SearchIcon } from '@/components/ui/icons';
+import { ChevronDownIcon, MenuIcon, SearchIcon, UserIcon } from '@/components/ui/icons';
 import { SocialLinks } from '@/components/ui/social-links';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CartButton } from '@/components/cart-button';
+import { NUME_SITE_URL } from '@/lib/nume-site';
 
-// Sitio de nume (WEB-NUME). Cambia esta base si el dominio de producción difiere.
-const NUME = 'https://web-nume.vercel.app';
+// Sitio de nume (WEB-NUME). Se configura con NEXT_PUBLIC_NUME_SITE_URL.
+const NUME = NUME_SITE_URL;
 
 type NavItem = {
   label: string;
@@ -199,6 +200,14 @@ export function SiteHeader() {
           >
             <SearchIcon width={18} height={18} className="relative z-10" />
           </a>
+          <a
+            href="/cuenta"
+            aria-label="Mi cuenta"
+            title="Mi cuenta"
+            className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-border text-primary hover:bg-primary-soft"
+          >
+            <UserIcon width={18} height={18} className="relative z-10" />
+          </a>
           <CartButton />
         </div>
       </div>
@@ -221,6 +230,12 @@ export function SiteHeader() {
             {NAV_ITEMS.map((item) => (
               <MobileMenuItem key={`mobile-${item.label}`} item={item} level={0} />
             ))}
+            <a
+              href="/cuenta"
+              className="header-chip block rounded-2xl px-4 py-3 text-sm font-medium text-foreground/85 hover:bg-primary-soft hover:text-primary"
+            >
+              <span className="relative z-10">Mi cuenta</span>
+            </a>
             <div className="flex items-center gap-3 pt-2">
               <SocialLinks
                 className="flex gap-3"
