@@ -19,6 +19,12 @@ type StoredReportInput = {
   previewUrl?: string | null;
 };
 
+const reportStatusLabels: Record<string, string> = {
+  pending: 'Pendiente',
+  queued: 'En espera',
+  running: 'Generando',
+};
+
 export default async function SuccessPage({
   searchParams,
 }: {
@@ -137,7 +143,13 @@ export default async function SuccessPage({
 
       {pendingReports.length > 0 && (
         <div className="mt-8 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 p-5">
-          <h2 className="text-xl font-semibold">Tus reportes se están generando</h2>
+          <h2 className="flex items-center gap-3 text-xl font-semibold">
+            <span
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[hsl(var(--primary))]/25 border-t-[hsl(var(--primary))]"
+            />
+            Tus reportes se están generando
+          </h2>
           <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
             Algunos reportes usan generación dinámica. Ya estamos preparándolos y te los
             enviaremos por correo en cuanto estén listos. El tiempo estimado es de 5 a
@@ -149,7 +161,8 @@ export default async function SuccessPage({
                 key={`${report.name ?? 'reporte'}-${index}`}
                 className="rounded-lg border border-[hsl(var(--border))] px-3 py-2"
               >
-                {report.name ?? 'Reporte'} · {report.status}
+                {report.name ?? 'Reporte'} ·{' '}
+                {reportStatusLabels[report.status] ?? report.status}
               </li>
             ))}
           </ul>

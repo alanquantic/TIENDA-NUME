@@ -60,6 +60,7 @@ export async function markGeneratedReportReady(input: {
 
   const [order] = await db
     .select({
+      number: orders.number,
       customerEmail: orders.customerEmail,
       customerFirstName: orders.customerFirstName,
       customerLastName: orders.customerLastName,
@@ -73,6 +74,7 @@ export async function markGeneratedReportReady(input: {
   }
 
   await sendReportReady({
+    number: order.number,
     customerEmail: order.customerEmail,
     customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
     reportName: row.productName ?? 'Reporte',
