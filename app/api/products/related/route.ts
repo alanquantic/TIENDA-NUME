@@ -25,6 +25,15 @@ function buildProductUrl(slug: string, origin: string): string {
   return `${origin.replace(/\/$/, '')}/productos/${slug}`;
 }
 
+function normalizeText(value: string | null | undefined): string {
+  if (!value) return '';
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}+/gu, '');
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   // Acepta una o varias categorias: ?category=A&category=B o CSV en un solo param.
@@ -112,7 +121,26 @@ export async function GET(req: Request) {
     });
   }
 
-  const data = Array.from(byProduct.values()).slice(0, limit);
+  const data = Array.from(byProduct.values())
+    .sort((a, b) => {
+      if (keywordValues.length === 0) return 0;
+
+      const score = (product: ProductPayload) => {
+        const name = normalizeText(product.name);
+        const category = normalizeText(product.category);
+        const description = normalizeText(product.description);
+
+        return keywordValues.reduce((total, keyword) => {
+          if (name.includes(keyword)) return total + 10;
+          if (category.includes(keyword)) return total + 4;
+          if (description.includes(keyword)) return total + 1;
+          return total;
+        }, 0);
+      };
+
+      return score(b) - score(a);
+    })
+    .slice(0, limit);
 
   return NextResponse.json(
     { data },
