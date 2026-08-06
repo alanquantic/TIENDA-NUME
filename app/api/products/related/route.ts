@@ -33,6 +33,11 @@ export async function GET(req: Request) {
     .flatMap((value) => value.split(','))
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  const keywordValues = url.searchParams
+    .getAll('keyword')
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0);
   const excludeSlug = url.searchParams.get('exclude')?.trim();
   const limitRaw = Number.parseInt(url.searchParams.get('limit') ?? '3', 10);
   const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 3, 1), 12);
@@ -46,6 +51,21 @@ export async function GET(req: Request) {
       categoryConditions.length === 1
         ? categoryConditions[0]
         : or(...categoryConditions);
+    if (combined) conditions.push(combined);
+  }
+  if (keywordValues.length > 0) {
+    const keywordConditions = keywordValues.map((keyword) => {
+      const like = `%${keyword}%`;
+      return or(
+        sql`lower(${products.name}) like ${like}`,
+        sql`lower(coalesce(${products.description}, '')) like ${like}`,
+        sql`lower(coalesce(${categories.name}, '')) like ${like}`,
+      );
+    });
+    const combined =
+      keywordConditions.length === 1
+        ? keywordConditions[0]
+        : or(...keywordConditions);
     if (combined) conditions.push(combined);
   }
   if (excludeSlug) {
