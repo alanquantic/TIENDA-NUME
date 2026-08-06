@@ -48,6 +48,7 @@ export default async function EditarProductoPage({
     categoryId: product.categoryId,
     price: variant?.priceAmount ?? '',
     imageUrl: images[0] ?? null,
+    imageUrls: images,
     status: product.status === 'draft' ? 'draft' : 'active',
     fileUrl: asset?.fileUrl ?? null,
     fileName: asset?.fileName ?? null,

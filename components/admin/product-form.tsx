@@ -18,6 +18,7 @@ export type ProductFormValues = {
   categoryId?: string | null;
   price?: string;
   imageUrl?: string | null;
+  imageUrls?: string[] | null;
   status?: 'active' | 'draft';
   fileUrl?: string | null;
   fileName?: string | null;
@@ -51,7 +52,11 @@ export function ProductForm({
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? '');
   const [price, setPrice] = useState(initialValues?.price ?? '');
-  const [imageUrl, setImageUrl] = useState(initialValues?.imageUrl ?? '');
+  const [imageUrls, setImageUrls] = useState<string[]>(
+    initialValues?.imageUrls?.filter(Boolean) ??
+      (initialValues?.imageUrl ? [initialValues.imageUrl] : []),
+  );
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [status, setStatus] = useState<'active' | 'draft'>(
     initialValues?.status ?? 'active',
   );
@@ -72,6 +77,24 @@ export function ProductForm({
     if (!slugEdited && !slugLocked) setSlug(slugify(v));
   }
 
+  function addImage(url: string) {
+    const next = url.trim();
+    if (!next) return;
+    setImageUrls((prev) => (prev.includes(next) ? prev : [...prev, next]));
+    setImageUrlInput('');
+  }
+
+  function removeImage(url: string) {
+    setImageUrls((prev) => prev.filter((item) => item !== url));
+  }
+
+  function moveImageToFront(url: string) {
+    setImageUrls((prev) => {
+      if (!prev.includes(url)) return prev;
+      return [url, ...prev.filter((item) => item !== url)];
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -84,7 +107,8 @@ export function ProductForm({
       categoryId: categoryId || null,
       price,
       currency: defaultCurrency,
-      imageUrl: imageUrl || null,
+      imageUrl: imageUrls[0] || null,
+      imageUrls,
       status,
       fileUrl: type === 'digital' ? fileUrl || null : null,
       fileName: type === 'digital' ? fileName || null : null,
@@ -203,46 +227,95 @@ export function ProductForm({
 
         <div>
           <label className={label}>Imagen del producto</label>
-          <div className="flex flex-wrap items-start gap-4">
-            <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40">
-              {imageUrl ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start gap-4">
+              <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40">
+                {imageUrls[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="Portada" className="h-full w-full object-cover" />
-              ) : (
-                <div className="grid h-full w-full place-items-center text-xs text-[hsl(var(--muted-foreground))]">
-                  Sin imagen
-                </div>
-              )}
-            </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMediaOpen(true)}
-                  className="rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-sm hover:bg-[hsl(var(--muted))]"
-                >
-                  {imageUrl ? 'Cambiar imagen' : 'Seleccionar / subir imagen'}
-                </button>
-                {imageUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl('')}
-                    className="rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
-                  >
-                    Quitar
-                  </button>
+                  <img src={imageUrls[0]} alt="Portada" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full w-full place-items-center text-xs text-[hsl(var(--muted-foreground))]">
+                    Sin imagen
+                  </div>
                 )}
               </div>
-              <input
-                placeholder="https://…"
-                value={imageUrl ?? ''}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className={input}
-              />
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                También puedes pegar una URL manualmente.
-              </p>
+              <div className="flex flex-1 flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMediaOpen(true)}
+                    className="rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-sm hover:bg-[hsl(var(--muted))]"
+                  >
+                    {imageUrls.length > 0 ? 'Agregar / cambiar imágenes' : 'Seleccionar / subir imagen'}
+                  </button>
+                  {imageUrls.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setImageUrls([])}
+                      className="rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+                    >
+                      Quitar todas
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    placeholder="https://…"
+                    value={imageUrlInput}
+                    onChange={(e) => setImageUrlInput(e.target.value)}
+                    className={input}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addImage(imageUrlInput)}
+                    className="rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-sm hover:bg-[hsl(var(--muted))]"
+                  >
+                    Agregar URL
+                  </button>
+                </div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  La primera imagen será la portada. Puedes conservar las actuales o quitar las que no quieras.
+                </p>
+              </div>
             </div>
+            {imageUrls.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {imageUrls.map((url, index) => (
+                  <div
+                    key={url}
+                    className="overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20"
+                  >
+                    <div className="aspect-square overflow-hidden bg-[hsl(var(--muted))]/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Imagen ${index + 1}`} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="space-y-2 p-3">
+                      <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">
+                        {index === 0 ? 'Portada' : `Imagen ${index + 1}`}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {index !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => moveImageToFront(url)}
+                            className="rounded-lg border border-[hsl(var(--border))] px-2 py-1 text-xs hover:bg-[hsl(var(--muted))]"
+                          >
+                            Usar de portada
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(url)}
+                          className="rounded-lg border border-[hsl(var(--border))] px-2 py-1 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -325,8 +398,8 @@ export function ProductForm({
       <MediaLibraryModal
         open={mediaOpen}
         onClose={() => setMediaOpen(false)}
-        onSelect={(selection) => setImageUrl(selection.url)}
-        initialSelectedUrl={imageUrl || null}
+        onSelect={(selection) => addImage(selection.url)}
+        initialSelectedUrl={imageUrls[0] || null}
         kind="image"
       />
     </>

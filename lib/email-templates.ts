@@ -4,7 +4,6 @@ import { formatDecimal } from './money';
 // Paleta de marca (nume) en HEX para correo (los clientes no leen variables CSS).
 const BRAND = {
   purple: '#693061',
-  fuchsia: '#A816B6',
   text: '#2b2340',
   muted: '#6b6480',
   bg: '#f6f3fb',
@@ -64,6 +63,7 @@ export type OrderEmailData = {
 };
 
 export type ReportReadyEmailData = {
+  number: string;
   customerName: string;
   customerEmail: string;
   reportName: string;
@@ -99,7 +99,7 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
   <tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:16px;overflow:hidden;font-family:Roboto,Arial,Helvetica,sans-serif;">
       <tr>
-        <td style="background:${BRAND.purple};background-image:linear-gradient(120deg,${BRAND.purple},${BRAND.fuchsia});padding:22px 28px;">
+        <td style="background-color:${BRAND.purple};background-image:none;padding:22px 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td width="44" style="vertical-align:middle;padding-right:12px;">
               <img src="${LOGO_URL}" width="40" height="40" alt=""
@@ -225,7 +225,7 @@ function downloadsBlock(data: OrderEmailData): string {
     .map(
       (download) => `
       <tr><td style="padding:5px 0;">
-        <a href="${download.url}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">⬇️ ${esc(download.name)}</a>
+        <a href="${download.url}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">⬇️ ${esc(download.name)}</a>
       </td></tr>`,
     )
     .join('');
@@ -248,7 +248,7 @@ function reportsBlock(data: OrderEmailData): string {
     .map(
       (report) => `
       <tr><td style="padding:5px 0;">
-        <a href="${report.url}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">📄 ${esc(report.name)} ⬇️</a>
+        <a href="${report.url}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">📄 ${esc(report.name)} ⬇️</a>
       </td></tr>`,
     )
     .join('');
@@ -332,19 +332,20 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
 export function renderReportReady(data: ReportReadyEmailData): { subject: string; html: string } {
   const body = `
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya está listo.</p>
+    <p style="margin:0 0 14px;color:${BRAND.muted};font-size:14px;">Número de pedido: <strong style="color:${BRAND.text};">${esc(data.number)}</strong></p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
-      ${data.previewUrl ? `<tr><td style="padding:5px 0;"><a href="${data.previewUrl}" style="display:inline-block;background:${BRAND.fuchsia};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Ver reporte</a></td></tr>` : ''}
-      <tr><td style="padding:5px 0;"><a href="${data.pdfUrl}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Descargar PDF</a></td></tr>
+      ${data.previewUrl ? `<tr><td style="padding:5px 0;"><a href="${data.previewUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Ver reporte</a></td></tr>` : ''}
+      <tr><td style="padding:5px 0;"><a href="${data.pdfUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Descargar PDF</a></td></tr>
     </table>
     <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si el botón no abre de inmediato, espera unos segundos e intenta de nuevo.</p>
   `;
 
   return {
-    subject: `Tu reporte ${data.reportName} ya está listo`,
+    subject: `Tu reporte ${data.reportName} ya está listo · Pedido ${data.number}`,
     html: layout({
-      preheader: `Tu reporte ${data.reportName} ya está disponible`,
+      preheader: `Tu reporte ${data.reportName} del pedido ${data.number} ya está disponible`,
       heading: 'Tu reporte ya está listo',
-      accent: BRAND.fuchsia,
+      accent: BRAND.purple,
       body,
     }),
   };
@@ -361,7 +362,7 @@ export function renderOrderFailed(
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, no pudimos completar el pago de tu pedido <strong>${esc(data.number)}</strong>, así que <strong>no se realizó ningún cargo</strong>.</p>
     ${list ? `<p style="margin:0 0 6px;color:${BRAND.muted};font-size:13px;">Tu carrito:</p><ul style="margin:0 0 14px;padding-left:18px;color:${BRAND.text};font-size:14px;">${list}</ul>` : ''}
     <p style="margin:0 0 18px;">Puedes intentar de nuevo cuando quieras. Tus productos siguen disponibles.</p>
-    <a href="${config.appUrl}" style="display:inline-block;background:${BRAND.purple};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Volver a la tienda</a>
+    <a href="${config.appUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Volver a la tienda</a>
     <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si crees que fue un error o necesitas ayuda, responde a este correo.</p>
   `;
 
