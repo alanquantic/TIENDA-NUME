@@ -20,6 +20,16 @@ export async function PATCH(
     );
   }
   const d = parsed.data;
+  const images = Array.from(
+    new Set(
+      (d.imageUrls && d.imageUrls.length > 0
+        ? d.imageUrls
+        : d.imageUrl && d.imageUrl.length > 0
+          ? [d.imageUrl]
+          : []
+      ).filter((url) => url.length > 0),
+    ),
+  );
 
   const [existing] = await db
     .select()
@@ -58,12 +68,6 @@ export async function PATCH(
     );
   }
 
-  const image = d.imageUrl && d.imageUrl.length > 0 ? d.imageUrl : null;
-  const existingImages = (existing.images as string[] | null) ?? [];
-  const nextImages = image
-    ? [image, ...existingImages.filter((url) => url !== image)]
-    : [];
-
   await db
     .update(products)
     .set({
@@ -74,7 +78,7 @@ export async function PATCH(
       status: d.status,
       categoryId: d.categoryId ?? null,
       currency: d.currency,
-      images: nextImages,
+      images,
       weightGrams: d.type === 'physical' ? existing.weightGrams ?? 300 : null,
       updatedAt: new Date(),
     })

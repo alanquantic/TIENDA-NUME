@@ -15,7 +15,16 @@ export async function POST(req: Request) {
     );
   }
   const d = parsed.data;
-  const image = d.imageUrl && d.imageUrl.length > 0 ? d.imageUrl : null;
+  const images = Array.from(
+    new Set(
+      (d.imageUrls && d.imageUrls.length > 0
+        ? d.imageUrls
+        : d.imageUrl && d.imageUrl.length > 0
+          ? [d.imageUrl]
+          : []
+      ).filter((url) => url.length > 0),
+    ),
+  );
 
   const [product] = await db
     .insert(products)
@@ -27,7 +36,7 @@ export async function POST(req: Request) {
       status: d.status,
       categoryId: d.categoryId ?? null,
       currency: d.currency,
-      images: image ? [image] : [],
+      images,
       weightGrams: d.type === 'physical' ? 300 : null,
     })
     .onConflictDoNothing({ target: products.slug })
