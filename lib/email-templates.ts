@@ -334,7 +334,6 @@ export function renderReportReady(data: ReportReadyEmailData): { subject: string
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya está listo.</p>
     <p style="margin:0 0 14px;color:${BRAND.muted};font-size:14px;">Número de pedido: <strong style="color:${BRAND.text};">${esc(data.number)}</strong></p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
-      ${data.previewUrl ? `<tr><td style="padding:5px 0;"><a href="${data.previewUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Ver reporte</a></td></tr>` : ''}
       <tr><td style="padding:5px 0;"><a href="${data.pdfUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:12px 22px;border-radius:10px;">Descargar PDF</a></td></tr>
     </table>
     <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si el botón no abre de inmediato, espera unos segundos e intenta de nuevo.</p>
