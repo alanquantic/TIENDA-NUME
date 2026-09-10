@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getProductBySlug, getRelatedProducts } from '@/lib/queries';
 import { AddToCart, type VariantOption } from '@/components/add-to-cart';
+import { ProductViewTracker } from '@/components/analytics/product-view-tracker';
 import { ProductGallery } from '@/components/product-gallery';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
@@ -280,9 +281,28 @@ export default async function ProductPage({ params }: { params: { slug: string }
   }));
 
   const related = await getRelatedProducts(product.categoryId, product.id);
+  const defaultVariant = variantOptions[0];
+  const gaItem = defaultVariant
+    ? {
+        item_id: defaultVariant.id,
+        item_name: product.name,
+        item_variant: variantOptions.length > 1 ? defaultVariant.name : undefined,
+        item_category: product.type === 'digital' ? 'digital' : 'physical',
+        price: parseFloat(defaultVariant.priceAmount) || 0,
+        quantity: 1,
+        currency: product.currency,
+      }
+    : null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
+      {gaItem ? (
+        <ProductViewTracker
+          item={gaItem}
+          currency={product.currency}
+          value={gaItem.price ?? 0}
+        />
+      ) : null}
       <div className="grid gap-10 md:grid-cols-2">
         <ProductGallery images={images} name={product.name} />
 
