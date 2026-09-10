@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
 import { itemCap, useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
@@ -10,6 +11,7 @@ export function CartView() {
   const { items, setQuantity, remove, reconcile } = useCart();
   const show = useToast((s) => s.show);
   const [mounted, setMounted] = useState(false);
+  const viewFired = useRef(false);
   useEffect(() => {
     setMounted(true);
     reconcile().then(({ removed, remapped }) => {
@@ -20,6 +22,31 @@ export function CartView() {
       }
     });
   }, [reconcile, show]);
+
+  // Dispara view_cart una vez cuando ya hay items y el carrito montó.
+  useEffect(() => {
+    if (viewFired.current || !mounted || items.length === 0) return;
+    viewFired.current = true;
+    const gaItems = items.map((i, idx) => cartItemToGaItem(i, idx));
+    track('view_cart', {
+      currency: inferCurrency(gaItems),
+      value: itemsValue(gaItems),
+      items: gaItems,
+    });
+  }, [mounted, items]);
+
+  function handleRemove(variantId: string) {
+    const item = items.find((i) => i.variantId === variantId);
+    if (item) {
+      const gaItem = cartItemToGaItem(item);
+      track('remove_from_cart', {
+        currency: item.currency,
+        value: (gaItem.price ?? 0) * (gaItem.quantity ?? 1),
+        items: [gaItem],
+      });
+    }
+    remove(variantId);
+  }
 
   if (!mounted) return null;
 
@@ -79,7 +106,7 @@ export function CartView() {
                   />
                 )}
                 <button
-                  onClick={() => remove(item.variantId)}
+                  onClick={() => handleRemove(item.variantId)}
                   className="text-sm text-red-500 hover:underline"
                 >
                   Quitar

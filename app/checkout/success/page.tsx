@@ -10,6 +10,8 @@ import {
   orders,
 } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
+import type { EcommerceItem } from '@/lib/analytics';
+import { PurchaseTracker } from '@/components/analytics/purchase-tracker';
 import { ClearCart } from '@/components/clear-cart';
 
 export const dynamic = 'force-dynamic';
@@ -80,8 +82,36 @@ export default async function SuccessPage({
 
   const isPaid = order?.status === 'paid' || order?.status === 'fulfilled';
 
+  // Prepara payload de purchase (dedup por order.number en el tracker).
+  const purchaseItems: EcommerceItem[] =
+    order && isPaid
+      ? items.map((it) => ({
+          item_id: it.variantId ?? it.id,
+          item_name: it.name,
+          item_variant: it.variantName ?? undefined,
+          price: Number.parseFloat(it.unitAmount ?? it.totalAmount ?? '0') || 0,
+          quantity: Number(it.quantity ?? 1),
+          currency: order.currency,
+        }))
+      : [];
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
+      {order && isPaid && purchaseItems.length > 0 ? (
+        <PurchaseTracker
+          transactionId={order.number ?? order.id}
+          currency={order.currency}
+          value={Number.parseFloat(order.totalAmount ?? '0') || 0}
+          items={purchaseItems}
+          shipping={
+            order.shippingAmount
+              ? Number.parseFloat(order.shippingAmount) || undefined
+              : undefined
+          }
+          tax={order.taxAmount ? Number.parseFloat(order.taxAmount) || undefined : undefined}
+          coupon={order.discountCode ?? undefined}
+        />
+      ) : null}
       <ClearCart />
       <div className="text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-3xl font-bold text-white shadow-lg shadow-[hsl(var(--primary))]/25">
