@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatDecimal } from '@/lib/money';
@@ -67,6 +68,22 @@ export function AddToCart({
       },
       qty,
     );
+    const price = parseFloat(variant.priceAmount) || 0;
+    track('add_to_cart', {
+      currency,
+      value: price * qty,
+      items: [
+        {
+          item_id: variant.id,
+          item_name: name,
+          item_variant: variants.length > 1 ? variant.name : undefined,
+          item_category: type === 'digital' ? 'digital' : 'physical',
+          price,
+          quantity: qty,
+          currency,
+        },
+      ],
+    });
     setAdded(true);
     show('Agregado al carrito');
   }

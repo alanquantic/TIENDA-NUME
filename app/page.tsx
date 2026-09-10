@@ -1,4 +1,6 @@
 import { listCategories, listProducts, type CatalogCard } from '@/lib/queries';
+import { ListingTracker } from '@/components/analytics/listing-tracker';
+import { catalogCardToGaItem } from '@/lib/analytics';
 import { ProductCard } from '@/components/product-card';
 
 export const dynamic = 'force-dynamic';
@@ -85,6 +87,17 @@ export default async function HomePage() {
             <div className="space-y-12">
               {ordered.map((g) => (
                 <section key={g.slug} id={`cat-${g.slug}`} className="scroll-mt-24">
+                  <ListingTracker
+                    listId={`cat_${g.slug}`}
+                    listName={g.name}
+                    items={g.items.map((p, index) =>
+                      catalogCardToGaItem(p, {
+                        list_id: `cat_${g.slug}`,
+                        list_name: g.name,
+                        index
+                      })
+                    )}
+                  />
                   <div className="mb-4 flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
                     <h2 className="flex items-center gap-2.5 text-xl font-semibold tracking-tight">
                       <span className="inline-block h-5 w-1.5 rounded-full bg-[hsl(var(--accent))]" />
@@ -95,8 +108,14 @@ export default async function HomePage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {g.items.map((p) => (
-                      <ProductCard key={p.id} product={p} />
+                    {g.items.map((p, index) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        listId={`cat_${g.slug}`}
+                        listName={g.name}
+                        index={index}
+                      />
                     ))}
                   </div>
                 </section>

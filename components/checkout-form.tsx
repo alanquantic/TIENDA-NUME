@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
@@ -96,6 +97,8 @@ export function CheckoutForm({
   const { items, reconcile } = useCart();
   const show = useToast((s) => s.show);
   const [mounted, setMounted] = useState(false);
+  const beginFired = useRef(false);
+  const shippingFiredFor = useRef<string | null>(null);
   useEffect(() => {
     setMounted(true);
     reconcile().then(({ removed, remapped }) => {
@@ -221,10 +224,44 @@ export function CheckoutForm({
   const shippingMinor = requiresShipping && selectedRate ? ratePriceMinor(selectedRate) : 0;
   const totalMinor = subtotalMinor + shippingMinor;
 
+  // begin_checkout — una vez que el carrito montó y tiene items.
+  useEffect(() => {
+    if (beginFired.current || !mounted || items.length === 0) return;
+    beginFired.current = true;
+    const gaItems = items.map((i, idx) => cartItemToGaItem(i, idx));
+    track('begin_checkout', {
+      currency: inferCurrency(gaItems),
+      value: itemsValue(gaItems),
+      items: gaItems,
+      coupon: discountCode.trim() || undefined,
+    });
+  }, [mounted, items, discountCode]);
+
+  // add_shipping_info — cada vez que cambia el rate seleccionado.
+  useEffect(() => {
+    if (!selectedRate) return;
+    if (shippingFiredFor.current === selectedRate.id) return;
+    shippingFiredFor.current = selectedRate.id;
+    const gaItems = items.map((i, idx) => cartItemToGaItem(i, idx));
+    track('add_shipping_info', {
+      currency: inferCurrency(gaItems),
+      value: itemsValue(gaItems),
+      items: gaItems,
+      shipping_tier: selectedRate.name,
+    });
+  }, [selectedRate, items]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    const gaItems = items.map((i, idx) => cartItemToGaItem(i, idx));
+    track('add_payment_info', {
+      currency: inferCurrency(gaItems),
+      value: itemsValue(gaItems),
+      items: gaItems,
+      payment_type: simulate ? 'simulate' : 'stripe',
+    });
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',

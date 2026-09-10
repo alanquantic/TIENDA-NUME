@@ -1,15 +1,42 @@
 'use client';
 
 import Link from 'next/link';
+import { catalogCardToGaItem, track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatDecimal } from '@/lib/money';
 import type { CatalogCard } from '@/lib/queries';
 
-export function ProductCard({ product }: { product: CatalogCard }) {
+export function ProductCard({
+  product,
+  listId,
+  listName,
+  index,
+}: {
+  product: CatalogCard;
+  listId?: string;
+  listName?: string;
+  index?: number;
+}) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
   const soldOut = product.maxStock !== null && product.maxStock <= 0;
+
+  function gaItem() {
+    return catalogCardToGaItem(product, {
+      list_id: listId,
+      list_name: listName,
+      index,
+    });
+  }
+
+  function handleSelect() {
+    track('select_item', {
+      item_list_id: listId,
+      item_list_name: listName,
+      items: [gaItem()],
+    });
+  }
 
   function handleAdd() {
     if (soldOut) return;
@@ -26,12 +53,18 @@ export function ProductCard({ product }: { product: CatalogCard }) {
       maxStock: product.maxStock,
       maxPerOrder: product.maxPerOrder,
     });
+    const item = { ...gaItem(), quantity: 1 };
+    track('add_to_cart', {
+      currency: product.currency,
+      value: (item.price ?? 0) * (item.quantity ?? 1),
+      items: [item],
+    });
     show('Agregado al carrito');
   }
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] transition-shadow hover:shadow-md">
-      <Link href={`/productos/${product.slug}`} className="block">
+      <Link href={`/productos/${product.slug}`} className="block" onClick={handleSelect}>
         <div className="aspect-square overflow-hidden bg-[hsl(var(--muted))]">
           {product.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -58,6 +91,7 @@ export function ProductCard({ product }: { product: CatalogCard }) {
 
         <Link
           href={`/productos/${product.slug}`}
+          onClick={handleSelect}
           className="font-medium leading-tight line-clamp-2 hover:underline"
         >
           {product.name}

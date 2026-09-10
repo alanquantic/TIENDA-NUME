@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { config } from '@/lib/config';
+import { ConsentBanner } from '@/components/analytics/consent-banner';
+import { GoogleAnalytics } from '@/components/analytics/google-analytics';
+import { RouteTracker } from '@/components/analytics/route-tracker';
 import { TopBar } from '@/components/layout/top-bar';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
@@ -24,13 +27,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <GoogleAnalytics />
       </head>
       <body className="min-h-screen flex flex-col">
+        <RouteTracker />
         <TopBar />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
         <Toaster />
+        <ConsentBanner />
       </body>
     </html>
   );
