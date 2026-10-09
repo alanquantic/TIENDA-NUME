@@ -1,19 +1,19 @@
 import { config } from './config';
 import { formatDecimal } from './money';
 
-// Paleta de marca (nume) en HEX para correo (los clientes no leen variables CSS).
+// Paleta de tienda.numerologia-cotidiana.com en HEX para correo (los clientes no leen variables CSS).
 const BRAND = {
   purple: '#693061',
-  text: '#2b2340',
-  muted: '#6b6480',
-  bg: '#f6f3fb',
+  text: '#333333',
+  muted: '#515151',
+  bg: '#f4f2f6',
   card: '#ffffff',
-  border: '#e7e1f2',
-  soft: '#f3eefb',
+  border: '#e9e6ed',
+  soft: '#f4f2f6',
   green: '#15803d',
   red: '#b91c1c',
-  noteBg: '#fbf7ff',
-  noteBorder: '#c9a6f2',
+  noteBg: '#faf6f9',
+  noteBorder: '#966e90',
 };
 
 // Logo de marca. Debe ser una URL absoluta y pública.

@@ -20,8 +20,8 @@ const styles = {
     position: 'relative',
     overflow: 'hidden',
     background:
-      'radial-gradient(circle at top left, rgba(255,255,255,0.18), transparent 32%), linear-gradient(135deg, #fbf5ff 0%, #f2e8ff 48%, #ead9ff 100%)',
-    color: '#3f2457',
+      'radial-gradient(circle at top left, rgba(255,255,255,0.18), transparent 32%), linear-gradient(135deg, #ffffff 0%, #f4f2f6 48%, #e9e6ed 100%)',
+    color: '#693061',
     fontFamily: 'sans-serif',
   } satisfies Style,
   overlay: {
@@ -29,7 +29,7 @@ const styles = {
     inset: 0,
     display: 'flex',
     background:
-      'radial-gradient(circle at 85% 18%, rgba(161, 74, 255, 0.22), transparent 18%), radial-gradient(circle at 12% 88%, rgba(214, 151, 255, 0.3), transparent 24%)',
+      'radial-gradient(circle at 85% 18%, rgba(204, 51, 102, 0.16), transparent 18%), radial-gradient(circle at 12% 88%, rgba(150, 110, 144, 0.3), transparent 24%)',
   } satisfies Style,
   ring: {
     position: 'absolute',
@@ -38,7 +38,7 @@ const styles = {
     width: 380,
     height: 380,
     borderRadius: 9999,
-    border: '2px solid rgba(123, 63, 191, 0.14)',
+    border: '2px solid rgba(105, 48, 97, 0.14)',
   } satisfies Style,
   glow: {
     position: 'absolute',
@@ -47,7 +47,7 @@ const styles = {
     width: 320,
     height: 320,
     borderRadius: 9999,
-    background: 'rgba(123, 63, 191, 0.08)',
+    background: 'rgba(105, 48, 97, 0.08)',
   } satisfies Style,
   frame: {
     zIndex: 1,
@@ -76,8 +76,8 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '3px solid #7b3fbf',
-    color: '#7b3fbf',
+    border: '3px solid #693061',
+    color: '#693061',
     fontSize: 40,
     fontWeight: 700,
     background: 'rgba(255,255,255,0.7)',
@@ -90,11 +90,11 @@ const styles = {
   brandTitle: {
     fontSize: 46,
     fontWeight: 700,
-    color: '#7b3fbf',
+    color: '#693061',
   } satisfies Style,
   brandSubtitle: {
     fontSize: 28,
-    color: '#7f6796',
+    color: '#966e90',
   } satisfies Style,
   pill: {
     display: 'flex',
@@ -106,8 +106,8 @@ const styles = {
     fontWeight: 600,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    background: 'rgba(123, 63, 191, 0.1)',
-    color: '#7b3fbf',
+    background: 'rgba(105, 48, 97, 0.1)',
+    color: '#693061',
   } satisfies Style,
   heading: {
     display: 'flex',
@@ -119,7 +119,7 @@ const styles = {
     display: 'flex',
     fontSize: 34,
     lineHeight: 1.35,
-    color: '#5f4b73',
+    color: '#515151',
     maxWidth: 930,
   } satisfies Style,
   footer: {
@@ -132,7 +132,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
-    color: '#7f6796',
+    color: '#966e90',
   } satisfies Style,
   footerLine: {
     fontSize: 28,
@@ -144,7 +144,7 @@ const styles = {
     display: 'flex',
     padding: '18px 28px',
     borderRadius: 28,
-    background: '#7b3fbf',
+    background: '#693061',
     color: '#fff',
     fontSize: 28,
     fontWeight: 600,
