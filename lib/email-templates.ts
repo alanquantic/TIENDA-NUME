@@ -16,8 +16,10 @@ const BRAND = {
   noteBorder: '#966e90',
 };
 
-// Logo de marca. Debe ser una URL absoluta y pública.
-const LOGO_URL = 'https://web-nume.vercel.app/images/logo_favicon.png';
+// Logo de marca en blanco (330×81, fondo transparente) servido desde /public.
+// Debe ser una URL absoluta y pública: en local apunta a localhost y no carga en
+// clientes de correo reales.
+const LOGO_URL = `${config.appUrl}/images/logo-numerologia-cotidiana-blanco.png`;
 const EMAIL_STORE_NAME = 'Tienda Numerología Cotidiana';
 
 export type EmailAddress = {
@@ -101,14 +103,11 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
       <tr>
         <td style="background-color:${BRAND.purple};background-image:none;padding:22px 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-            <td width="44" style="vertical-align:middle;padding-right:12px;">
-              <img src="${LOGO_URL}" width="40" height="40" alt=""
-                   style="display:block;width:40px;height:40px;border:0;outline:none;text-decoration:none;border-radius:50%;background:#ffffff;">
+            <td style="vertical-align:middle;">
+              <img src="${LOGO_URL}" width="165" height="40" alt="Numerología Cotidiana"
+                   style="display:block;width:165px;height:40px;border:0;outline:none;text-decoration:none;color:#ffffff;font-size:18px;font-weight:700;">
             </td>
-            <td style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:.2px;vertical-align:middle;">
-              ${store}
-            </td>
-            <td align="right" style="color:rgba(255,255,255,.8);font-size:12px;vertical-align:middle;">Numerología Cotidiana</td>
+            <td align="right" style="color:rgba(255,255,255,.85);font-size:13px;letter-spacing:.3px;vertical-align:middle;">Tienda en línea</td>
           </tr></table>
         </td>
       </tr>
