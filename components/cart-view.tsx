@@ -65,7 +65,7 @@ export function CartView() {
     (sum, i) => sum + toMinor(i.priceAmount) * i.quantity,
     0,
   );
-  const currency = items[0]?.currency ?? 'USD';
+  const currency = items[0]?.currency ?? 'MXN';
 
   return (
     <div className="grid lg:grid-cols-3 gap-8">

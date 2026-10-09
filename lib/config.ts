@@ -18,7 +18,7 @@ function envFlag(value: string | undefined): boolean {
 export const config = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3002',
   storeName: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Tienda',
-  currency: (process.env.DEFAULT_CURRENCY ?? 'USD').toUpperCase(),
+  currency: (process.env.DEFAULT_CURRENCY ?? 'MXN').toUpperCase(),
   downloadTokenSecret: process.env.DOWNLOAD_TOKEN_SECRET ?? 'dev-secret',
   // TEMPORAL: simula un pago exitoso sin pasarela real (mientras se integran
   // Mercado Pago / PayPal). Tiene prioridad sobre los métodos de /admin/pagos.

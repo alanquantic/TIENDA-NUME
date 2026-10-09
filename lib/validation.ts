@@ -104,7 +104,7 @@ export const adminProductSchema = z
     type: z.enum(['digital', 'physical']),
     categoryId: z.string().uuid().nullish(),
     price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).'),
-    currency: z.string().length(3).default('USD'),
+    currency: z.string().length(3).default('MXN'),
     imageUrl: z.string().url().nullish().or(z.literal('')),
     imageUrls: z.array(z.string().url()).nullish(),
     status: z.enum(['draft', 'active', 'archived']).default('active'),
