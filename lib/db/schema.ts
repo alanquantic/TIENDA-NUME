@@ -382,7 +382,7 @@ export const generatedReports = pgTable(
     }),
     reportKey: text('report_key').notNull(),
     productName: text('product_name'),
-    status: text('status').notNull().default('pending'), // pending | ready | error | skipped
+    status: text('status').notNull().default('pending'), // pending | queued | running | ready | error | skipped | failed
     url: text('url'),
     error: text('error'),
     // { person: { name, birthDate }, partner?: { name, birthDate } } — para reintentos

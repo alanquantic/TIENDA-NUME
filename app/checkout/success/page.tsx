@@ -76,9 +76,12 @@ export default async function SuccessPage({
     (report) =>
       report.status !== 'ready' &&
       report.status !== 'error' &&
-      report.status !== 'skipped',
+      report.status !== 'skipped' &&
+      report.status !== 'failed',
   );
-  const failedReports = reportRows.filter((report) => report.status === 'error');
+  const failedReports = reportRows.filter(
+    (report) => report.status === 'error' || report.status === 'failed',
+  );
 
   const isPaid = order?.status === 'paid' || order?.status === 'fulfilled';
 

@@ -28,11 +28,32 @@ type StoredInput = {
   jobId?: string | null;
   previewUrl?: string | null;
   jsonUrl?: string | null;
+  /** Intentos fallidos acumulados; al llegar a MAX_ATTEMPTS el reporte queda 'failed'. */
+  attempts?: number;
 };
 
 /**
- * Reprocesa reportes pendientes/errores. Lo llama Vercel Cron (o cualquier
- * scheduler externo) enviando `Authorization: Bearer <CRON_SECRET>`.
+ * Tope de reintentos por reporte. Un reporte que falla 5 veces queda en
+ * 'failed' y el cron deja de tocarlo (se revisa a mano), para no gastar cómputo
+ * de Neon ni llamar al generador indefinidamente.
+ */
+const MAX_ATTEMPTS = 5;
+
+/** Estado tras un fallo más: 'error' (se reintenta) o 'failed' (definitivo). */
+function failureUpdate(input: StoredInput, error: string) {
+  const attempts = (input.attempts ?? 0) + 1;
+  return {
+    status: attempts >= MAX_ATTEMPTS ? 'failed' : 'error',
+    error,
+    input: { ...input, attempts },
+    updatedAt: new Date(),
+  };
+}
+
+/**
+ * Reprocesa reportes pendientes/errores. Lo llama Vercel Cron cada hora (ver
+ * vercel.json) enviando `Authorization: Bearer <CRON_SECRET>`. Es solo una red
+ * de seguridad: el aviso normal de "reporte listo" llega por /api/reports/ready.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -62,7 +83,7 @@ export async function GET(req: Request) {
     if (!isStatic && !input.person) {
       await db
         .update(generatedReports)
-        .set({ status: 'error', error: 'Sin datos de persona', updatedAt: new Date() })
+        .set({ status: 'failed', error: 'Sin datos de persona', updatedAt: new Date() })
         .where(eq(generatedReports.id, reportRow.id));
       failed++;
       continue;
@@ -115,11 +136,7 @@ export async function GET(req: Request) {
         if (job.status === 'error') {
           await db
             .update(generatedReports)
-            .set({
-              status: 'error',
-              error: job.error ?? 'El job IA terminó con error.',
-              updatedAt: new Date(),
-            })
+            .set(failureUpdate(input, job.error ?? 'El job IA terminó con error.'))
             .where(eq(generatedReports.id, reportRow.id));
           failed++;
           continue;
@@ -154,7 +171,7 @@ export async function GET(req: Request) {
     } catch (error) {
       await db
         .update(generatedReports)
-        .set({ status: 'error', error: String(error), updatedAt: new Date() })
+        .set(failureUpdate(input, String(error)))
         .where(eq(generatedReports.id, reportRow.id));
       failed++;
     }
