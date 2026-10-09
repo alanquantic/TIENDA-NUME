@@ -13,6 +13,7 @@ import {
   type ReportKey,
 } from '@/lib/report-catalog';
 import { markGeneratedReportReady } from '@/lib/report-ready';
+import { expireAbandonedOrders } from '@/lib/payments/expire';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,9 +52,12 @@ function failureUpdate(input: StoredInput, error: string) {
 }
 
 /**
- * Reprocesa reportes pendientes/errores. Lo llama Vercel Cron cada hora (ver
- * vercel.json) enviando `Authorization: Bearer <CRON_SECRET>`. Es solo una red
- * de seguridad: el aviso normal de "reporte listo" llega por /api/reports/ready.
+ * Tareas horarias (Vercel Cron, ver vercel.json), con `Authorization: Bearer
+ * <CRON_SECRET>`. Van en una sola corrida para despertar la base de Neon una
+ * vez por hora:
+ *  1. Cancela pedidos abandonados (sin pago tras 1 hora) y avisa al cliente.
+ *  2. Reprocesa reportes pendientes/errores. Es solo una red de seguridad: el
+ *     aviso normal de "reporte listo" llega por /api/reports/ready.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -61,8 +65,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 
+  let pedidos: Awaited<ReturnType<typeof expireAbandonedOrders>> | { error: string };
+  try {
+    pedidos = await expireAbandonedOrders();
+  } catch (err) {
+    console.error('[cron] fallo al revisar pedidos abandonados', err);
+    pedidos = { error: String(err) };
+  }
+
   if (!isReportGeneratorConfigured()) {
-    return NextResponse.json({ ok: true, nota: 'generador no configurado' });
+    return NextResponse.json({ ok: true, pedidos, nota: 'generador no configurado' });
   }
 
   const pending = await db
@@ -177,5 +189,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, procesados: pending.length, ready, queued, failed });
+  return NextResponse.json({ ok: true, pedidos, procesados: pending.length, ready, queued, failed });
 }

@@ -108,6 +108,22 @@ export function getMpPayment(mode: PaymentMode, paymentId: string): Promise<MpPa
   return mpFetch<MpPayment>(mode, `/v1/payments/${encodeURIComponent(paymentId)}`);
 }
 
+export type MpPaymentSummary = MpPayment & { date_of_expiration: string | null };
+
+/** Pagos asociados a un pedido (external_reference), del más reciente al más viejo. */
+export async function searchMpPaymentsForOrder(
+  mode: PaymentMode,
+  orderId: string,
+): Promise<MpPaymentSummary[]> {
+  const params = new URLSearchParams({
+    external_reference: orderId,
+    sort: 'date_created',
+    criteria: 'desc',
+  });
+  const res = await mpFetch<{ results: MpPaymentSummary[] }>(mode, `/v1/payments/search?${params}`);
+  return res.results ?? [];
+}
+
 /**
  * Verifica la firma `x-signature` de un aviso de Mercado Pago.
  * Si no hay secreto configurado devuelve null (no verificable); el aviso igual
