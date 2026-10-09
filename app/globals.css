@@ -9,39 +9,41 @@
 :root {
   --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
 
-  /* Paleta de marca de nume (WEB-NUME): morado (primary), dorado (accent), fucsia. */
-  --background: 270 60% 98%;
-  --foreground: 263 35% 18%;
+  /* Paleta de tienda.numerologia-cotidiana.com: ciruela #693061 (primary),
+     lavanda #966E90, rosa #CC3366 (fuchsia), naranja #F5A841 (accent),
+     gris lila #E9E6ED (secondary) y textos #333 / #515151. */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 20%;
   --card: 0 0% 100%;
-  --muted: 270 40% 96%;
-  --muted-foreground: 263 12% 45%;
-  --border: 270 32% 90%;
-  --primary: 263 67% 35%;
+  --muted: 266 17% 95%;
+  --muted-foreground: 0 0% 32%;
+  --border: 266 17% 88%;
+  --primary: 308 37% 30%;
   --primary-foreground: 0 0% 100%;
-  --primary-soft: 270 95% 95%;
-  --secondary: 270 100% 96%;
-  --accent: 46 64% 52%;
-  --accent-foreground: 263 35% 18%;
-  --fuchsia: 295 78% 40%;
-  --ring: 263 67% 45%;
+  --primary-soft: 308 30% 95%;
+  --secondary: 266 17% 92%;
+  --accent: 34 90% 61%;
+  --accent-foreground: 308 37% 18%;
+  --fuchsia: 340 60% 50%;
+  --ring: 308 37% 40%;
   --radius: 0.75rem;
 }
 
 :root[data-theme='dark'] {
-  --background: 264 40% 9%;
-  --foreground: 270 30% 94%;
-  --card: 263 34% 13%;
-  --muted: 263 30% 18%;
-  --muted-foreground: 270 15% 66%;
-  --border: 263 24% 24%;
-  --primary: 271 82% 78%;
-  --primary-foreground: 264 40% 12%;
-  --primary-soft: 264 42% 22%;
-  --secondary: 263 34% 18%;
-  --accent: 46 78% 62%;
-  --accent-foreground: 263 40% 12%;
-  --fuchsia: 295 78% 72%;
-  --ring: 271 60% 66%;
+  --background: 308 25% 8%;
+  --foreground: 300 15% 94%;
+  --card: 308 22% 12%;
+  --muted: 308 18% 17%;
+  --muted-foreground: 300 8% 68%;
+  --border: 308 15% 24%;
+  --primary: 308 45% 72%;
+  --primary-foreground: 308 30% 12%;
+  --primary-soft: 308 25% 20%;
+  --secondary: 308 18% 17%;
+  --accent: 34 90% 64%;
+  --accent-foreground: 308 30% 12%;
+  --fuchsia: 340 70% 70%;
+  --ring: 308 40% 62%;
 }
 
 * {
