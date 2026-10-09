@@ -76,7 +76,7 @@ const NAV_ITEMS: readonly NavItem[] = [
 function renderDesktopLeaf(item: NavItem, level: number) {
   if (level === 0) {
     return (
-      <a href={item.href} className="header-link-float flex items-center gap-1 text-foreground/82 hover:text-primary">
+      <a href={item.href} className="header-link-float flex items-center gap-1 text-white/90 hover:text-white">
         <span className="relative z-10">{item.label}</span>
       </a>
     );
@@ -95,7 +95,7 @@ function renderDesktopBranch(item: NavItem, level: number) {
   const isTopLevel = level === 0;
   const wrapperClass = isTopLevel ? 'group relative' : 'group/nested relative';
   const triggerClass = isTopLevel
-    ? 'header-link-float flex items-center gap-1 py-3 text-foreground/82 hover:text-primary'
+    ? 'header-link-float flex items-center gap-1 py-3 text-white/90 hover:text-white'
     : 'header-chip flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm text-foreground/80 hover:bg-primary-soft hover:text-primary';
   const panelShellClass = isTopLevel
     ? 'invisible absolute left-0 top-full z-50 min-w-[19rem] pt-2 opacity-0 transition duration-200 group-hover:visible group-hover:opacity-100'
@@ -166,37 +166,39 @@ function MobileMenuItem({ item, level }: { item: NavItem; level: number }) {
 
 function Brand() {
   return (
-    <a href="/" className="header-link-float group flex items-center justify-center gap-2 font-display text-xl font-semibold">
+    <a href="/" className="header-link-float group flex items-center justify-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`${NUME}/images/logo_favicon.png`} alt="" className="h-9 w-9" />
-      <span className="leading-tight">
-        <span className="block text-gradient-brand">numerologia</span>
-        <span className="block text-xs font-medium text-foreground/60">cotidiana</span>
-      </span>
+      <img
+        src="/images/logo-numerologia-cotidiana-blanco.png"
+        alt="Numerología Cotidiana"
+        width={165}
+        height={40}
+        className="h-10 w-auto"
+      />
     </a>
   );
 }
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-card/70 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-card/60">
+    <header className="sticky top-0 z-40 bg-navbar text-white">
       <div className="mx-auto hidden max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-6 py-2 md:grid">
         <nav className="hidden items-center gap-5 text-sm font-medium md:flex">{renderDesktopNav(NAV_ITEMS)}</nav>
 
         <Brand />
 
         <div className="flex items-center justify-end gap-4">
-          <span className="hidden text-sm italic text-foreground/70 lg:inline">de Laura L. Rodríguez</span>
+          <span className="hidden whitespace-nowrap text-lg font-semibold italic text-white lg:inline">de Laura L. Rodríguez</span>
           <SocialLinks
             className="hidden items-center gap-1.5 xl:flex"
-            itemClassName="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-border text-primary hover:bg-primary-soft"
+            itemClassName="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15"
             iconSize={16}
           />
-          <ThemeToggle className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-border text-primary hover:bg-primary-soft" />
+          <ThemeToggle className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15" />
           <a
             href="/"
             aria-label="Buscar"
-            className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-border text-primary hover:bg-primary-soft"
+            className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15"
           >
             <SearchIcon width={18} height={18} className="relative z-10" />
           </a>
@@ -204,28 +206,28 @@ export function SiteHeader() {
             href="/cuenta"
             aria-label="Mi cuenta"
             title="Mi cuenta"
-            className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-border text-primary hover:bg-primary-soft"
+            className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15"
           >
             <UserIcon width={18} height={18} className="relative z-10" />
           </a>
-          <CartButton />
+          <CartButton className="header-chip inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-white/90" />
         </div>
       </div>
 
       <details className="group md:hidden">
         <summary className="mx-auto grid max-w-7xl list-none grid-cols-[44px_1fr_44px] items-center gap-3 px-4 py-3">
-          <span className="header-chip flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-primary">
+          <span className="header-chip flex h-11 w-11 items-center justify-center rounded-full border border-white/40 text-white">
             <MenuIcon width={22} height={22} />
           </span>
           <span className="flex justify-center">
             <Brand />
           </span>
           <span className="flex justify-end">
-            <CartButton className="header-chip flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-primary" />
+            <CartButton className="header-chip flex h-11 w-11 items-center justify-center rounded-full border border-white/40 text-white" />
           </span>
         </summary>
 
-        <div className="border-t border-border bg-card/95 px-4 pb-5 pt-3 shadow-lg backdrop-blur">
+        <div className="border-t border-white/20 bg-card px-4 pb-5 pt-3 text-foreground shadow-lg">
           <div className="space-y-3">
             {NAV_ITEMS.map((item) => (
               <MobileMenuItem key={`mobile-${item.label}`} item={item} level={0} />

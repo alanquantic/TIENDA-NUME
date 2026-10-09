@@ -18,6 +18,8 @@ const config: Config = {
         accent: 'hsl(var(--accent) / <alpha-value>)',
         'accent-foreground': 'hsl(var(--accent-foreground) / <alpha-value>)',
         fuchsia: 'hsl(var(--fuchsia) / <alpha-value>)',
+        topbar: 'hsl(var(--topbar) / <alpha-value>)',
+        navbar: 'hsl(var(--navbar) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

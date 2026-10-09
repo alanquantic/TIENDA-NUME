@@ -172,7 +172,7 @@ export default async function SuccessPage({
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex flex-col gap-4 rounded-xl border border-[hsl(var(--primary))]/20 bg-gradient-to-br from-[hsl(var(--primary-soft))] to-[hsl(var(--card))] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                className="flex flex-col gap-4 rounded-xl border border-[hsl(var(--primary))]/20 bg-primary-soft p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
               >
                 <div className="flex items-center gap-4">
                   <span

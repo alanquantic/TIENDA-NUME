@@ -26,6 +26,9 @@
   --accent-foreground: 308 37% 18%;
   --fuchsia: 340 60% 50%;
   --ring: 308 37% 40%;
+  /* Franjas del encabezado: lavanda #966E90 (energía colectiva) y ciruela #693061 (menú). */
+  --topbar: 309 16% 51%;
+  --navbar: 308 37% 30%;
   --radius: 0.75rem;
 }
 
@@ -44,6 +47,8 @@
   --accent-foreground: 308 30% 12%;
   --fuchsia: 340 70% 70%;
   --ring: 308 40% 62%;
+  --topbar: 309 18% 32%;
+  --navbar: 308 37% 20%;
 }
 
 * {
@@ -81,14 +86,12 @@ body {
 }
 
 /* ── Clases del header (portadas de WEB-NUME) ─────────────────── */
+/* Colores sólidos como en tienda.numerologia-cotidiana.com (sin degradados). */
 .text-gradient-brand {
-  background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--fuchsia)));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: hsl(var(--primary));
 }
 .bg-gradient-brand {
-  background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--fuchsia)));
+  background: hsl(var(--primary));
 }
 .header-chip {
   position: relative;
@@ -104,7 +107,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, hsl(var(--primary) / 0.14), transparent 55%, hsl(var(--fuchsia) / 0.12));
+  background: hsl(var(--primary) / 0.08);
   opacity: 0;
   transition: opacity 220ms ease;
   pointer-events: none;
