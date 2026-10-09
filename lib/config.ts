@@ -21,14 +21,8 @@ export const config = {
   currency: (process.env.DEFAULT_CURRENCY ?? 'USD').toUpperCase(),
   downloadTokenSecret: process.env.DOWNLOAD_TOKEN_SECRET ?? 'dev-secret',
   // TEMPORAL: simula un pago exitoso sin pasarela real (mientras se integran
-  // Mercado Pago / PayPal). Quitar cuando los pagos reales estén listos.
+  // Mercado Pago / PayPal). Tiene prioridad sobre los métodos de /admin/pagos.
   simulatePayments: envFlag(process.env.SIMULATE_PAYMENTS),
-} as const;
-
-export const stripeConfig = {
-  secretKey: process.env.STRIPE_SECRET_KEY ?? '',
-  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
-  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
 } as const;
 
 export const emailConfig = {

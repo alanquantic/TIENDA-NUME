@@ -190,6 +190,21 @@ export const shippingRates = pgTable('shipping_rates', {
 });
 
 // ───────────────────────────────────────────────────────────────
+// Métodos de pago (configurables desde /admin/pagos)
+// Las llaves secretas viven en variables de entorno; aquí solo se guarda si el
+// método está activo y en qué modo (prueba/producción) opera.
+// ───────────────────────────────────────────────────────────────
+
+export const paymentSettings = pgTable('payment_settings', {
+  provider: paymentProviderEnum('provider').primaryKey(),
+  isEnabled: boolean('is_enabled').notNull().default(false),
+  // 'sandbox' = credenciales de prueba; 'production' = cobros reales.
+  mode: varchar('mode', { length: 16 }).notNull().default('sandbox'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ───────────────────────────────────────────────────────────────
 // Descuentos / cupones
 // ───────────────────────────────────────────────────────────────
 
@@ -250,7 +265,7 @@ export const orders = pgTable(
     // Datos fiscales cuando requiresInvoice = true (CFDI 4.0):
     // { rfc, razonSocial, regimenFiscal, usoCfdi, postalCode, email }
     billingInfo: jsonb('billing_info'),
-    // IDs de Stripe
+    // IDs de la pasarela (Mercado Pago: preferencia/pago; PayPal: orden/captura).
     externalCheckoutId: text('external_checkout_id'),
     externalPaymentIntentId: text('external_payment_intent_id'),
     externalCustomerId: text('external_customer_id'),
@@ -398,6 +413,7 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type ShippingRate = typeof shippingRates.$inferSelect;
+export type PaymentSetting = typeof paymentSettings.$inferSelect;
 export type DiscountCode = typeof discountCodes.$inferSelect;
 export type DigitalAsset = typeof digitalAssets.$inferSelect;
 export type DownloadGrant = typeof downloadGrants.$inferSelect;

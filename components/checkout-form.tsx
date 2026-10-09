@@ -80,16 +80,26 @@ export type CheckoutPrefill = {
   birthDate: string;
 };
 
+export type PaymentMethodDTO = { method: 'mercadopago' | 'paypal'; label: string };
+
+const PAYMENT_METHOD_HINT: Record<PaymentMethodDTO['method'], string> = {
+  mercadopago: 'Tarjeta de crédito o débito, OXXO, transferencia o saldo de Mercado Pago.',
+  paypal: 'Tu cuenta PayPal o tarjeta a través de PayPal.',
+};
+
 export function CheckoutForm({
   shippingRates,
   physicalProductSlugs,
   currency,
+  paymentMethods,
   simulate = false,
   prefill = null,
 }: {
   shippingRates: ShippingRateDTO[];
   physicalProductSlugs: string[];
   currency: string;
+  /** Métodos activos en /admin/pagos (con llaves configuradas). */
+  paymentMethods: PaymentMethodDTO[];
   simulate?: boolean;
   /** Datos del cliente con sesión iniciada (editable; el checkout sigue siendo de invitado). */
   prefill?: CheckoutPrefill | null;
@@ -125,6 +135,7 @@ export function CheckoutForm({
   });
   const [shippingRateId, setShippingRateId] = useState('');
   const [discountCode, setDiscountCode] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.method ?? null);
   const [reportInputs, setReportInputs] = useState<Record<string, ReportInput>>({});
   const [wantsInvoice, setWantsInvoice] = useState(false);
   const [billing, setBilling] = useState<BillingInput>({
@@ -260,7 +271,7 @@ export function CheckoutForm({
       currency: inferCurrency(gaItems),
       value: itemsValue(gaItems),
       items: gaItems,
-      payment_type: simulate ? 'simulate' : 'stripe',
+      payment_type: simulate ? 'simulate' : (paymentMethod ?? 'none'),
     });
     try {
       const res = await fetch('/api/checkout', {
@@ -287,6 +298,7 @@ export function CheckoutForm({
               }
             : null,
           discountCode: discountCode.trim() || null,
+          paymentMethod: simulate ? null : paymentMethod,
           reports: reportSections.map((s) => {
             const inp = getReportInput(s.sectionKey);
             return {
@@ -794,6 +806,43 @@ export function CheckoutForm({
           </p>
         )}
 
+        {!simulate && (
+          <fieldset className="space-y-2 border-t border-[hsl(var(--border))] pt-3">
+            <legend className="mb-2 text-sm font-semibold">Método de pago</legend>
+            {paymentMethods.length === 0 ? (
+              <p className="rounded-lg bg-[hsl(var(--muted))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                Por ahora no hay métodos de pago disponibles. Intenta más tarde.
+              </p>
+            ) : (
+              paymentMethods.map((m) => (
+                <label
+                  key={m.method}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
+                    paymentMethod === m.method
+                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft))]'
+                      : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={m.method}
+                    checked={paymentMethod === m.method}
+                    onChange={() => setPaymentMethod(m.method)}
+                    className="mt-0.5 accent-[hsl(var(--primary))]"
+                  />
+                  <span>
+                    <span className="block font-medium">{m.label}</span>
+                    <span className="block text-xs text-[hsl(var(--muted-foreground))]">
+                      {PAYMENT_METHOD_HINT[m.method]}
+                    </span>
+                  </span>
+                </label>
+              ))
+            )}
+          </fieldset>
+        )}
+
         <p className="rounded-lg bg-[hsl(var(--primary-soft))] px-3 py-2.5 text-sm leading-relaxed">
           📩 Al terminar tu compra, <strong>revisa y mantente al pendiente de tu
           correo</strong>: ahí encontrarás tus reportes y/o accesos.
@@ -806,13 +855,23 @@ export function CheckoutForm({
         {error && <p className="text-sm text-red-500">{error}</p>}
         <button
           type="submit"
-          disabled={loading || (requiresShipping && applicableRates.length === 0)}
+          disabled={
+            loading ||
+            (requiresShipping && applicableRates.length === 0) ||
+            (!simulate && !paymentMethod)
+          }
           className="w-full rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3.5 text-lg font-semibold disabled:opacity-50"
         >
           {loading ? 'Procesando…' : simulate ? 'Simular compra' : 'Pagar'}
         </button>
         <p className="text-sm text-[hsl(var(--muted-foreground))] text-center">
-          {simulate ? 'Compra de prueba sin cargo.' : '🔒 Pago seguro con Stripe.'}
+          {simulate
+            ? 'Compra de prueba sin cargo.'
+            : `🔒 Pago seguro${
+                paymentMethod
+                  ? ` con ${paymentMethods.find((m) => m.method === paymentMethod)?.label}`
+                  : ''
+              }.`}
         </p>
       </aside>
     </form>

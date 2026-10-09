@@ -75,6 +75,8 @@ export const checkoutSchema = z
     shippingRateId: z.string().uuid().nullish(),
     shippingAddress: shippingAddressSchema.nullish(),
     discountCode: z.string().trim().min(1).nullish(),
+    // Pasarela elegida (se valida contra los métodos activos en /admin/pagos).
+    paymentMethod: z.enum(['mercadopago', 'paypal']).nullish(),
     // Datos por reporte (persona y, si aplica, pareja), indexados por variantId.
     reports: z.array(reportInputSchema).nullish(),
     // Facturación (opcional). Si requiresInvoice = true, billingInfo es obligatorio.
@@ -150,3 +152,29 @@ export const adminCouponSchema = z
   });
 
 export type AdminCouponInput = z.infer<typeof adminCouponSchema>;
+
+// ── Admin: métodos de pago ──────────────────────────────────────
+
+export const adminPaymentSettingSchema = z.object({
+  method: z.enum(['mercadopago', 'paypal']),
+  isEnabled: z.boolean(),
+  mode: z.enum(['sandbox', 'production']),
+});
+
+export type AdminPaymentSettingInput = z.infer<typeof adminPaymentSettingSchema>;
+
+// ── Admin: tarifas de envío ─────────────────────────────────────
+
+const moneyString = z.string().regex(/^\d+(\.\d{1,2})?$/, 'Monto inválido (ej. 150 o 150.00).');
+
+export const adminShippingRateSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre es obligatorio.'),
+  // Códigos ISO de 2 letras; [] = cualquier país.
+  countries: z.array(z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, 'País inválido (usa códigos de 2 letras, ej. MX).')),
+  amount: moneyString,
+  freeOverAmount: moneyString.nullish().or(z.literal('')),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export type AdminShippingRateInput = z.infer<typeof adminShippingRateSchema>;
