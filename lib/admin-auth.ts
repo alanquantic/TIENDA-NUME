@@ -1,27 +1,16 @@
-import { cookies } from 'next/headers';
+import { getSessionUser } from './nume-session';
+import type { NumeUser } from './nume-auth';
 
-export const ADMIN_COOKIE = 'admin_session';
-
-/** Token de sesión esperado (valor que se guarda en la cookie tras login). */
-export function adminToken(): string {
-  return process.env.ADMIN_TOKEN ?? '';
-}
-
-export function adminPassword(): string {
-  return process.env.ADMIN_PASSWORD ?? '';
-}
-
-export function adminEmail(): string {
-  return process.env.ADMIN_EMAIL ?? '';
-}
-
-/** ¿La cookie coincide con el token de admin? (comparación simple de string). */
-export function isValidAdminCookie(value: string | undefined): boolean {
-  const token = adminToken();
-  return token.length > 0 && value === token;
+/**
+ * El panel admin usa la misma sesión de la API de nume que /cuenta: solo entra
+ * quien inicia sesión con una cuenta de nume con `role: 'admin'`. La tienda no
+ * guarda contraseñas de admin; se cambian desde nume.
+ */
+export function isAdminUser(user: Pick<NumeUser, 'role'> | null | undefined): boolean {
+  return user?.role === 'admin';
 }
 
 /** Uso en Server Components / Route Handlers. */
-export function isAdminAuthed(): boolean {
-  return isValidAdminCookie(cookies().get(ADMIN_COOKIE)?.value);
+export async function isAdminAuthed(): Promise<boolean> {
+  return isAdminUser(await getSessionUser());
 }

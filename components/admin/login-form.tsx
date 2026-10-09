@@ -35,6 +35,9 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-sm space-y-4 py-16">
       <h1 className="text-2xl font-semibold">Admin</h1>
+      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+        Entra con tu cuenta de Numerología Cotidiana con permisos de administrador.
+      </p>
       <input
         type="email"
         placeholder="Correo"
