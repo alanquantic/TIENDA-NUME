@@ -7,6 +7,7 @@ import {
   productVariants,
   products,
 } from './db/schema';
+import { effectivePrice } from './sale-price';
 
 export type CatalogCard = {
   id: string;
@@ -16,7 +17,11 @@ export type CatalogCard = {
   type: 'digital' | 'physical';
   image: string | null;
   currency: string;
+  /** Precio vigente (de oferta si aplica). */
   priceAmount: string;
+  /** Precio regular a mostrar tachado; null si no hay oferta vigente. */
+  regularPriceAmount: string | null;
+  saleEndsAt: string | null;
   inStock: boolean;
   variantId: string;
   maxStock: number | null;
@@ -47,6 +52,9 @@ export async function listProducts(
       categoryName: categories.name,
       variantId: productVariants.id,
       variantPrice: productVariants.priceAmount,
+      variantSalePrice: productVariants.salePriceAmount,
+      variantSaleStartsAt: productVariants.saleStartsAt,
+      variantSaleEndsAt: productVariants.saleEndsAt,
       variantStock: productVariants.stock,
       variantTrack: productVariants.trackInventory,
       isDefault: productVariants.isDefault,
@@ -66,6 +74,12 @@ export async function listProducts(
     const inStock = r.type === 'digital' || !r.variantTrack || r.variantStock > 0;
     const maxStock = r.type === 'physical' && r.variantTrack ? r.variantStock : null;
     if (!existing || r.isDefault) {
+      const price = effectivePrice({
+        priceAmount: r.variantPrice,
+        salePriceAmount: r.variantSalePrice,
+        saleStartsAt: r.variantSaleStartsAt,
+        saleEndsAt: r.variantSaleEndsAt,
+      });
       byProduct.set(r.id, {
         id: r.id,
         slug: r.slug,
@@ -74,7 +88,9 @@ export async function listProducts(
         type: r.type,
         image: images[0] ?? null,
         currency: r.currency,
-        priceAmount: r.variantPrice,
+        priceAmount: price.priceAmount,
+        regularPriceAmount: price.regularPriceAmount,
+        saleEndsAt: price.saleEndsAt,
         inStock: existing ? existing.inStock || inStock : inStock,
         variantId: r.variantId,
         maxStock,
@@ -153,6 +169,9 @@ const CART_FIELDS = {
   variantId: productVariants.id,
   variantName: productVariants.name,
   priceAmount: productVariants.priceAmount,
+  salePriceAmount: productVariants.salePriceAmount,
+  saleStartsAt: productVariants.saleStartsAt,
+  saleEndsAt: productVariants.saleEndsAt,
   stock: productVariants.stock,
   trackInventory: productVariants.trackInventory,
   isDefault: productVariants.isDefault,
@@ -169,6 +188,9 @@ type CartRow = {
   variantId: string;
   variantName: string;
   priceAmount: string;
+  salePriceAmount: string | null;
+  saleStartsAt: Date | null;
+  saleEndsAt: Date | null;
   stock: number;
   trackInventory: boolean;
   isDefault: boolean;
@@ -189,7 +211,8 @@ function toCartData(r: CartRow): CartVariantData {
     slug: r.slug,
     name: r.name,
     variantName: r.variantName && r.variantName !== 'Default' ? r.variantName : null,
-    priceAmount: r.priceAmount,
+    // Precio vigente: así el carrito se actualiza cuando una oferta empieza o termina.
+    priceAmount: effectivePrice(r).priceAmount,
     currency: r.currency,
     image: images[0] ?? null,
     type: r.type,
