@@ -135,6 +135,10 @@ export function CheckoutForm({
   });
   const [shippingRateId, setShippingRateId] = useState('');
   const [discountCode, setDiscountCode] = useState('');
+  // Cupón validado con el botón "Aplicar" (solo este se envía al pagar).
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountMinor: number } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.method ?? null);
   const [reportInputs, setReportInputs] = useState<Record<string, ReportInput>>({});
   const [wantsInvoice, setWantsInvoice] = useState(false);
@@ -233,7 +237,52 @@ export function CheckoutForm({
 
   const selectedRate = applicableRates.find((r) => r.id === shippingRateId) ?? null;
   const shippingMinor = requiresShipping && selectedRate ? ratePriceMinor(selectedRate) : 0;
-  const totalMinor = subtotalMinor + shippingMinor;
+  const discountMinor = appliedCoupon?.discountMinor ?? 0;
+  const totalMinor = Math.max(0, subtotalMinor - discountMinor) + shippingMinor;
+  // Pedido sin costo (cupón del 100%): no se elige método ni se pasa por pasarela.
+  const isFree = !simulate && items.length > 0 && totalMinor === 0;
+
+  async function applyCoupon(code = discountCode) {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    setCouponError(null);
+    setCouponLoading(true);
+    try {
+      const res = await fetch('/api/checkout/cupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: trimmed,
+          items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAppliedCoupon({ code: data.code, discountMinor: data.discountMinor });
+        setDiscountCode(data.code);
+      } else {
+        setAppliedCoupon(null);
+        setCouponError(data.error ?? 'No se pudo aplicar el cupón.');
+      }
+    } catch {
+      setCouponError('Error de red. Intenta de nuevo.');
+    }
+    setCouponLoading(false);
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setDiscountCode('');
+    setCouponError(null);
+  }
+
+  // Si cambia el carrito, el descuento puede cambiar (o dejar de aplicar): se recalcula.
+  const cartKey = items.map((i) => `${i.variantId}:${i.quantity}`).join(',');
+  const appliedCode = appliedCoupon?.code;
+  useEffect(() => {
+    if (appliedCode) void applyCoupon(appliedCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartKey]);
 
   // begin_checkout — una vez que el carrito montó y tiene items.
   useEffect(() => {
@@ -244,9 +293,9 @@ export function CheckoutForm({
       currency: inferCurrency(gaItems),
       value: itemsValue(gaItems),
       items: gaItems,
-      coupon: discountCode.trim() || undefined,
+      coupon: appliedCoupon?.code,
     });
-  }, [mounted, items, discountCode]);
+  }, [mounted, items, appliedCoupon]);
 
   // add_shipping_info — cada vez que cambia el rate seleccionado.
   useEffect(() => {
@@ -271,7 +320,7 @@ export function CheckoutForm({
       currency: inferCurrency(gaItems),
       value: itemsValue(gaItems),
       items: gaItems,
-      payment_type: simulate ? 'simulate' : (paymentMethod ?? 'none'),
+      payment_type: simulate ? 'simulate' : isFree ? 'free' : (paymentMethod ?? 'none'),
     });
     try {
       const res = await fetch('/api/checkout', {
@@ -297,8 +346,8 @@ export function CheckoutForm({
                 phone: phone || null,
               }
             : null,
-          discountCode: discountCode.trim() || null,
-          paymentMethod: simulate ? null : paymentMethod,
+          discountCode: appliedCoupon?.code ?? null,
+          paymentMethod: simulate || isFree ? null : paymentMethod,
           reports: reportSections.map((s) => {
             const inp = getReportInput(s.sectionKey);
             return {
@@ -659,12 +708,49 @@ export function CheckoutForm({
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Cupón</h2>
-          <input
-            placeholder="Código de descuento (opcional)"
-            value={discountCode}
-            onChange={(e) => setDiscountCode(e.target.value)}
-            className={inputCls}
-          />
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-green-600/40 bg-green-600/10 px-3 py-2.5 text-sm">
+              <span>
+                ✓ Cupón <strong>{appliedCoupon.code}</strong> aplicado:{' '}
+                <strong>-{formatMoney(appliedCoupon.discountMinor, currency)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={removeCoupon}
+                className="shrink-0 text-[hsl(var(--muted-foreground))] underline-offset-4 hover:underline"
+              >
+                Quitar
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                placeholder="Código de descuento (opcional)"
+                value={discountCode}
+                onChange={(e) => {
+                  setDiscountCode(e.target.value.toUpperCase());
+                  setCouponError(null);
+                }}
+                onKeyDown={(e) => {
+                  // Enter aplica el cupón en vez de enviar todo el checkout.
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void applyCoupon();
+                  }
+                }}
+                className={inputCls}
+              />
+              <button
+                type="button"
+                onClick={() => applyCoupon()}
+                disabled={couponLoading || !discountCode.trim()}
+                className="shrink-0 rounded-lg bg-[hsl(var(--primary))] px-5 font-semibold text-[hsl(var(--primary-foreground))] disabled:opacity-50"
+              >
+                {couponLoading ? 'Aplicando…' : 'Aplicar'}
+              </button>
+            </div>
+          )}
+          {couponError && <p className="text-sm text-red-500">{couponError}</p>}
         </section>
 
         <section className="space-y-3">
@@ -789,6 +875,12 @@ export function CheckoutForm({
         </ul>
         <div className="border-t border-[hsl(var(--border))] pt-3 space-y-1 text-sm">
           <Row label="Subtotal" value={formatMoney(subtotalMinor, currency)} />
+          {appliedCoupon && (
+            <Row
+              label={`Descuento (${appliedCoupon.code})`}
+              value={`-${formatMoney(appliedCoupon.discountMinor, currency)}`}
+            />
+          )}
           {requiresShipping && (
             <Row
               label="Envío"
@@ -800,13 +892,13 @@ export function CheckoutForm({
           <span>Total</span>
           <span>{formatMoney(totalMinor, currency)}</span>
         </div>
-        {discountCode.trim() && (
+        {!appliedCoupon && discountCode.trim() && (
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            El cupón se valida y aplica en el pago.
+            Da clic en &ldquo;Aplicar&rdquo; para usar tu cupón.
           </p>
         )}
 
-        {!simulate && (
+        {!simulate && !isFree && (
           <fieldset className="space-y-2 border-t border-[hsl(var(--border))] pt-3">
             <legend className="mb-2 text-sm font-semibold">Método de pago</legend>
             {paymentMethods.length === 0 ? (
@@ -858,16 +950,18 @@ export function CheckoutForm({
           disabled={
             loading ||
             (requiresShipping && applicableRates.length === 0) ||
-            (!simulate && !paymentMethod)
+            (!simulate && !isFree && !paymentMethod)
           }
           className="w-full rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3.5 text-lg font-semibold disabled:opacity-50"
         >
-          {loading ? 'Procesando…' : simulate ? 'Simular compra' : 'Pagar'}
+          {loading ? 'Procesando…' : simulate ? 'Simular compra' : isFree ? 'Confirmar pedido' : 'Pagar'}
         </button>
         <p className="text-sm text-[hsl(var(--muted-foreground))] text-center">
           {simulate
             ? 'Compra de prueba sin cargo.'
-            : `🔒 Pago seguro${
+            : isFree
+              ? 'Tu pedido no tiene costo; no se te cobrará nada.'
+              : `🔒 Pago seguro${
                 paymentMethod
                   ? ` con ${paymentMethods.find((m) => m.method === paymentMethod)?.label}`
                   : ''

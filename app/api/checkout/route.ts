@@ -95,17 +95,6 @@ export async function POST(req: Request) {
   const input = parsed.data;
   const baseUrl = resolveBaseUrl(req);
 
-  // Método de pago: debe estar activo y con llaves en /admin/pagos.
-  const method = config.simulatePayments
-    ? null
-    : (await getAvailablePaymentMethods()).find((m) => m.method === input.paymentMethod) ?? null;
-  if (!config.simulatePayments && !method) {
-    return NextResponse.json(
-      { error: 'Elige un método de pago disponible.' },
-      { status: 400 },
-    );
-  }
-
   // 1) Precio autoritativo (recalculado desde la BD).
   let quote;
   try {
@@ -121,6 +110,21 @@ export async function POST(req: Request) {
   if (quote.requiresShipping && !input.shippingAddress) {
     return NextResponse.json(
       { error: 'Falta la dirección de envío para productos físicos.' },
+      { status: 400 },
+    );
+  }
+
+  // Pedido sin costo (p. ej. cupón del 100%): no pasa por pasarela, que
+  // rechazan cobros de $0. Se completa directo, igual que el pago simulado.
+  const skipGateway = config.simulatePayments || quote.totalMinor === 0;
+
+  // Método de pago: debe estar activo y con llaves en /admin/pagos.
+  const method = skipGateway
+    ? null
+    : (await getAvailablePaymentMethods()).find((m) => m.method === input.paymentMethod) ?? null;
+  if (!skipGateway && !method) {
+    return NextResponse.json(
+      { error: 'Elige un método de pago disponible.' },
       { status: 400 },
     );
   }
@@ -210,14 +214,16 @@ export async function POST(req: Request) {
     }),
   );
 
-  // ── TEMPORAL: pago simulado ────────────────────────────────────
+  // ── Sin pasarela: pago simulado (pruebas) o pedido de $0 ─────────
   // Marca el pedido como pagado y corre el fulfillment real (stock +
-  // descargas), sin pasarela. Quitar este bloque al integrar MP/PayPal.
-  if (config.simulatePayments) {
+  // descargas, reportes y correo de confirmación).
+  if (skipGateway) {
     try {
-      await fulfillOrder(order.id, { paymentIntentId: `SIMULADO-${number}` });
+      await fulfillOrder(order.id, {
+        paymentIntentId: config.simulatePayments ? `SIMULADO-${number}` : `GRATIS-${number}`,
+      });
     } catch (err) {
-      console.error('Fulfillment simulado falló', err);
+      console.error('Fulfillment sin pasarela falló', err);
       // En modo simulado (solo pruebas) devolvemos el detalle real para poder
       // diagnosticar desde la pestaña Red del navegador. Esta rama nunca se
       // alcanza con pagos reales, así que no filtra nada en producción.
@@ -234,7 +240,7 @@ export async function POST(req: Request) {
   }
 
   // 3) Cobro en la pasarela elegida por el total exacto del pedido.
-  // (TS: con simulatePayments=false, `method` ya se validó arriba.)
+  // (TS: sin skipGateway, `method` ya se validó arriba.)
   const payment = method!;
   const itemCount = quote.lines.reduce((n, line) => n + line.quantity, 0);
   const description = `Pedido ${number} · ${itemCount} ${itemCount === 1 ? 'artículo' : 'artículos'}`;
