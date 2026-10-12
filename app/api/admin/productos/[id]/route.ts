@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { and, eq, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { digitalAssets, productVariants, products } from '@/lib/db/schema';
+import { digitalAssets, products } from '@/lib/db/schema';
 import { adminProductSchema } from '@/lib/validation';
-import { inventoryColumns, saleColumns } from '@/lib/admin-product-columns';
+import { saveProductVariants, VariantSaveError } from '@/lib/admin-product-variants';
 import { isReportSlug } from '@/lib/report-catalog';
 
 export const runtime = 'nodejs';
@@ -16,7 +16,7 @@ export async function PATCH(
   const parsed = adminProductSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Datos inválidos.', details: parsed.error.flatten() },
+      { error: parsed.error.issues[0]?.message ?? 'Datos inválidos.', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -85,37 +85,18 @@ export async function PATCH(
     })
     .where(eq(products.id, existing.id));
 
-  // Variante por defecto: se actualiza precio, stock y flag de inventario.
-  const [defaultVariant] = await db
-    .select()
-    .from(productVariants)
-    .where(
-      and(
-        eq(productVariants.productId, existing.id),
-        eq(productVariants.isDefault, true),
-      ),
-    )
-    .limit(1);
-
-  if (defaultVariant) {
-    await db
-      .update(productVariants)
-      .set({
-        priceAmount: d.price,
-        ...saleColumns(d),
-        ...inventoryColumns(d),
-        updatedAt: new Date(),
-      })
-      .where(eq(productVariants.id, defaultVariant.id));
-  } else {
-    await db.insert(productVariants).values({
-      productId: existing.id,
-      name: 'Default',
-      priceAmount: d.price,
-      ...saleColumns(d),
-      ...inventoryColumns(d),
-      isDefault: true,
-    });
+  // Variantes: una "Default" o una por combinación de atributos.
+  try {
+    await saveProductVariants(
+      existing.id,
+      d,
+      (existing.metadata as Record<string, unknown> | null) ?? {},
+    );
+  } catch (error) {
+    if (error instanceof VariantSaveError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
   }
 
   // Digital asset: upsert simple sobre el primero; si el digital queda sin archivo,

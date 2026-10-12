@@ -8,6 +8,7 @@ import {
   products,
 } from './db/schema';
 import { effectivePrice } from './sale-price';
+import { toMinor } from './money';
 
 export type CatalogCard = {
   id: string;
@@ -22,6 +23,10 @@ export type CatalogCard = {
   /** Precio regular a mostrar tachado; null si no hay oferta vigente. */
   regularPriceAmount: string | null;
   saleEndsAt: string | null;
+  /** true si las variantes tienen precios distintos ("Desde $X"). */
+  priceFrom: boolean;
+  /** Número de variantes; con más de una, el cliente elige en la página del producto. */
+  variantCount: number;
   inStock: boolean;
   variantId: string;
   maxStock: number | null;
@@ -65,42 +70,61 @@ export async function listProducts(
     .where(and(...conditions))
     .orderBy(desc(products.createdAt));
 
-  // Elige la variante por defecto (o la primera) de cada producto.
+  // Una tarjeta por producto: variante por defecto (o la primera) para el
+  // botón de agregar, y el precio vigente más bajo entre sus variantes.
   const byProduct = new Map<string, CatalogCard>();
+  const pricesByProduct = new Map<string, Set<string>>();
   for (const r of rows) {
     if (opts.categorySlug && r.categorySlug !== opts.categorySlug) continue;
     const existing = byProduct.get(r.id);
     const images = (r.images as string[]) ?? [];
     const inStock = r.type === 'digital' || !r.variantTrack || r.variantStock > 0;
     const maxStock = r.type === 'physical' && r.variantTrack ? r.variantStock : null;
-    if (!existing || r.isDefault) {
-      const price = effectivePrice({
-        priceAmount: r.variantPrice,
-        salePriceAmount: r.variantSalePrice,
-        saleStartsAt: r.variantSaleStartsAt,
-        saleEndsAt: r.variantSaleEndsAt,
-      });
-      byProduct.set(r.id, {
-        id: r.id,
-        slug: r.slug,
-        name: r.name,
-        description: r.description,
-        type: r.type,
-        image: images[0] ?? null,
-        currency: r.currency,
-        priceAmount: price.priceAmount,
-        regularPriceAmount: price.regularPriceAmount,
-        saleEndsAt: price.saleEndsAt,
-        inStock: existing ? existing.inStock || inStock : inStock,
-        variantId: r.variantId,
-        maxStock,
-        maxPerOrder: r.maxPerOrder,
-        categorySlug: r.categorySlug,
-        categoryName: r.categoryName,
-      });
-    } else {
-      existing.inStock = existing.inStock || inStock;
+    const price = effectivePrice({
+      priceAmount: r.variantPrice,
+      salePriceAmount: r.variantSalePrice,
+      saleStartsAt: r.variantSaleStartsAt,
+      saleEndsAt: r.variantSaleEndsAt,
+    });
+
+    const prices = pricesByProduct.get(r.id) ?? new Set<string>();
+    prices.add(price.priceAmount);
+    pricesByProduct.set(r.id, prices);
+
+    const card: CatalogCard = existing ?? {
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      description: r.description,
+      type: r.type,
+      image: images[0] ?? null,
+      currency: r.currency,
+      priceAmount: price.priceAmount,
+      regularPriceAmount: price.regularPriceAmount,
+      saleEndsAt: price.saleEndsAt,
+      priceFrom: false,
+      variantCount: 0,
+      inStock: false,
+      variantId: r.variantId,
+      maxStock,
+      maxPerOrder: r.maxPerOrder,
+      categorySlug: r.categorySlug,
+      categoryName: r.categoryName,
+    };
+    card.variantCount += 1;
+    card.inStock = card.inStock || inStock;
+    if (r.isDefault) {
+      card.variantId = r.variantId;
+      card.maxStock = maxStock;
     }
+    // El precio que se muestra es el más bajo (con su oferta, si la tiene).
+    if (existing && toMinor(price.priceAmount) < toMinor(card.priceAmount)) {
+      card.priceAmount = price.priceAmount;
+      card.regularPriceAmount = price.regularPriceAmount;
+      card.saleEndsAt = price.saleEndsAt;
+    }
+    card.priceFrom = prices.size > 1;
+    byProduct.set(r.id, card);
   }
   return [...byProduct.values()];
 }

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { and, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
+import { readVariationAttributes } from '@/lib/variations';
 import { db } from '@/lib/db';
 import { digitalAssets, productVariants, products } from '@/lib/db/schema';
 import { listCategories } from '@/lib/queries';
@@ -21,13 +22,15 @@ export default async function EditarProductoPage({
 
   if (!product) notFound();
 
-  const [variant] = await db
+  const variants = await db
     .select()
     .from(productVariants)
-    .where(
-      and(eq(productVariants.productId, product.id), eq(productVariants.isDefault, true)),
-    )
-    .limit(1);
+    .where(eq(productVariants.productId, product.id))
+    .orderBy(desc(productVariants.isDefault), asc(productVariants.createdAt));
+  const variant = variants.find((v) => v.isDefault) ?? variants[0];
+  const attributes = readVariationAttributes(product.metadata, variants);
+  // Activadas si ya hay más de una variante o variantes con atributos (Agenda 2025).
+  const variationsEnabled = variants.length > 1 || attributes.length > 0;
 
   const [asset] =
     product.type === 'digital'
@@ -58,6 +61,22 @@ export default async function EditarProductoPage({
     salePrice: variant?.salePriceAmount ?? '',
     saleStartsAt: variant?.saleStartsAt ? variant.saleStartsAt.toISOString() : null,
     saleEndsAt: variant?.saleEndsAt ? variant.saleEndsAt.toISOString() : null,
+    variations: {
+      enabled: variationsEnabled,
+      attributes: attributes.map((a) => ({ name: a.name, values: a.values })),
+      variants: variationsEnabled
+        ? variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            attributes: (v.attributes as Record<string, string>) ?? {},
+            price: v.priceAmount,
+            salePrice: v.salePriceAmount ?? '',
+            stock: v.trackInventory ? v.stock : null,
+            sku: v.sku ?? '',
+            isDefault: v.isDefault,
+          }))
+        : [],
+    },
   };
 
   const categories = await listCategories();

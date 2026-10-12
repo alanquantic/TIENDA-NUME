@@ -7,6 +7,12 @@ import { isReportSlug } from '@/lib/report-catalog';
 import { MediaLibraryModal } from '@/components/admin/media-library-modal';
 import { FileUploadField } from '@/components/admin/file-upload-field';
 import { effectivePrice } from '@/lib/sale-price';
+import {
+  VariationsEditor,
+  parseAttributes,
+  type AttributeDraft,
+  type VariantDraft,
+} from '@/components/admin/variations-editor';
 
 type CategoryOption = { id: string; name: string };
 
@@ -29,6 +35,20 @@ export type ProductFormValues = {
   /** ISO 8601 (UTC). */
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  variations?: {
+    enabled: boolean;
+    attributes: { name: string; values: string[] }[];
+    variants: {
+      id: string;
+      name: string;
+      attributes: Record<string, string>;
+      price: string;
+      salePrice: string;
+      stock: number | null;
+      sku: string;
+      isDefault: boolean;
+    }[];
+  };
 };
 
 /** ISO → valor de <input type="datetime-local"> en la hora local del navegador. */
@@ -94,12 +114,43 @@ export function ProductForm({
   const [salePrice, setSalePrice] = useState(initialValues?.salePrice ?? '');
   const [saleStartsAt, setSaleStartsAt] = useState(isoToLocalInput(initialValues?.saleStartsAt));
   const [saleEndsAt, setSaleEndsAt] = useState(isoToLocalInput(initialValues?.saleEndsAt));
+  // Variaciones por atributos: desactivadas por defecto.
+  const [variationsEnabled, setVariationsEnabled] = useState(
+    initialValues?.variations?.enabled ?? false,
+  );
+  const [attributeDrafts, setAttributeDrafts] = useState<AttributeDraft[]>(
+    initialValues?.variations?.attributes.map((a) => ({
+      name: a.name,
+      valuesText: a.values.join(', '),
+    })) ?? [],
+  );
+  const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>(
+    initialValues?.variations?.variants.map((v) => ({
+      ...v,
+      stock: v.stock != null ? String(v.stock) : '',
+    })) ?? [],
+  );
+  const savedVariantCount = initialValues?.variations?.variants.length ?? 0;
+
+  function toggleVariations(next: boolean) {
+    if (!next && savedVariantCount > 1) {
+      const ok = window.confirm(
+        `Al guardar se borrarán ${savedVariantCount - 1} variaciones y quedará solo la predeterminada. ¿Continuar?`,
+      );
+      if (!ok) return;
+    }
+    if (next && attributeDrafts.length === 0) setAttributeDrafts([{ name: '', valuesText: '' }]);
+    setVariationsEnabled(next);
+  }
+
+  const anyVariantSale = variantDrafts.some((v) => v.salePrice.trim());
+  const hasSale = variationsEnabled ? anyVariantSale : !!salePrice.trim();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Estado de la oferta según lo capturado, para orientar al admin.
   const saleStatus = (() => {
-    if (!salePrice.trim()) return null;
+    if (variationsEnabled || !salePrice.trim()) return null;
     if (!price || parseFloat(salePrice) >= parseFloat(price)) {
       return { tone: 'error', text: 'Debe ser menor que el precio regular.' };
     }
@@ -147,14 +198,20 @@ export function ProductForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (variationsEnabled && variantDrafts.length === 0) {
+      setError('Genera las variaciones antes de guardar.');
+      return;
+    }
     setLoading(true);
+    const defaultVariant = variantDrafts.find((v) => v.isDefault) ?? variantDrafts[0];
     const payload = {
       name,
       slug,
       description: description || null,
       type,
       categoryId: categoryId || null,
-      price,
+      // Con variaciones, el precio del producto es el de la predeterminada.
+      price: variationsEnabled && defaultVariant ? defaultVariant.price : price,
       currency: defaultCurrency,
       imageUrl: imageUrls[0] || null,
       imageUrls,
@@ -163,10 +220,30 @@ export function ProductForm({
       fileName: type === 'digital' ? fileName || null : null,
       downloadLimit: downloadLimit ? Number(downloadLimit) : null,
       // Vacío = sin control de inventario (siempre disponible).
-      stock: type === 'physical' && stock.trim() !== '' ? Number(stock) : null,
-      salePrice: salePrice.trim() || null,
-      saleStartsAt: salePrice.trim() ? localInputToIso(saleStartsAt) : null,
-      saleEndsAt: salePrice.trim() ? localInputToIso(saleEndsAt) : null,
+      stock:
+        !variationsEnabled && type === 'physical' && stock.trim() !== '' ? Number(stock) : null,
+      salePrice: variationsEnabled ? null : salePrice.trim() || null,
+      // Las fechas de oferta aplican a todas las variaciones con precio de oferta.
+      saleStartsAt: hasSale ? localInputToIso(saleStartsAt) : null,
+      saleEndsAt: hasSale ? localInputToIso(saleEndsAt) : null,
+      variations: {
+        enabled: variationsEnabled,
+        attributes: variationsEnabled
+          ? parseAttributes(attributeDrafts).map(({ name, values }) => ({ name, values }))
+          : [],
+        variants: variationsEnabled
+          ? variantDrafts.map((v) => ({
+              id: v.id || null,
+              name: v.name.trim(),
+              attributes: v.attributes,
+              price: v.price.trim(),
+              salePrice: v.salePrice.trim() || null,
+              stock: type === 'physical' && v.stock.trim() !== '' ? Number(v.stock) : null,
+              sku: v.sku.trim() || null,
+              isDefault: v.isDefault,
+            }))
+          : [],
+      },
     };
 
     const url =
@@ -251,7 +328,9 @@ export function ProductForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={label}>Precio ({defaultCurrency})</label>
+            <label className={label}>
+              {variationsEnabled ? 'Precio base' : 'Precio'} ({defaultCurrency})
+            </label>
             <input
               required
               inputMode="decimal"
@@ -278,15 +357,30 @@ export function ProductForm({
           </div>
         </div>
 
+        <VariationsEditor
+          enabled={variationsEnabled}
+          onToggle={toggleVariations}
+          attributes={attributeDrafts}
+          onAttributesChange={setAttributeDrafts}
+          variants={variantDrafts}
+          onVariantsChange={setVariantDrafts}
+          basePrice={price}
+          showStock={type === 'physical'}
+          currency={defaultCurrency}
+        />
+
         <fieldset className="rounded-lg border border-[hsl(var(--border))] p-4">
           <legend className="px-1 text-sm font-medium">Precio de oferta (opcional)</legend>
           <p className="mb-3 text-xs text-[hsl(var(--muted-foreground))]">
+            {variationsEnabled
+              ? 'Con variaciones, el precio de oferta se captura en cada variación; estas fechas aplican a todas. '
+              : ''}
             El precio de arriba es el regular. Si capturas un precio de oferta, los clientes
             verán la etiqueta &ldquo;Oferta&rdquo; y el precio regular tachado. Deja las fechas
             vacías para que la oferta no tenga inicio o fin.
           </p>
           <div className="grid gap-4 sm:grid-cols-3">
-            <div>
+            <div className={variationsEnabled ? 'hidden' : ''}>
               <label className={label}>Precio oferta ({defaultCurrency})</label>
               <input
                 inputMode="decimal"
@@ -301,7 +395,7 @@ export function ProductForm({
               <input
                 type="datetime-local"
                 value={saleStartsAt}
-                disabled={!salePrice.trim()}
+                disabled={!hasSale}
                 onChange={(e) => setSaleStartsAt(e.target.value)}
                 className={`${input} disabled:opacity-50`}
               />
@@ -311,7 +405,7 @@ export function ProductForm({
               <input
                 type="datetime-local"
                 value={saleEndsAt}
-                disabled={!salePrice.trim()}
+                disabled={!hasSale}
                 onChange={(e) => setSaleEndsAt(e.target.value)}
                 className={`${input} disabled:opacity-50`}
               />
@@ -462,7 +556,7 @@ export function ProductForm({
               </div>
             </div>
           </div>
-        ) : (
+        ) : variationsEnabled ? null : (
           <div>
             <label className={label}>Stock (opcional)</label>
             <input

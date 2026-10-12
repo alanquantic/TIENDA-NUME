@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { digitalAssets, productVariants, products } from '@/lib/db/schema';
+import { digitalAssets, products } from '@/lib/db/schema';
 import { adminProductSchema } from '@/lib/validation';
-import { inventoryColumns, saleColumns } from '@/lib/admin-product-columns';
+import { saveProductVariants, VariantSaveError } from '@/lib/admin-product-variants';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
   const parsed = adminProductSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Datos inválidos.', details: parsed.error.flatten() },
+      { error: parsed.error.issues[0]?.message ?? 'Datos inválidos.', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -50,14 +51,16 @@ export async function POST(req: Request) {
     );
   }
 
-  await db.insert(productVariants).values({
-    productId: product.id,
-    name: 'Default',
-    priceAmount: d.price,
-    ...saleColumns(d),
-    ...inventoryColumns(d),
-    isDefault: true,
-  });
+  try {
+    await saveProductVariants(product.id, d, {});
+  } catch (error) {
+    // Sin variantes el producto no se puede vender: se deshace el alta.
+    await db.delete(products).where(eq(products.id, product.id));
+    if (error instanceof VariantSaveError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 
   if (d.type === 'digital' && d.fileUrl && d.fileName) {
     await db.insert(digitalAssets).values({

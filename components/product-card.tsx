@@ -21,7 +21,11 @@ export function ProductCard({
 }) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
-  const soldOut = product.maxStock !== null && product.maxStock <= 0;
+  const hasOptions = product.variantCount > 1;
+  // Con opciones, "agotado" solo si TODAS las variantes lo están.
+  const soldOut = hasOptions
+    ? !product.inStock
+    : product.maxStock !== null && product.maxStock <= 0;
   const onSale = product.regularPriceAmount !== null;
   const percent = discountPercent({
     priceAmount: product.priceAmount,
@@ -107,6 +111,11 @@ export function ProductCard({
         </Link>
 
         <p className="mt-2 font-semibold">
+          {product.priceFrom && (
+            <span className="mr-1 text-xs font-normal text-[hsl(var(--muted-foreground))]">
+              Desde
+            </span>
+          )}
           <PriceWithSale
             priceAmount={product.priceAmount}
             regularPriceAmount={product.regularPriceAmount}
@@ -114,24 +123,34 @@ export function ProductCard({
           />
         </p>
 
-        <button
-          onClick={handleAdd}
-          disabled={soldOut}
-          className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-3 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {soldOut ? (
-            'Agotado'
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-              </svg>
-              Agregar
-            </>
-          )}
-        </button>
+        {hasOptions && !soldOut ? (
+          <Link
+            href={`/productos/${product.slug}`}
+            onClick={handleSelect}
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-3 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90"
+          >
+            Elegir opción
+          </Link>
+        ) : (
+          <button
+            onClick={handleAdd}
+            disabled={soldOut}
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-3 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {soldOut ? (
+              'Agotado'
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                Agregar
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

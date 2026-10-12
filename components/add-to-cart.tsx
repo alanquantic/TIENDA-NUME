@@ -6,11 +6,18 @@ import { track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatDecimal } from '@/lib/money';
+import type { VariationAttribute } from '@/lib/variations';
+import { PriceWithSale } from '@/components/sale-price';
 
 export type VariantOption = {
   id: string;
   name: string;
+  /** Combinación de atributos (`{ color: 'morado' }`); vacío si no hay variaciones. */
+  attributes: Record<string, string>;
+  /** Precio vigente (de oferta si aplica). */
   priceAmount: string;
+  /** Precio regular tachado; null si no hay oferta vigente. */
+  regularPriceAmount: string | null;
   stock: number;
   trackInventory: boolean;
 };
@@ -25,7 +32,16 @@ type Props = {
   variants: VariantOption[];
   /** Tope de unidades por pedido (null = sin tope). */
   maxPerOrder: number | null;
+  /** Atributos de las variaciones; si hay, se elige por atributo en vez de una lista. */
+  attributes?: VariationAttribute[];
 };
+
+const same = (a: string | undefined, b: string | undefined) =>
+  (a ?? '').toLowerCase() === (b ?? '').toLowerCase();
+
+function matches(variant: VariantOption, selection: Record<string, string>, attrs: VariationAttribute[]) {
+  return attrs.every((a) => same(variant.attributes[a.key], selection[a.key]));
+}
 
 export function AddToCart({
   productId,
@@ -36,6 +52,7 @@ export function AddToCart({
   currency,
   variants,
   maxPerOrder,
+  attributes = [],
 }: Props) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
@@ -43,7 +60,26 @@ export function AddToCart({
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
-  const variant = variants.find((v) => v.id === variantId) ?? variants[0];
+  const byAttributes = attributes.length > 0 && variants.length > 1;
+  const [selection, setSelection] = useState<Record<string, string>>(
+    () => variants[0]?.attributes ?? {},
+  );
+  const variant = byAttributes
+    ? variants.find((v) => matches(v, selection, attributes))
+    : (variants.find((v) => v.id === variantId) ?? variants[0]);
+
+  // El precio de la opción elegida solo se muestra si cambia entre opciones.
+  const pricesVary =
+    new Set(variants.map((v) => `${v.priceAmount}|${v.regularPriceAmount ?? ''}`)).size > 1;
+
+  function isSoldOut(v: VariantOption) {
+    return type === 'physical' && v.trackInventory && v.stock <= 0;
+  }
+
+  function choose(key: string, value: string) {
+    setSelection((prev) => ({ ...prev, [key]: value }));
+    setAdded(false);
+  }
   const maxStock = type === 'physical' && variant?.trackInventory ? variant.stock : null;
   const soldOut = maxStock !== null && maxStock <= 0;
   // Tope visible: el menor entre stock y límite por pedido.
@@ -90,7 +126,57 @@ export function AddToCart({
 
   return (
     <div className="space-y-4">
-      {variants.length > 1 && (
+      {byAttributes &&
+        attributes.map((attribute) => (
+          <div key={attribute.key}>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              {attribute.name}:{' '}
+              <span className="font-medium capitalize text-[hsl(var(--foreground))]">
+                {selection[attribute.key] ?? '—'}
+              </span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {attribute.values.map((value) => {
+                const candidate = variants.find((v) =>
+                  matches(v, { ...selection, [attribute.key]: value }, attributes),
+                );
+                const selected = same(selection[attribute.key], value);
+                const soldOutOption = candidate ? isSoldOut(candidate) : false;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={!candidate}
+                    aria-pressed={selected}
+                    onClick={() => choose(attribute.key, value)}
+                    className={`rounded-lg border px-3 py-1.5 text-sm capitalize transition ${
+                      selected
+                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft))] font-medium text-[hsl(var(--primary))]'
+                        : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
+                    } ${soldOutOption ? 'line-through opacity-60' : ''} disabled:cursor-not-allowed disabled:opacity-40`}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+      {byAttributes && variant && pricesVary && (
+        <p className="text-xl font-semibold">
+          <PriceWithSale
+            priceAmount={variant.priceAmount}
+            regularPriceAmount={variant.regularPriceAmount}
+            currency={currency}
+          />
+        </p>
+      )}
+      {byAttributes && !variant && (
+        <p className="text-sm text-red-500">Esa combinación no está disponible.</p>
+      )}
+
+      {!byAttributes && variants.length > 1 && (
         <label className="block">
           <span className="text-sm text-[hsl(var(--muted-foreground))]">Opción</span>
           <select
@@ -133,10 +219,10 @@ export function AddToCart({
       <div className="flex items-center gap-3">
         <button
           onClick={handleAdd}
-          disabled={soldOut}
+          disabled={soldOut || !variant}
           className="rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-2.5 font-medium disabled:opacity-50"
         >
-          {soldOut ? 'Agotado' : 'Añadir al carrito'}
+          {!variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
         </button>
         {added && (
           <Link href="/carrito" className="text-sm underline underline-offset-4">

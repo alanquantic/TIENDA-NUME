@@ -8,6 +8,7 @@ import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
 import { ProductCard } from '@/components/product-card';
 import { discountPercent, effectivePrice } from '@/lib/sale-price';
+import { readVariationAttributes } from '@/lib/variations';
 import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price';
 
 export const dynamic = 'force-dynamic';
@@ -277,10 +278,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
   );
   const saleEndText = fromPrice?.onSale ? formatSaleEnd(fromPrice.saleEndsAt) : null;
 
+  const variationAttributes = readVariationAttributes(product.metadata, variants);
+  const pricesDiffer = new Set(pricedVariants.map(({ price }) => price.priceAmount)).size > 1;
+
   const variantOptions: VariantOption[] = pricedVariants.map(({ variant: v, price }) => ({
     id: v.id,
     name: v.name,
+    attributes: (v.attributes as Record<string, string>) ?? {},
     priceAmount: price.priceAmount,
+    regularPriceAmount: price.regularPriceAmount,
     stock: v.stock,
     trackInventory: v.trackInventory,
   }));
@@ -320,6 +326,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
             <SaleBadge percent={discountPercent(fromPrice)} className="mt-3" />
           )}
           <p className="mt-3 text-2xl font-semibold">
+            {pricesDiffer && (
+              <span className="mr-2 text-base font-normal text-[hsl(var(--muted-foreground))]">
+                Desde
+              </span>
+            )}
             <PriceWithSale
               priceAmount={fromPrice?.priceAmount ?? '0'}
               regularPriceAmount={fromPrice?.regularPriceAmount ?? null}
@@ -340,6 +351,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               currency={product.currency}
               variants={variantOptions}
               maxPerOrder={product.maxPerOrder}
+              attributes={variationAttributes}
             />
           </div>
 
