@@ -28,8 +28,19 @@ export type NumeUser = {
   current_membership: NumeMembershipTier;
   membership_expires_at: string | null;
   has_active_membership: boolean;
+  /** Ausente en versiones de la API anteriores a la verificación: se trata como no verificado. */
+  email_verified?: boolean;
+  email_verified_at?: string | null;
   metadata?: Record<string, unknown>;
 };
+
+/**
+ * Solo un correo confirmado demuestra que la sesión es de su dueño. Sin esto,
+ * cualquiera podría registrarse con el correo de un cliente y ver sus pedidos.
+ */
+export function isEmailVerified(user: NumeUser): boolean {
+  return user.email_verified === true;
+}
 
 export type NumeAuthSession = {
   access_token: string;
@@ -103,6 +114,14 @@ export async function numeLogout(accessToken: string): Promise<void> {
   } catch {
     // La sesión local se borra igual; no bloquea el logout.
   }
+}
+
+/** Pide a la API un nuevo enlace de confirmación de correo. Respuesta genérica. */
+export function numeResendVerification(accessToken: string): Promise<{ message: string }> {
+  return numeFetch<{ message: string }>('/auth/resend-verification', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }
 
 export const sessionCookieOptions = {

@@ -26,7 +26,7 @@ a Google Analytics.
 |---|----------|-----------|--------|
 | H1 | `/checkout/success?order=<uuid>` muestra datos y descargas sin autenticación ni caducidad | **Alta** | ✅ Corregido |
 | H2 | La URL con el `id` del pedido se envía a Google Analytics (`page_location`) | **Alta** | ✅ Corregido |
-| H3 | `/cuenta` y el prefill confían en que nume verificó el correo del usuario | **Alta** | ❌ Confirmado: nume no verifica el correo |
+| H3 | `/cuenta` y el prefill confían en que nume verificó el correo del usuario | **Alta** | ✅ Corregido (tienda + API-NUME#22) |
 | H4 | `/api/checkout` sin límite de peticiones: pedidos basura y correos a terceros | Media | 🟡 Parcial |
 | H5 | Webhooks aceptan avisos sin firma si falta el secreto; `mode` lo elige quien llama | Media | ✅ Corregido |
 | H6 | `CRON_SECRET` opcional: sin él, el cron es público | Media | ✅ Código · ⚠️ falta variable |
@@ -131,6 +131,13 @@ Corrección propuesta:
    `store-webhook` (su contraseña llegó a ese correo). Opcional: no emitir tokens hasta confirmar.
 2. **tienda:** `/cuenta` y el prefill del checkout solo muestran datos si `email_verified === true`; si no,
    piden confirmar el correo.
+
+**Corrección aplicada:**
+- API: alanquantic/API-NUME#22. `/auth/me` devuelve `email_verified`, y hay endpoints `verify-email` y `resend-verification`.
+- Tienda:
+  - `/cuenta` no consulta pedidos si `email_verified !== true`; muestra "Confirma tu correo" con un botón de reenvío (`POST /api/cuenta/reenviar-verificacion`).
+  - El prefill del checkout solo trae el correo de la sesión.
+- **Orden de despliegue:** primero la API. Una API sin el campo hace que la tienda trate a todos como no verificados.
 
 ### H4 · `/api/checkout` sin límite de peticiones — Media
 Cada `POST` crea un pedido `pending`, sus ítems y una preferencia en Mercado Pago o
