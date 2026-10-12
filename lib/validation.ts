@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { REGIMEN_FISCAL_CODES, USO_CFDI_CODES } from './sat-catalog';
+import { MAX_ATTRIBUTES, MAX_VARIANTS, attributeKey, comboKey } from './variations';
 
 export const checkoutLineSchema = z.object({
   variantId: z.string().uuid(),
@@ -93,6 +94,74 @@ export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
 
 // ── Admin: alta de producto ─────────────────────────────────────
 
+const adminMoney = z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).');
+
+/** Una variante del formulario (con `id` si ya existe en la BD). */
+export const adminVariantSchema = z.object({
+  id: z.string().uuid().nullish(),
+  name: z.string().trim().min(1, 'Cada variación necesita un nombre.'),
+  attributes: z.record(z.string(), z.string().trim().min(1)),
+  price: adminMoney,
+  salePrice: adminMoney.nullish().or(z.literal('')),
+  stock: z.number().int().min(0).nullish(),
+  sku: z.string().trim().max(80).nullish().or(z.literal('')),
+  isDefault: z.boolean().default(false),
+});
+
+/** Variaciones por atributos. Desactivadas = una sola variante "Default". */
+export const adminVariationsSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    attributes: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1, 'Cada atributo necesita un nombre.'),
+          values: z
+            .array(z.string().trim().min(1))
+            .min(1, 'Cada atributo necesita al menos un valor.'),
+        }),
+      )
+      .max(MAX_ATTRIBUTES, `Máximo ${MAX_ATTRIBUTES} atributos.`)
+      .default([]),
+    variants: z.array(adminVariantSchema).max(MAX_VARIANTS, `Máximo ${MAX_VARIANTS} variaciones.`).default([]),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.enabled) return;
+    const issue = (message: string) => ctx.addIssue({ code: 'custom', message, path: ['variations'] });
+    if (v.attributes.length === 0) return issue('Agrega al menos un atributo (p. ej. Color).');
+    if (v.variants.length === 0) return issue('Genera al menos una variación.');
+
+    const attrs = v.attributes.map((a) => ({ key: attributeKey(a.name), name: a.name, values: a.values }));
+    if (new Set(attrs.map((a) => a.key)).size !== attrs.length) {
+      return issue('Hay atributos con el mismo nombre.');
+    }
+    const seen = new Set<string>();
+    const skus = new Set<string>();
+    for (const variant of v.variants) {
+      for (const attr of attrs) {
+        const value = variant.attributes[attr.key];
+        if (!value || !attr.values.some((x) => x.toLowerCase() === value.toLowerCase())) {
+          return issue(`La variación "${variant.name}" no tiene un valor válido de ${attr.name}.`);
+        }
+      }
+      const key = comboKey(attrs, variant.attributes);
+      if (seen.has(key)) return issue(`La combinación de "${variant.name}" está repetida.`);
+      seen.add(key);
+      if (variant.salePrice && parseFloat(variant.salePrice) >= parseFloat(variant.price)) {
+        return issue(`En "${variant.name}", el precio de oferta debe ser menor que el regular.`);
+      }
+      if (variant.sku) {
+        if (skus.has(variant.sku)) return issue(`El SKU "${variant.sku}" está repetido.`);
+        skus.add(variant.sku);
+      }
+    }
+    if (v.variants.filter((x) => x.isDefault).length > 1) {
+      return issue('Solo una variación puede ser la predeterminada.');
+    }
+  });
+
+export type AdminVariationsInput = z.infer<typeof adminVariationsSchema>;
+
 export const adminProductSchema = z
   .object({
     name: z.string().trim().min(1, 'El nombre es obligatorio.'),
@@ -122,6 +191,7 @@ export const adminProductSchema = z
     saleEndsAt: z.iso.datetime({ offset: true }).nullish().or(z.literal('')),
     // Físico. null/vacío = sin control de inventario (siempre disponible).
     stock: z.number().int().min(0).nullish(),
+    variations: adminVariationsSchema.nullish(),
   })
   .refine((d) => !d.salePrice || parseFloat(d.salePrice) < parseFloat(d.price), {
     message: 'El precio de oferta debe ser menor que el precio regular.',
