@@ -1,4 +1,4 @@
-import { ChevronDownIcon, MenuIcon, SearchIcon, UserIcon } from '@/components/ui/icons';
+import { ChevronDownIcon, MenuIcon, UserIcon } from '@/components/ui/icons';
 import { SocialLinks } from '@/components/ui/social-links';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CartButton } from '@/components/cart-button';
@@ -188,20 +188,12 @@ export function SiteHeader() {
         <Brand />
 
         <div className="flex items-center justify-end gap-4">
-          <span className="hidden whitespace-nowrap text-lg font-semibold italic text-white lg:inline">de Laura L. Rodríguez</span>
           <SocialLinks
             className="hidden items-center gap-1.5 xl:flex"
             itemClassName="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15"
             iconSize={16}
           />
           <ThemeToggle className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15" />
-          <a
-            href="/"
-            aria-label="Buscar"
-            className="header-chip flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white hover:bg-white/15"
-          >
-            <SearchIcon width={18} height={18} className="relative z-10" />
-          </a>
           <a
             href="/cuenta"
             aria-label="Mi cuenta"
