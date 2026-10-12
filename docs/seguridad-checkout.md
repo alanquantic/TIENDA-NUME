@@ -26,7 +26,7 @@ a Google Analytics.
 |---|----------|-----------|--------|
 | H1 | `/checkout/success?order=<uuid>` muestra datos y descargas sin autenticación ni caducidad | **Alta** | ✅ Corregido |
 | H2 | La URL con el `id` del pedido se envía a Google Analytics (`page_location`) | **Alta** | ✅ Corregido |
-| H3 | `/cuenta` y el prefill confían en que nume verificó el correo del usuario | **Alta** (depende de nume) | ⏳ Confirmar con nume |
+| H3 | `/cuenta` y el prefill confían en que nume verificó el correo del usuario | **Alta** | ❌ Confirmado: nume no verifica el correo |
 | H4 | `/api/checkout` sin límite de peticiones: pedidos basura y correos a terceros | Media | 🟡 Parcial |
 | H5 | Webhooks aceptan avisos sin firma si falta el secreto; `mode` lo elige quien llama | Media | ✅ Corregido |
 | H6 | `CRON_SECRET` opcional: sin él, el cron es público | Media | ✅ Código · ⚠️ falta variable |
@@ -112,6 +112,25 @@ tokens**, o que `/auth/me` expone `email_verified` para que la tienda lo exija.
 Efecto secundario: como el checkout es de invitado y el correo es libre, alguien puede
 crear pedidos con el correo de otra persona y meter su nombre o teléfono en el
 prefill de esa persona.
+
+**Verificado el 2026-10-12 en `API NUME` (`origin/master`, `src/modules/auth/auth.service.ts` → `register`):**
+el registro crea el usuario y **devuelve tokens de sesión de inmediato**, sin enviar ni exigir confirmación
+de correo. La tabla `users` no tiene columna de verificación. Las únicas cuentas creadas por otra vía son
+las de compras de membresía (`store-webhook`, con contraseña enviada por correo).
+
+Consecuencia: cualquier cliente de la tienda **sin cuenta en nume** (por ejemplo, quien solo compró
+reportes) está expuesto. Un tercero puede registrarse con su correo en `/registro`, entrar a `/cuenta` de
+la tienda y ver sus pedidos, descargas y reportes (nombre y fecha de nacimiento, también de terceros), y
+recibir en el checkout el prefill con su teléfono y fecha de nacimiento. Los correos que ya tienen cuenta
+(los 804 usuarios importados de WordPress y los creados por membresía) están protegidos, porque el registro
+responde 409.
+
+Corrección propuesta:
+1. **nume:** agregar `email_verified_at` a `users`; `register` manda un enlace de confirmación y
+   `/auth/me` expone `email_verified`. Marcar como verificados los usuarios importados y los creados por
+   `store-webhook` (su contraseña llegó a ese correo). Opcional: no emitir tokens hasta confirmar.
+2. **tienda:** `/cuenta` y el prefill del checkout solo muestran datos si `email_verified === true`; si no,
+   piden confirmar el correo.
 
 ### H4 · `/api/checkout` sin límite de peticiones — Media
 Cada `POST` crea un pedido `pending`, sus ítems y una preferencia en Mercado Pago o
@@ -274,8 +293,7 @@ de confirmación sigue llevando los enlaces.
    `PAYPAL_WEBHOOK_ID`, `REPORT_READY_WEBHOOK_SECRET` o `STORE_WEBHOOK_SECRET`, fallar;
    y si `SIMULATE_PAYMENTS` está activo, negarse a cobrar. En las rutas, tratar
    `null` (secreto ausente) como rechazo.
-3. **Confirmar con el equipo de nume** que el registro exige verificar el correo (H3).
-   Si no, bloquear `/cuenta` hasta resolverlo.
+3. ❌ **Verificación de correo en nume** (H3): confirmado que NO existe. Ver la corrección propuesta en H3.
 4. Revisar en Vercel que `NEXT_PUBLIC_APP_URL` apunte al dominio real (H11).
 
 ### Fase 2 — corto plazo (1–2 semanas)
