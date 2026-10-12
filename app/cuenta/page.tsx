@@ -12,10 +12,11 @@ import {
   orders,
 } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
-import { displayNameOf, type NumeMembershipTier } from '@/lib/nume-auth';
+import { displayNameOf, isEmailVerified, type NumeMembershipTier } from '@/lib/nume-auth';
 import { getSessionUser } from '@/lib/nume-session';
 import { NUME_SITE_URL } from '@/lib/nume-site';
 import { AccountLogoutButton } from '@/components/account-logout-button';
+import { AccountResendVerification } from '@/components/account-resend-verification';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Mi cuenta' };
@@ -60,6 +61,25 @@ type StoredReportInput = { previewUrl?: string | null };
 export default async function AccountPage() {
   const user = await getSessionUser();
   if (!user) redirect('/cuenta/login');
+
+  // Sin correo confirmado no se consulta nada: la cuenta podría ser de alguien
+  // que se registró con el correo de otro cliente.
+  if (!isEmailVerified(user)) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Confirma tu correo</h1>
+        <p className="mt-3 text-[hsl(var(--muted-foreground))]">
+          Para proteger tus compras, solo mostramos tus pedidos, descargas y reportes
+          cuando confirmas que el correo <strong>{user.email}</strong> es tuyo. Abre el
+          enlace que te enviamos al registrarte.
+        </p>
+        <AccountResendVerification />
+        <div className="mt-8">
+          <AccountLogoutButton />
+        </div>
+      </div>
+    );
+  }
 
   const email = user.email.trim().toLowerCase();
 

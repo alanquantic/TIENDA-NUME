@@ -6,6 +6,7 @@ import { slugify } from '@/lib/slug';
 import { isReportSlug } from '@/lib/report-catalog';
 import { MediaLibraryModal } from '@/components/admin/media-library-modal';
 import { FileUploadField } from '@/components/admin/file-upload-field';
+import { effectivePrice } from '@/lib/sale-price';
 
 type CategoryOption = { id: string; name: string };
 
@@ -24,7 +25,29 @@ export type ProductFormValues = {
   fileName?: string | null;
   downloadLimit?: number | null;
   stock?: number | null;
+  salePrice?: string | null;
+  /** ISO 8601 (UTC). */
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
 };
+
+/** ISO → valor de <input type="datetime-local"> en la hora local del navegador. */
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
+/** Valor de <input type="datetime-local"> (hora local) → ISO, o null si está vacío. */
+function localInputToIso(value: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 export function ProductForm({
   categories,
@@ -68,8 +91,34 @@ export function ProductForm({
   const [stock, setStock] = useState(
     initialValues?.stock != null ? String(initialValues.stock) : '',
   );
+  const [salePrice, setSalePrice] = useState(initialValues?.salePrice ?? '');
+  const [saleStartsAt, setSaleStartsAt] = useState(isoToLocalInput(initialValues?.saleStartsAt));
+  const [saleEndsAt, setSaleEndsAt] = useState(isoToLocalInput(initialValues?.saleEndsAt));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Estado de la oferta según lo capturado, para orientar al admin.
+  const saleStatus = (() => {
+    if (!salePrice.trim()) return null;
+    if (!price || parseFloat(salePrice) >= parseFloat(price)) {
+      return { tone: 'error', text: 'Debe ser menor que el precio regular.' };
+    }
+    const now = new Date();
+    const starts = saleStartsAt ? new Date(saleStartsAt) : null;
+    const ends = saleEndsAt ? new Date(saleEndsAt) : null;
+    if (starts && ends && starts >= ends) {
+      return { tone: 'error', text: 'La fecha de fin debe ser posterior al inicio.' };
+    }
+    const current = effectivePrice({
+      priceAmount: price,
+      salePriceAmount: salePrice,
+      saleStartsAt: starts,
+      saleEndsAt: ends,
+    });
+    if (current.onSale) return { tone: 'ok', text: 'Oferta vigente ahora.' };
+    if (starts && now < starts) return { tone: 'muted', text: 'Oferta programada: aún no empieza.' };
+    return { tone: 'muted', text: 'La oferta ya terminó: se cobra el precio regular.' };
+  })();
   const [mediaOpen, setMediaOpen] = useState(false);
 
   function onNameChange(v: string) {
@@ -113,7 +162,11 @@ export function ProductForm({
       fileUrl: type === 'digital' ? fileUrl || null : null,
       fileName: type === 'digital' ? fileName || null : null,
       downloadLimit: downloadLimit ? Number(downloadLimit) : null,
-      stock: type === 'physical' ? Number(stock || 0) : null,
+      // Vacío = sin control de inventario (siempre disponible).
+      stock: type === 'physical' && stock.trim() !== '' ? Number(stock) : null,
+      salePrice: salePrice.trim() || null,
+      saleStartsAt: salePrice.trim() ? localInputToIso(saleStartsAt) : null,
+      saleEndsAt: salePrice.trim() ? localInputToIso(saleEndsAt) : null,
     };
 
     const url =
@@ -224,6 +277,60 @@ export function ProductForm({
             </select>
           </div>
         </div>
+
+        <fieldset className="rounded-lg border border-[hsl(var(--border))] p-4">
+          <legend className="px-1 text-sm font-medium">Precio de oferta (opcional)</legend>
+          <p className="mb-3 text-xs text-[hsl(var(--muted-foreground))]">
+            El precio de arriba es el regular. Si capturas un precio de oferta, los clientes
+            verán la etiqueta &ldquo;Oferta&rdquo; y el precio regular tachado. Deja las fechas
+            vacías para que la oferta no tenga inicio o fin.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className={label}>Precio oferta ({defaultCurrency})</label>
+              <input
+                inputMode="decimal"
+                placeholder="Sin oferta"
+                value={salePrice ?? ''}
+                onChange={(e) => setSalePrice(e.target.value)}
+                className={input}
+              />
+            </div>
+            <div>
+              <label className={label}>Desde</label>
+              <input
+                type="datetime-local"
+                value={saleStartsAt}
+                disabled={!salePrice.trim()}
+                onChange={(e) => setSaleStartsAt(e.target.value)}
+                className={`${input} disabled:opacity-50`}
+              />
+            </div>
+            <div>
+              <label className={label}>Hasta</label>
+              <input
+                type="datetime-local"
+                value={saleEndsAt}
+                disabled={!salePrice.trim()}
+                onChange={(e) => setSaleEndsAt(e.target.value)}
+                className={`${input} disabled:opacity-50`}
+              />
+            </div>
+          </div>
+          {saleStatus && (
+            <p
+              className={`mt-2 text-xs ${
+                saleStatus.tone === 'error'
+                  ? 'text-red-500'
+                  : saleStatus.tone === 'ok'
+                    ? 'text-[hsl(var(--primary))]'
+                    : 'text-[hsl(var(--muted-foreground))]'
+              }`}
+            >
+              {saleStatus.text}
+            </p>
+          )}
+        </fieldset>
 
         <div>
           <label className={label}>Imagen del producto</label>
@@ -357,14 +464,18 @@ export function ProductForm({
           </div>
         ) : (
           <div>
-            <label className={label}>Stock inicial</label>
+            <label className={label}>Stock (opcional)</label>
             <input
               inputMode="numeric"
-              placeholder="0"
+              placeholder="Sin límite"
               value={stock}
               onChange={(e) => setStock(e.target.value)}
               className={input}
             />
+            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+              Vacío = siempre disponible. Con un número, se descuenta en cada venta y al
+              llegar a 0 se muestra como agotado.
+            </p>
           </div>
         )}
 

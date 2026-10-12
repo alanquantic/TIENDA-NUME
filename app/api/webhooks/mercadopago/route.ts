@@ -30,8 +30,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true, ignored: true });
   }
 
-  if (verifyMpSignature(mode, req.headers, dataId) === false) {
-    console.error('[webhook mercadopago] firma inválida para el pago', dataId);
+  // Sin secreto configurado (null) solo se acepta fuera de producción.
+  const signature = verifyMpSignature(mode, req.headers, dataId);
+  if (signature === false || (signature === null && process.env.VERCEL_ENV === 'production')) {
+    console.error('[webhook mercadopago] firma inválida o sin secreto para el pago', dataId);
     return NextResponse.json({ error: 'Firma inválida.' }, { status: 401 });
   }
 
@@ -64,6 +66,7 @@ export async function POST(req: Request) {
       paymentId: String(payment.id),
       amount: payment.transaction_amount,
       currency: payment.currency_id,
+      mode,
     });
     await markWebhookEvent(rowId, { orderId });
     return NextResponse.json({ received: true });

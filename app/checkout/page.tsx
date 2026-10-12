@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { orders, products, shippingRates } from '@/lib/db/schema';
 import { config } from '@/lib/config';
 import { getSessionUser } from '@/lib/nume-session';
+import { isEmailVerified } from '@/lib/nume-auth';
 import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import {
   CheckoutForm,
@@ -18,11 +19,17 @@ export const metadata: Metadata = { title: 'Checkout' };
  * Con sesión iniciada, precarga los datos del cliente: el correo viene de la
  * sesión y el resto del pedido más reciente con ese correo (la API de nume no
  * expone nombre/fecha en /auth/me). Todo queda editable: sigue siendo checkout
- * de invitado.
+ * de invitado. Solo se precargan datos de pedidos si el correo está confirmado.
  */
 async function prefillForSession(): Promise<CheckoutPrefill | null> {
   const user = await getSessionUser();
   if (!user) return null;
+
+  // Con el correo sin confirmar solo se precarga el correo de la sesión: el
+  // resto sale de pedidos anteriores y podría ser de otra persona.
+  if (!isEmailVerified(user)) {
+    return { email: user.email, firstName: '', lastName: '', phone: '', birthDate: '' };
+  }
 
   const [lastOrder] = await db
     .select({

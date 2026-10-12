@@ -30,8 +30,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    if ((await verifyPpWebhook(mode, req.headers, event)) === false) {
-      console.error('[webhook paypal] firma inválida', event.id);
+    // Sin PAYPAL_WEBHOOK_ID (null) solo se acepta fuera de producción.
+    const signature = await verifyPpWebhook(mode, req.headers, event);
+    if (signature === false || (signature === null && process.env.VERCEL_ENV === 'production')) {
+      console.error('[webhook paypal] firma inválida o sin webhook id', event.id);
       return NextResponse.json({ error: 'Firma inválida.' }, { status: 401 });
     }
   } catch (err) {
@@ -64,6 +66,7 @@ export async function POST(req: Request) {
         paymentId: capture.captureId,
         amount: capture.amount ?? '0',
         currency: capture.currency ?? '',
+        mode,
       });
     }
     await markWebhookEvent(rowId, { orderId });

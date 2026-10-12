@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { rejectCrossSite } from '@/lib/request-guard';
 import {
   ACCESS_COOKIE,
   NumeApiError,
@@ -11,6 +12,9 @@ export const runtime = 'nodejs';
 
 /** Proxy del login a la API de nume; guarda los JWT en cookies httpOnly. */
 export async function POST(req: Request) {
+  const blocked = rejectCrossSite(req, { requireJson: true });
+  if (blocked) return blocked;
+
   let body: { email?: unknown; password?: unknown };
   try {
     body = await req.json();

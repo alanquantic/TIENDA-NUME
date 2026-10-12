@@ -112,9 +112,26 @@ export const adminProductSchema = z
     fileUrl: z.string().url().nullish().or(z.literal('')),
     fileName: z.string().trim().nullish(),
     downloadLimit: z.number().int().positive().nullish(),
-    // Físico
+    // Oferta (opcional). Fechas en ISO; vacías = sin límite en ese extremo.
+    salePrice: z
+      .string()
+      .regex(/^\d+(\.\d{1,2})?$/, 'Precio de oferta inválido (ej. 7.99).')
+      .nullish()
+      .or(z.literal('')),
+    saleStartsAt: z.iso.datetime({ offset: true }).nullish().or(z.literal('')),
+    saleEndsAt: z.iso.datetime({ offset: true }).nullish().or(z.literal('')),
+    // Físico. null/vacío = sin control de inventario (siempre disponible).
     stock: z.number().int().min(0).nullish(),
   })
+  .refine((d) => !d.salePrice || parseFloat(d.salePrice) < parseFloat(d.price), {
+    message: 'El precio de oferta debe ser menor que el precio regular.',
+    path: ['salePrice'],
+  })
+  .refine(
+    (d) =>
+      !d.saleStartsAt || !d.saleEndsAt || new Date(d.saleStartsAt) < new Date(d.saleEndsAt),
+    { message: 'La oferta debe terminar después de empezar.', path: ['saleEndsAt'] },
+  )
   .refine(
     (d) =>
       d.type !== 'digital' ||

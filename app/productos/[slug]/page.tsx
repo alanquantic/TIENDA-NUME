@@ -7,7 +7,8 @@ import { ProductGallery } from '@/components/product-gallery';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
 import { ProductCard } from '@/components/product-card';
-import { formatDecimal } from '@/lib/money';
+import { discountPercent, effectivePrice } from '@/lib/sale-price';
+import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price';
 
 export const dynamic = 'force-dynamic';
 
@@ -267,15 +268,19 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   const { product, variants } = data;
   const images = (product.images as string[]) ?? [];
-  const fromPrice = variants.reduce(
-    (min, v) => (parseFloat(v.priceAmount) < parseFloat(min) ? v.priceAmount : min),
-    variants[0]?.priceAmount ?? '0',
+  // Precio vigente de cada variante (oferta si está dentro de sus fechas).
+  const pricedVariants = variants.map((v) => ({ variant: v, price: effectivePrice(v) }));
+  const fromPrice = pricedVariants.reduce<(typeof pricedVariants)[number]['price'] | null>(
+    (min, { price }) =>
+      !min || parseFloat(price.priceAmount) < parseFloat(min.priceAmount) ? price : min,
+    null,
   );
+  const saleEndText = fromPrice?.onSale ? formatSaleEnd(fromPrice.saleEndsAt) : null;
 
-  const variantOptions: VariantOption[] = variants.map((v) => ({
+  const variantOptions: VariantOption[] = pricedVariants.map(({ variant: v, price }) => ({
     id: v.id,
     name: v.name,
-    priceAmount: v.priceAmount,
+    priceAmount: price.priceAmount,
     stock: v.stock,
     trackInventory: v.trackInventory,
   }));
@@ -311,9 +316,19 @@ export default async function ProductPage({ params }: { params: { slug: string }
             {product.type === 'digital' ? 'Producto digital' : 'Producto físico'}
           </span>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">{product.name}</h1>
-          <p className="mt-3 text-2xl font-semibold text-[hsl(var(--primary))]">
-            {formatDecimal(fromPrice, product.currency)}
+          {fromPrice?.onSale && (
+            <SaleBadge percent={discountPercent(fromPrice)} className="mt-3" />
+          )}
+          <p className="mt-3 text-2xl font-semibold">
+            <PriceWithSale
+              priceAmount={fromPrice?.priceAmount ?? '0'}
+              regularPriceAmount={fromPrice?.regularPriceAmount ?? null}
+              currency={product.currency}
+            />
           </p>
+          {saleEndText && (
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{saleEndText}</p>
+          )}
 
           <div className="mt-8">
             <AddToCart

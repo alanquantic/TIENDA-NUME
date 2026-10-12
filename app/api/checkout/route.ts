@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { rejectCrossSite } from '@/lib/request-guard';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { orderItems, orders } from '@/lib/db/schema';
 import { priceCart, PricingError } from '@/lib/pricing';
@@ -11,6 +12,7 @@ import { fulfillOrder } from '@/lib/fulfillment';
 import { getAvailablePaymentMethods, PAYMENT_METHOD_LABEL } from '@/lib/payments/settings';
 import { createMpPreference } from '@/lib/payments/mercadopago';
 import { createPpOrder } from '@/lib/payments/paypal';
+import { orderAccessCookie } from '@/lib/order-access';
 import {
   reportsForSlug,
   AGENDA_2025_COLORS,
@@ -30,6 +32,9 @@ type ReportMetaOut = {
 };
 
 export const runtime = 'nodejs';
+
+const MAX_PENDING_PER_EMAIL = 5;
+const PENDING_WINDOW_MS = 60 * 60 * 1000;
 
 function generateOrderNumber(): string {
   const stamp = Date.now().toString(36);
@@ -78,6 +83,9 @@ function resolveBaseUrl(req: Request): string {
 }
 
 export async function POST(req: Request) {
+  const blocked = rejectCrossSite(req, { requireJson: true });
+  if (blocked) return blocked;
+
   let body: unknown;
   try {
     body = await req.json();
@@ -94,6 +102,25 @@ export async function POST(req: Request) {
   }
   const input = parsed.data;
   const baseUrl = resolveBaseUrl(req);
+
+  // Freno anti-abuso: cada pedido abandonado le escribe al correo capturado, así
+  // que se limita cuántos pedidos pendientes puede acumular un mismo correo.
+  const [{ pendingCount }] = await db
+    .select({ pendingCount: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(
+      and(
+        sql`lower(${orders.customerEmail}) = ${input.email.trim().toLowerCase()}`,
+        eq(orders.status, 'pending'),
+        gt(orders.createdAt, new Date(Date.now() - PENDING_WINDOW_MS)),
+      ),
+    );
+  if (pendingCount >= MAX_PENDING_PER_EMAIL) {
+    return NextResponse.json(
+      { error: 'Tienes varios pedidos sin pagar. Termina uno o espera unos minutos.' },
+      { status: 429 },
+    );
+  }
 
   // 1) Precio autoritativo (recalculado desde la BD).
   let quote;
@@ -224,19 +251,24 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       console.error('Fulfillment sin pasarela falló', err);
-      // En modo simulado (solo pruebas) devolvemos el detalle real para poder
-      // diagnosticar desde la pestaña Red del navegador. Esta rama nunca se
-      // alcanza con pagos reales, así que no filtra nada en producción.
-      const detail = err instanceof Error ? err.message : String(err);
+      // Solo en modo simulado (pruebas) se devuelve el detalle real para
+      // diagnosticar desde la pestaña Red. Los pedidos de $0 sí ocurren en
+      // producción: ahí el error interno no se expone al navegador.
+      if (config.simulatePayments) {
+        const detail = err instanceof Error ? err.message : String(err);
+        return NextResponse.json(
+          { error: 'No se pudo completar la compra simulada.', detail },
+          { status: 500 },
+        );
+      }
       return NextResponse.json(
-        { error: 'No se pudo completar la compra simulada.', detail },
+        { error: 'No se pudo completar el pedido. Intenta de nuevo.' },
         { status: 500 },
       );
     }
-    return NextResponse.json({
-      url: `${baseUrl}/checkout/success?order=${order.id}`,
-      orderId: order.id,
-    });
+    const res = NextResponse.json({ url: `${baseUrl}/checkout/success` });
+    res.cookies.set(orderAccessCookie(order.id));
+    return res;
   }
 
   // 3) Cobro en la pasarela elegida por el total exacto del pedido.
@@ -244,8 +276,10 @@ export async function POST(req: Request) {
   const payment = method!;
   const itemCount = quote.lines.reduce((n, line) => n + line.quantity, 0);
   const description = `Pedido ${number} · ${itemCount} ${itemCount === 1 ? 'artículo' : 'artículos'}`;
-  const successUrl = `${baseUrl}/checkout/success?order=${order.id}`;
-  const cancelUrl = `${baseUrl}/checkout/cancel?order=${order.id}`;
+  // El id del pedido no va en estas URLs: el comprador se identifica con la
+  // cookie firmada (ver lib/order-access.ts).
+  const successUrl = `${baseUrl}/checkout/success`;
+  const cancelUrl = `${baseUrl}/checkout/cancel`;
   const isLocal = /localhost|127\.0\.0\.1/.test(baseUrl);
 
   let checkoutUrl: string;
@@ -298,5 +332,7 @@ export async function POST(req: Request) {
     .set({ externalCheckoutId: externalId, updatedAt: new Date() })
     .where(eq(orders.id, order.id));
 
-  return NextResponse.json({ url: checkoutUrl, orderId: order.id });
+  const res = NextResponse.json({ url: checkoutUrl });
+  res.cookies.set(orderAccessCookie(order.id));
+  return res;
 }

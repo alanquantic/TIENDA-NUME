@@ -26,6 +26,15 @@ gtag('consent', 'default', {
 });
 gtag('set', 'ads_data_redaction', true);
 gtag('set', 'url_passthrough', true);
+(function () {
+  var allowed = /^(utm_[a-z_]+|gclid|gbraid|wbraid|fbclid|msclkid)$/;
+  var u = new URL(window.location.href);
+  Array.from(u.searchParams.keys()).forEach(function (k) {
+    if (!allowed.test(k)) u.searchParams.delete(k);
+  });
+  u.hash = '';
+  gtag('set', { page_location: u.toString() });
+})();
 `
         }}
       />

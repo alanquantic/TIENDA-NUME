@@ -1,11 +1,15 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { rejectCrossSite } from '@/lib/request-guard';
 import { ACCESS_COOKIE, numeLogout, REFRESH_COOKIE } from '@/lib/nume-auth';
 
 export const runtime = 'nodejs';
 
 /** Cierra la sesión: invalida el refresh token en la API y borra las cookies. */
-export async function POST() {
+export async function POST(req: Request) {
+  const blocked = rejectCrossSite(req);
+  if (blocked) return blocked;
+
   const accessToken = cookies().get(ACCESS_COOKIE)?.value;
   if (accessToken) {
     await numeLogout(accessToken);

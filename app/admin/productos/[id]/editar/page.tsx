@@ -53,7 +53,11 @@ export default async function EditarProductoPage({
     fileUrl: asset?.fileUrl ?? null,
     fileName: asset?.fileName ?? null,
     downloadLimit: asset?.downloadLimit ?? null,
-    stock: variant?.stock ?? null,
+    // Sin control de inventario = campo vacío ("siempre disponible").
+    stock: variant?.trackInventory ? variant.stock : null,
+    salePrice: variant?.salePriceAmount ?? '',
+    saleStartsAt: variant?.saleStartsAt ? variant.saleStartsAt.toISOString() : null,
+    saleEndsAt: variant?.saleEndsAt ? variant.saleEndsAt.toISOString() : null,
   };
 
   const categories = await listCategories();

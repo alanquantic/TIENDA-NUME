@@ -4,6 +4,7 @@ import { config } from './config';
 import { discountCodes, products, productVariants } from './db/schema';
 import { toMinor } from './money';
 import { resolveShippingRate } from './shipping';
+import { effectivePrice } from './sale-price';
 import type { CheckoutInput } from './validation';
 
 export type PricedLine = {
@@ -58,6 +59,9 @@ async function priceLines(items: CartItemInput[]): Promise<{
       variantAttributes: productVariants.attributes,
       sku: productVariants.sku,
       priceAmount: productVariants.priceAmount,
+      salePriceAmount: productVariants.salePriceAmount,
+      saleStartsAt: productVariants.saleStartsAt,
+      saleEndsAt: productVariants.saleEndsAt,
       stock: productVariants.stock,
       trackInventory: productVariants.trackInventory,
       productId: products.id,
@@ -98,7 +102,8 @@ async function priceLines(items: CartItemInput[]): Promise<{
       );
     }
 
-    const unit = toMinor(row.priceAmount);
+    // Precio vigente al momento de pagar (oferta si está dentro de sus fechas).
+    const unit = toMinor(effectivePrice(row).priceAmount);
     const total = unit * item.quantity;
     subtotalMinor += total;
     if (row.type === 'physical') requiresShipping = true;

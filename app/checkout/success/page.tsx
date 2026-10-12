@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
@@ -13,6 +14,7 @@ import { formatDecimal } from '@/lib/money';
 import type { EcommerceItem } from '@/lib/analytics';
 import { PurchaseTracker } from '@/components/analytics/purchase-tracker';
 import { ClearCart } from '@/components/clear-cart';
+import { ORDER_ACCESS_COOKIE, readOrderAccess } from '@/lib/order-access';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Gracias por tu compra' };
@@ -27,12 +29,13 @@ const reportStatusLabels: Record<string, string> = {
   running: 'Generando',
 };
 
-export default async function SuccessPage({
-  searchParams,
-}: {
-  searchParams: { order?: string };
-}) {
-  const orderId = searchParams.order;
+/**
+ * El pedido se identifica SOLO con la cookie firmada que fija /api/checkout
+ * (nunca con un parámetro de la URL). Sin cookie válida —otro dispositivo o
+ * más de 24 h— se muestra el mensaje genérico de "revisa tu correo".
+ */
+export default async function SuccessPage() {
+  const orderId = readOrderAccess(cookies().get(ORDER_ACCESS_COOKIE)?.value);
   const order = orderId
     ? (await db.select().from(orders).where(eq(orders.id, orderId)).limit(1))[0]
     : null;
@@ -130,7 +133,11 @@ export default async function SuccessPage({
           </p>
         ) : (
           <p className="mt-2 text-[hsl(var(--muted-foreground))]">
-            Tu pago se está procesando. Revisa tu correo en unos minutos.
+            Revisa tu correo en unos minutos o consulta tus pedidos en{' '}
+            <Link href="/cuenta" className="underline underline-offset-4">
+              tu cuenta
+            </Link>
+            .
           </p>
         )}
       </div>
