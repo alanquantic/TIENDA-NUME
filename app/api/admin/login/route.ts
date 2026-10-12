@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { rejectCrossSite } from '@/lib/request-guard';
 import { isAdminUser } from '@/lib/admin-auth';
 import {
   ACCESS_COOKIE,
@@ -13,6 +14,9 @@ export const runtime = 'nodejs';
 
 /** Login del admin contra la API de nume; solo acepta cuentas con rol admin. */
 export async function POST(req: Request) {
+  const blocked = rejectCrossSite(req, { requireJson: true });
+  if (blocked) return blocked;
+
   const body = (await req.json().catch(() => ({}))) as { email?: unknown; password?: unknown };
   const email = typeof body.email === 'string' ? body.email.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
