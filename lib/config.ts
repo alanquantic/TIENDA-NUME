@@ -22,7 +22,9 @@ export const config = {
   downloadTokenSecret: process.env.DOWNLOAD_TOKEN_SECRET ?? 'dev-secret',
   // TEMPORAL: simula un pago exitoso sin pasarela real (mientras se integran
   // Mercado Pago / PayPal). Tiene prioridad sobre los métodos de /admin/pagos.
-  simulatePayments: envFlag(process.env.SIMULATE_PAYMENTS),
+  // Nunca se activa en el deploy de producción de Vercel: entregaría sin cobrar.
+  simulatePayments:
+    envFlag(process.env.SIMULATE_PAYMENTS) && process.env.VERCEL_ENV !== 'production',
 } as const;
 
 export const emailConfig = {

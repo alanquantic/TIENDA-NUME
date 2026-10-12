@@ -37,7 +37,7 @@ export async function GET(req: Request) {
       const capture = await capturePpOrder(mode, paypalOrderId);
       if (capture.status !== 'COMPLETED' || !capture.captureId) {
         console.error('[paypal/return] captura no completada', orderId, capture.status);
-        return redirect(`/checkout/cancel?order=${orderId}`);
+        return redirect('/checkout/cancel');
       }
       await completeOrderPayment(orderId, {
         paymentId: capture.captureId,
@@ -46,9 +46,9 @@ export async function GET(req: Request) {
       });
     } catch (err) {
       console.error('[paypal/return] error al capturar', orderId, err);
-      return redirect(`/checkout/cancel?order=${orderId}`);
+      return redirect('/checkout/cancel');
     }
   }
 
-  return redirect(`/checkout/success?order=${orderId}`);
+  return redirect('/checkout/success');
 }

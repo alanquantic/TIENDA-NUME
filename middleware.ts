@@ -189,6 +189,16 @@ export async function middleware(req: NextRequest) {
     return handleAccount(req);
   }
 
+  // ── Retorno de pasarelas: quitar el query string ─────────────
+  // Mercado Pago y PayPal agregan ids de pago/pedido a la URL de retorno. La
+  // página no los usa (identifica el pedido por cookie) y así no quedan en el
+  // historial del navegador ni llegan a la analítica.
+  if ((pathname === '/checkout/success' || pathname === '/checkout/cancel') && req.nextUrl.search) {
+    const url = req.nextUrl.clone();
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
   // ── Checkout: sesión opcional para precargar datos ───────────
   if (pathname === '/checkout') {
     return handleOptionalSession(req);
@@ -208,5 +218,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*', '/cuenta/:path*', '/checkout'],
+  matcher: [
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/cuenta/:path*',
+    '/checkout',
+    '/checkout/success',
+    '/checkout/cancel',
+  ],
 };

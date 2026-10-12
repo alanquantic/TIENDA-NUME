@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -51,6 +52,12 @@ function failureUpdate(input: StoredInput, error: string) {
   };
 }
 
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 /**
  * Tareas horarias (Vercel Cron, ver vercel.json), con `Authorization: Bearer
  * <CRON_SECRET>`. Van en una sola corrida para despertar la base de Neon una
@@ -60,8 +67,13 @@ function failureUpdate(input: StoredInput, error: string) {
  *     aviso normal de "reporte listo" llega por /api/reports/ready.
  */
 export async function GET(req: Request) {
+  // Sin CRON_SECRET el endpoint quedaría público: en producción se niega.
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!secret && process.env.VERCEL_ENV === 'production') {
+    console.error('[cron] CRON_SECRET no está configurado; se rechaza la corrida.');
+    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+  }
+  if (secret && !safeEqual(req.headers.get('authorization') ?? '', `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 
