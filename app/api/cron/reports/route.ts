@@ -67,9 +67,11 @@ function safeEqual(a: string, b: string): boolean {
  *     aviso normal de "reporte listo" llega por /api/reports/ready.
  */
 export async function GET(req: Request) {
-  // Sin CRON_SECRET el endpoint quedaría público: en producción se niega.
+  // Sin CRON_SECRET el endpoint quedaría público. Se niega en cualquier deploy
+  // de Vercel (los previews comparten la base de producción); solo en local
+  // se permite sin secreto.
   const secret = process.env.CRON_SECRET;
-  if (!secret && process.env.VERCEL_ENV === 'production') {
+  if (!secret && process.env.VERCEL_ENV) {
     console.error('[cron] CRON_SECRET no está configurado; se rechaza la corrida.');
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }

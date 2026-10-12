@@ -268,7 +268,7 @@ Lo que **sí** sigue llegando al navegador, a propósito:
 | `lib/analytics/gtag.ts`, `components/analytics/google-analytics.tsx` | GA solo recibe los parámetros de campaña de la URL |
 | `lib/config.ts` | `SIMULATE_PAYMENTS` se ignora con `VERCEL_ENV=production` |
 | `lib/payments/complete.ts` + webhooks | El modo del aviso debe coincidir con el del pedido; en producción se rechaza lo que llegue sin secreto o sin firma |
-| `app/api/cron/reports/route.ts` | En producción se rechaza si no hay `CRON_SECRET`; comparación en tiempo constante |
+| `app/api/cron/reports/route.ts` | En cualquier deploy de Vercel (producción y preview, que comparten base) se rechaza si no hay `CRON_SECRET`; comparación en tiempo constante |
 | `app/api/descargas/[token]/route.ts` | Consumo de descarga atómico (`UPDATE … WHERE downloads_used < download_limit`) |
 | `lib/request-guard.ts` (nuevo) + login/logout/checkout | Rechaza un `Origin` ajeno (403) y los cuerpos que no son JSON (415) |
 | `next.config.mjs` | `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS; quita `X-Powered-By` |
