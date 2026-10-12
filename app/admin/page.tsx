@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { productVariants, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
+import { effectivePrice } from '@/lib/sale-price';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,9 @@ export default async function AdminHome() {
       status: products.status,
       currency: products.currency,
       price: productVariants.priceAmount,
+      salePrice: productVariants.salePriceAmount,
+      saleStartsAt: productVariants.saleStartsAt,
+      saleEndsAt: productVariants.saleEndsAt,
     })
     .from(products)
     .leftJoin(
@@ -71,6 +75,28 @@ export default async function AdminHome() {
                   </td>
                   <td className="px-4 py-3">
                     {p.price ? formatDecimal(p.price, p.currency) : '—'}
+                    {p.price &&
+                      p.salePrice &&
+                      (() => {
+                        const current = effectivePrice({
+                          priceAmount: p.price,
+                          salePriceAmount: p.salePrice,
+                          saleStartsAt: p.saleStartsAt,
+                          saleEndsAt: p.saleEndsAt,
+                        });
+                        return (
+                          <span
+                            className={`ml-2 text-xs ${
+                              current.onSale
+                                ? 'font-semibold text-[hsl(var(--primary))]'
+                                : 'text-[hsl(var(--muted-foreground))]'
+                            }`}
+                          >
+                            Oferta {formatDecimal(p.salePrice, p.currency)}
+                            {current.onSale ? '' : ' (inactiva)'}
+                          </span>
+                        );
+                      })()}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-3">

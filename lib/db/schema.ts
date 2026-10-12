@@ -138,7 +138,13 @@ export const productVariants = pgTable(
       .references(() => products.id, { onDelete: 'cascade' }),
     name: text('name').notNull().default('Default'),
     sku: varchar('sku', { length: 80 }),
+    // Precio regular (original). Es el que se cobra cuando no hay oferta vigente.
     priceAmount: decimal('price_amount', { precision: 10, scale: 2 }).notNull(),
+    // Precio de oferta (opcional). Solo aplica si es menor al regular y la fecha
+    // actual cae dentro de [saleStartsAt, saleEndsAt); null en un extremo = abierto.
+    salePriceAmount: decimal('sale_price_amount', { precision: 10, scale: 2 }),
+    saleStartsAt: timestamp('sale_starts_at', { withTimezone: true }),
+    saleEndsAt: timestamp('sale_ends_at', { withTimezone: true }),
     // Stock disponible. Ignorado para productos digitales (stock infinito).
     stock: integer('stock').notNull().default(0),
     // true = descuenta stock y bloquea sobreventa. Digital = false.

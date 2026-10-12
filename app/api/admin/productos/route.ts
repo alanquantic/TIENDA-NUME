@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { digitalAssets, productVariants, products } from '@/lib/db/schema';
 import { adminProductSchema } from '@/lib/validation';
+import { inventoryColumns, saleColumns } from '@/lib/admin-product-columns';
 
 export const runtime = 'nodejs';
 
@@ -53,8 +54,8 @@ export async function POST(req: Request) {
     productId: product.id,
     name: 'Default',
     priceAmount: d.price,
-    stock: d.type === 'physical' ? d.stock ?? 0 : 0,
-    trackInventory: d.type === 'physical',
+    ...saleColumns(d),
+    ...inventoryColumns(d),
     isDefault: true,
   });
 

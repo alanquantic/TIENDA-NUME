@@ -3,6 +3,7 @@ import { and, eq, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { digitalAssets, productVariants, products } from '@/lib/db/schema';
 import { adminProductSchema } from '@/lib/validation';
+import { inventoryColumns, saleColumns } from '@/lib/admin-product-columns';
 import { isReportSlug } from '@/lib/report-catalog';
 
 export const runtime = 'nodejs';
@@ -101,8 +102,8 @@ export async function PATCH(
       .update(productVariants)
       .set({
         priceAmount: d.price,
-        stock: d.type === 'physical' ? d.stock ?? 0 : 0,
-        trackInventory: d.type === 'physical',
+        ...saleColumns(d),
+        ...inventoryColumns(d),
         updatedAt: new Date(),
       })
       .where(eq(productVariants.id, defaultVariant.id));
@@ -111,8 +112,8 @@ export async function PATCH(
       productId: existing.id,
       name: 'Default',
       priceAmount: d.price,
-      stock: d.type === 'physical' ? d.stock ?? 0 : 0,
-      trackInventory: d.type === 'physical',
+      ...saleColumns(d),
+      ...inventoryColumns(d),
       isDefault: true,
     });
   }

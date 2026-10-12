@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { catalogCardToGaItem, track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
-import { formatDecimal } from '@/lib/money';
 import type { CatalogCard } from '@/lib/queries';
+import { discountPercent } from '@/lib/sale-price';
+import { PriceWithSale, SaleBadge } from '@/components/sale-price';
 
 export function ProductCard({
   product,
@@ -21,6 +22,13 @@ export function ProductCard({
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
   const soldOut = product.maxStock !== null && product.maxStock <= 0;
+  const onSale = product.regularPriceAmount !== null;
+  const percent = discountPercent({
+    priceAmount: product.priceAmount,
+    regularPriceAmount: product.regularPriceAmount,
+    onSale,
+    saleEndsAt: product.saleEndsAt,
+  });
 
   function gaItem() {
     return catalogCardToGaItem(product, {
@@ -65,7 +73,8 @@ export function ProductCard({
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] transition-shadow hover:shadow-md">
       <Link href={`/productos/${product.slug}`} className="block" onClick={handleSelect}>
-        <div className="aspect-square overflow-hidden bg-[hsl(var(--muted))]">
+        <div className="relative aspect-square overflow-hidden bg-[hsl(var(--muted))]">
+          {onSale && <SaleBadge percent={percent} className="absolute left-2 top-2 z-10" />}
           {product.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -97,8 +106,12 @@ export function ProductCard({
           {product.name}
         </Link>
 
-        <p className="mt-2 font-semibold text-[hsl(var(--primary))]">
-          {formatDecimal(product.priceAmount, product.currency)}
+        <p className="mt-2 font-semibold">
+          <PriceWithSale
+            priceAmount={product.priceAmount}
+            regularPriceAmount={product.regularPriceAmount}
+            currency={product.currency}
+          />
         </p>
 
         <button

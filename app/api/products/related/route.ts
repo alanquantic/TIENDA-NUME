@@ -3,6 +3,7 @@ import { and, desc, eq, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { categories, productVariants, products } from '@/lib/db/schema';
+import { effectivePrice } from '@/lib/sale-price';
 
 export const runtime = 'nodejs';
 // Cache CDN 5 min. La lista de productos cambia poco y los posts la consumen
@@ -16,7 +17,11 @@ type ProductPayload = {
   description: string | null;
   image: string | null;
   currency: string;
+  /** Precio vigente (de oferta si aplica). */
   price: string | null;
+  /** Precio regular a mostrar tachado; null si no hay oferta vigente. */
+  regular_price: string | null;
+  on_sale: boolean;
   category: string | null;
   url: string;
 };
@@ -90,6 +95,9 @@ export async function GET(req: Request) {
       images: products.images,
       currency: products.currency,
       variantPrice: productVariants.priceAmount,
+      variantSalePrice: productVariants.salePriceAmount,
+      variantSaleStartsAt: productVariants.saleStartsAt,
+      variantSaleEndsAt: productVariants.saleEndsAt,
       isDefault: productVariants.isDefault,
       categoryName: categories.name,
       createdAt: products.createdAt,
@@ -108,6 +116,12 @@ export async function GET(req: Request) {
     const existing = byProduct.get(r.id);
     if (existing && !r.isDefault) continue;
     const images = Array.isArray(r.images) ? (r.images as string[]) : [];
+    const price = effectivePrice({
+      priceAmount: r.variantPrice,
+      salePriceAmount: r.variantSalePrice,
+      saleStartsAt: r.variantSaleStartsAt,
+      saleEndsAt: r.variantSaleEndsAt,
+    });
     byProduct.set(r.id, {
       id: r.id,
       slug: r.slug,
@@ -115,7 +129,9 @@ export async function GET(req: Request) {
       description: r.description,
       image: images[0] ?? null,
       currency: r.currency,
-      price: r.variantPrice,
+      price: price.priceAmount,
+      regular_price: price.regularPriceAmount,
+      on_sale: price.onSale,
       category: r.categoryName,
       url: buildProductUrl(r.slug, origin),
     });
