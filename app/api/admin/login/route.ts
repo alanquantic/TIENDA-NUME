@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { rejectCrossSite } from '@/lib/request-guard';
 import { isAdminUser } from '@/lib/admin-auth';
 import {
   ACCESS_COOKIE,
   NumeApiError,
+  clientIpFrom,
   numeLogin,
   numeLogout,
   REFRESH_COOKIE,
@@ -13,7 +14,7 @@ import {
 export const runtime = 'nodejs';
 
 /** Login del admin contra la API de nume; solo acepta cuentas con rol admin. */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const blocked = rejectCrossSite(req, { requireJson: true });
   if (blocked) return blocked;
 
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const session = await numeLogin(email, password);
+    const session = await numeLogin(email, password, clientIpFrom(req.headers, req.ip));
     if (!isAdminUser(session.user)) {
       await numeLogout(session.access_token);
       return NextResponse.json(
