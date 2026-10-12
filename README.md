@@ -1,10 +1,10 @@
 # Tienda Nume
 
 Tienda en línea (storefront + backend) para **productos digitales y físicos**,
-construida con Next.js 14 full-stack, Drizzle (Neon/Postgres) y Stripe.
+construida con Next.js 14 full-stack, Drizzle (Neon/Postgres), Mercado Pago y PayPal.
 
 > Fase 1 (esto): productos digitales y físicos con carrito, checkout de invitado,
-> pagos con Stripe, descargas digitales, stock, envío e impuesto fijo.
+> pagos con Mercado Pago y PayPal, descargas digitales, stock, envío e impuesto fijo.
 > Fase 2 (después): membresías (→ nume) y licencias (→ arithmax) sobre esta misma base.
 
 ---
@@ -13,7 +13,7 @@ construida con Next.js 14 full-stack, Drizzle (Neon/Postgres) y Stripe.
 
 - **Next.js 14** (App Router, TypeScript) — storefront + API en un solo proyecto.
 - **Drizzle ORM** + **Neon** (Postgres).
-- **Stripe Checkout** (redirect) + webhooks.
+- **Mercado Pago Checkout Pro** y **PayPal Orders v2** (redirect) + webhooks, vía API REST.
 - **Zustand** para el carrito (cliente, persistido en `localStorage`).
 - Deploy pensado para **Vercel** + **Neon**.
 
@@ -24,18 +24,17 @@ construida con Next.js 14 full-stack, Drizzle (Neon/Postgres) y Stripe.
 | Catálogo (categorías, digital/físico, variantes) | ✅ |
 | Página de producto + carrito | ✅ |
 | Checkout de **invitado** con correo | ✅ |
-| Stripe Checkout (total exacto: subtotal, envío, impuesto, descuento) | ✅ |
-| Webhook con **verificación de firma** + **idempotencia** | ✅ |
+| Mercado Pago y PayPal (total exacto: subtotal, envío, impuesto, descuento) | ✅ |
+| Webhooks: el pago se confirma consultando la API + firma opcional + bitácora | ✅ |
 | Fulfillment transaccional: descuento de stock + descargas | ✅ |
 | Entrega de productos **digitales** por enlace con token | ✅ |
 | Envío por tarifa plana/zona + envío gratis por umbral | ✅ |
 | Cupones de descuento (% o monto fijo) | ✅ |
 | Impuesto fijo por configuración | ✅ |
 | Checkout con datos del cliente (nombre, apellidos, tel., nacimiento, dirección) | ✅ |
-| Panel admin: productos, **pedidos**, **cupones** | ✅ |
+| Panel admin: productos, **pedidos**, **cupones**, **envíos**, **pagos** | ✅ |
 | Importar productos de WooCommerce (CSV) | ✅ |
 | Cuentas de cliente (login/registro) | ⏳ esquema listo, UI pendiente |
-| Pagos con Mercado Pago + PayPal | ⏳ siguiente paso (hoy el checkout usa Stripe) |
 | Correo real (hoy es stub en consola) | ⏳ pendiente |
 
 ## Estructura
@@ -46,10 +45,11 @@ app/
   productos/[slug]/page.tsx    Detalle de producto
   carrito/page.tsx             Carrito
   checkout/page.tsx            Checkout (form)
-  checkout/success|cancel/     Retorno de Stripe
+  checkout/success|cancel/     Retorno de la pasarela
   api/
-    checkout/route.ts          Crea pedido + sesión de Stripe
-    webhooks/stripe/route.ts   Recibe eventos de Stripe (idempotente)
+    checkout/route.ts          Crea pedido + cobro en Mercado Pago o PayPal
+    webhooks/mercadopago|paypal/ Avisos de pago de cada pasarela
+    payments/paypal/return/    Captura el cobro al volver de PayPal
     descargas/[token]/route.ts Descarga de productos digitales
 components/                     UI (header, carrito, checkout, etc.)
 lib/
@@ -74,9 +74,9 @@ drizzle/                       Migraciones SQL generadas
    ```
    - `DATABASE_URL`: crea una base en [Neon](https://neon.tech) y usa la
      connection string **pooled** (con `-pooler` en el host).
-   - `STRIPE_SECRET_KEY` y `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: de tu
-     [dashboard de Stripe](https://dashboard.stripe.com/apikeys) (modo test).
-   - `STRIPE_WEBHOOK_SECRET`: ver paso 5.
+   - `MERCADOPAGO_*` y `PAYPAL_*`: llaves de cada pasarela por modo (prueba y
+     producción). Luego se activan en **/admin/pagos**.
+   - O `SIMULATE_PAYMENTS="true"` para probar el flujo sin pasarela.
 
 3. **Migraciones** (crea las tablas en Neon):
    ```bash
@@ -90,18 +90,16 @@ drizzle/                       Migraciones SQL generadas
    npm run db:seed
    ```
 
-5. **Webhook de Stripe** (en otra terminal, con el
-   [CLI de Stripe](https://stripe.com/docs/stripe-cli)):
-   ```bash
-   stripe listen --forward-to localhost:3002/api/webhooks/stripe
-   ```
-   Copia el `whsec_...` que imprime a `STRIPE_WEBHOOK_SECRET` en `.env.local`.
+5. **Avisos de pago en local**: Mercado Pago y PayPal no pueden llamar a
+   `localhost`. En local el cobro de PayPal se confirma al volver a la tienda;
+   para probar los webhooks usa un túnel (p. ej. ngrok) o el preview de Vercel.
 
 6. **Arrancar**:
    ```bash
    npm run dev
    ```
-   Abre <http://localhost:3002>. Usa la tarjeta de prueba `4242 4242 4242 4242`.
+   Abre <http://localhost:3002>. Para pagar en modo prueba usa los usuarios y
+   tarjetas de prueba de Mercado Pago o una cuenta sandbox de PayPal.
 
 ## Scripts
 
@@ -134,11 +132,13 @@ Reglas del importador ([lib/db/import-wc.ts](lib/db/import-wc.ts)):
 
 - **El precio nunca se confía al cliente.** `lib/pricing.ts` recalcula todo
   desde la BD; el carrito del navegador solo guarda un snapshot para mostrar.
-- **La sesión de Stripe cobra exactamente el total del pedido.** El descuento va
-  como cupón `amount_off`, que reduce el total en el monto exacto sin importar
-  la composición de líneas.
-- **Idempotencia de webhooks** por `(provider, event_id)` único. Un evento se
-  procesa una sola vez; si Stripe reintenta, se hace ack sin duplicar.
+- **La pasarela cobra exactamente el total del pedido.** Se envía una sola
+  partida por el total (ya con descuento, envío e impuestos), y al confirmar el
+  pago se verifica que monto y moneda cobrados coincidan con el pedido.
+- **Nunca se confía en el aviso de la pasarela**: el estado del pago se consulta
+  en su API. Los avisos quedan en `webhook_events`; el fulfillment es idempotente.
+- **Las llaves de las pasarelas viven en variables de entorno**; la BD
+  (`payment_settings`) solo guarda si cada método está activo y en qué modo.
 - **Fulfillment transaccional**: marcar pagado, descontar stock y crear las
   descargas ocurren en una sola transacción; re-ejecutar es no-op.
 - **Pedidos inmutables**: `order_items` guarda snapshots (nombre, precio) para

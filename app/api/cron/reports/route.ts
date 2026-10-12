@@ -13,6 +13,7 @@ import {
   type ReportKey,
 } from '@/lib/report-catalog';
 import { markGeneratedReportReady } from '@/lib/report-ready';
+import { expireAbandonedOrders } from '@/lib/payments/expire';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,11 +29,35 @@ type StoredInput = {
   jobId?: string | null;
   previewUrl?: string | null;
   jsonUrl?: string | null;
+  /** Intentos fallidos acumulados; al llegar a MAX_ATTEMPTS el reporte queda 'failed'. */
+  attempts?: number;
 };
 
 /**
- * Reprocesa reportes pendientes/errores. Lo llama Vercel Cron (o cualquier
- * scheduler externo) enviando `Authorization: Bearer <CRON_SECRET>`.
+ * Tope de reintentos por reporte. Un reporte que falla 5 veces queda en
+ * 'failed' y el cron deja de tocarlo (se revisa a mano), para no gastar cómputo
+ * de Neon ni llamar al generador indefinidamente.
+ */
+const MAX_ATTEMPTS = 5;
+
+/** Estado tras un fallo más: 'error' (se reintenta) o 'failed' (definitivo). */
+function failureUpdate(input: StoredInput, error: string) {
+  const attempts = (input.attempts ?? 0) + 1;
+  return {
+    status: attempts >= MAX_ATTEMPTS ? 'failed' : 'error',
+    error,
+    input: { ...input, attempts },
+    updatedAt: new Date(),
+  };
+}
+
+/**
+ * Tareas horarias (Vercel Cron, ver vercel.json), con `Authorization: Bearer
+ * <CRON_SECRET>`. Van en una sola corrida para despertar la base de Neon una
+ * vez por hora:
+ *  1. Cancela pedidos abandonados (sin pago tras 1 hora) y avisa al cliente.
+ *  2. Reprocesa reportes pendientes/errores. Es solo una red de seguridad: el
+ *     aviso normal de "reporte listo" llega por /api/reports/ready.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -40,8 +65,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 
+  let pedidos: Awaited<ReturnType<typeof expireAbandonedOrders>> | { error: string };
+  try {
+    pedidos = await expireAbandonedOrders();
+  } catch (err) {
+    console.error('[cron] fallo al revisar pedidos abandonados', err);
+    pedidos = { error: String(err) };
+  }
+
   if (!isReportGeneratorConfigured()) {
-    return NextResponse.json({ ok: true, nota: 'generador no configurado' });
+    return NextResponse.json({ ok: true, pedidos, nota: 'generador no configurado' });
   }
 
   const pending = await db
@@ -62,7 +95,7 @@ export async function GET(req: Request) {
     if (!isStatic && !input.person) {
       await db
         .update(generatedReports)
-        .set({ status: 'error', error: 'Sin datos de persona', updatedAt: new Date() })
+        .set({ status: 'failed', error: 'Sin datos de persona', updatedAt: new Date() })
         .where(eq(generatedReports.id, reportRow.id));
       failed++;
       continue;
@@ -115,11 +148,7 @@ export async function GET(req: Request) {
         if (job.status === 'error') {
           await db
             .update(generatedReports)
-            .set({
-              status: 'error',
-              error: job.error ?? 'El job IA terminó con error.',
-              updatedAt: new Date(),
-            })
+            .set(failureUpdate(input, job.error ?? 'El job IA terminó con error.'))
             .where(eq(generatedReports.id, reportRow.id));
           failed++;
           continue;
@@ -154,11 +183,11 @@ export async function GET(req: Request) {
     } catch (error) {
       await db
         .update(generatedReports)
-        .set({ status: 'error', error: String(error), updatedAt: new Date() })
+        .set(failureUpdate(input, String(error)))
         .where(eq(generatedReports.id, reportRow.id));
       failed++;
     }
   }
 
-  return NextResponse.json({ ok: true, procesados: pending.length, ready, queued, failed });
+  return NextResponse.json({ ok: true, pedidos, procesados: pending.length, ready, queued, failed });
 }

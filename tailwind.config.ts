@@ -18,14 +18,16 @@ const config: Config = {
         accent: 'hsl(var(--accent) / <alpha-value>)',
         'accent-foreground': 'hsl(var(--accent-foreground) / <alpha-value>)',
         fuchsia: 'hsl(var(--fuchsia) / <alpha-value>)',
+        topbar: 'hsl(var(--topbar) / <alpha-value>)',
+        navbar: 'hsl(var(--navbar) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         display: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        panel: '0 18px 60px hsl(263 67% 35% / 0.12)',
-        glow: '0 24px 70px hsl(295 78% 40% / 0.18)',
+        panel: '0 18px 60px hsl(308 37% 30% / 0.12)',
+        glow: '0 24px 70px hsl(340 60% 50% / 0.18)',
       },
     },
   },

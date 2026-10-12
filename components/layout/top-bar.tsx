@@ -29,13 +29,13 @@ function getCollectiveEnergy(): readonly CollectiveEnergy[] {
       id: 'dia',
       label: 'Día',
       value: universal.calcUniversalDay(params),
-      valueClassName: 'text-[hsl(var(--accent))]',
+      valueClassName: 'text-[hsl(var(--fuchsia))]',
     },
     {
       id: 'semana',
       label: 'Sem',
       value: universal.calcCurrentUniversalWeek(params),
-      valueClassName: 'text-[hsl(var(--primary))]',
+      valueClassName: 'text-[hsl(var(--fuchsia))]',
     },
     {
       id: 'mes',
@@ -50,7 +50,7 @@ export function TopBar() {
   const collectiveEnergy = getCollectiveEnergy();
 
   return (
-    <div className="bg-gradient-brand text-white">
+    <div className="bg-topbar text-white">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-3 text-center sm:flex-row sm:justify-between sm:gap-4 sm:px-6 sm:py-2 sm:text-left">
         <h2 className="text-2xl font-medium tracking-wide text-white/85 sm:text-3xl">
           Energía Colectiva
@@ -59,7 +59,7 @@ export function TopBar() {
         <div className="flex items-center gap-2 sm:gap-3">
           {collectiveEnergy.map((energy) => (
             <div key={energy.id} className="flex flex-col items-center">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white font-display text-base font-semibold ring-1 ring-white/40 shadow-[0_8px_18px_hsl(var(--foreground)/0.14)]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white font-display text-base font-semibold ring-2 ring-navbar shadow-[0_3px_6px_rgb(0_0_0/0.35)]">
                 <span className={energy.valueClassName}>{energy.value}</span>
               </span>
               <span className="mt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-white/70">

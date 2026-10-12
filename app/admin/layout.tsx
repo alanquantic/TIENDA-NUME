@@ -5,8 +5,8 @@ import { LogoutButton } from '@/components/admin/logout-button';
 
 export const metadata: Metadata = { title: 'Admin', robots: { index: false } };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const authed = isAdminAuthed();
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const authed = await isAdminAuthed();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -21,6 +21,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
             <Link href="/admin/cupones" className="hover:opacity-70">
               Cupones
+            </Link>
+            <Link href="/admin/envios" className="hover:opacity-70">
+              Envíos
+            </Link>
+            <Link href="/admin/pagos" className="hover:opacity-70">
+              Pagos
             </Link>
             <Link href="/admin/productos/nuevo" className="hover:opacity-70">
               + Nuevo

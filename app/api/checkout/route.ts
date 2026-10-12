@@ -1,15 +1,16 @@
 import { randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
-import type Stripe from 'stripe';
 import { db } from '@/lib/db';
 import { orderItems, orders } from '@/lib/db/schema';
 import { priceCart, PricingError } from '@/lib/pricing';
-import { getStripe } from '@/lib/stripe';
 import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
 import { fulfillOrder } from '@/lib/fulfillment';
+import { getAvailablePaymentMethods, PAYMENT_METHOD_LABEL } from '@/lib/payments/settings';
+import { createMpPreference } from '@/lib/payments/mercadopago';
+import { createPpOrder } from '@/lib/payments/paypal';
 import {
   reportsForSlug,
   AGENDA_2025_COLORS,
@@ -94,6 +95,17 @@ export async function POST(req: Request) {
   const input = parsed.data;
   const baseUrl = resolveBaseUrl(req);
 
+  // Método de pago: debe estar activo y con llaves en /admin/pagos.
+  const method = config.simulatePayments
+    ? null
+    : (await getAvailablePaymentMethods()).find((m) => m.method === input.paymentMethod) ?? null;
+  if (!config.simulatePayments && !method) {
+    return NextResponse.json(
+      { error: 'Elige un método de pago disponible.' },
+      { status: 400 },
+    );
+  }
+
   // 1) Precio autoritativo (recalculado desde la BD).
   let quote;
   try {
@@ -125,7 +137,7 @@ export async function POST(req: Request) {
       customerPhone: input.phone,
       customerBirthDate: input.birthDate ? input.birthDate : null,
       status: 'pending',
-      provider: config.simulatePayments ? 'manual' : 'stripe',
+      provider: method?.method ?? 'manual',
       currency: quote.currency,
       subtotalAmount: fromMinorToDecimalString(quote.subtotalMinor),
       shippingAmount: fromMinorToDecimalString(quote.shippingMinor),
@@ -138,6 +150,7 @@ export async function POST(req: Request) {
       shippingAddress: input.shippingAddress ?? null,
       requiresInvoice: input.requiresInvoice ?? false,
       billingInfo: input.requiresInvoice ? (input.billingInfo ?? null) : null,
+      metadata: method ? { paymentMode: method.mode } : {},
     })
     .returning();
 
@@ -220,72 +233,50 @@ export async function POST(req: Request) {
     });
   }
 
-  // 3) Sesión de Stripe cuyo total == quote.totalMinor.
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = quote.lines.map(
-    (line) => ({
-      quantity: line.quantity,
-      price_data: {
-        currency: quote.currency.toLowerCase(),
-        unit_amount: line.unitAmountMinor,
-        product_data: {
-          name: line.variantName ? `${line.name} — ${line.variantName}` : line.name,
-          ...(line.image && line.image.startsWith('http') ? { images: [line.image] } : {}),
-        },
-      },
-    }),
-  );
+  // 3) Cobro en la pasarela elegida por el total exacto del pedido.
+  // (TS: con simulatePayments=false, `method` ya se validó arriba.)
+  const payment = method!;
+  const itemCount = quote.lines.reduce((n, line) => n + line.quantity, 0);
+  const description = `Pedido ${number} · ${itemCount} ${itemCount === 1 ? 'artículo' : 'artículos'}`;
+  const successUrl = `${baseUrl}/checkout/success?order=${order.id}`;
+  const cancelUrl = `${baseUrl}/checkout/cancel?order=${order.id}`;
+  const isLocal = /localhost|127\.0\.0\.1/.test(baseUrl);
 
-  if (quote.taxMinor > 0) {
-    lineItems.push({
-      quantity: 1,
-      price_data: {
-        currency: quote.currency.toLowerCase(),
-        unit_amount: quote.taxMinor,
-        product_data: { name: 'Impuestos' },
-      },
-    });
-  }
-
-  if (quote.shippingMinor > 0) {
-    lineItems.push({
-      quantity: 1,
-      price_data: {
-        currency: quote.currency.toLowerCase(),
-        unit_amount: quote.shippingMinor,
-        product_data: { name: `Envío${quote.shippingMethod ? ` (${quote.shippingMethod})` : ''}` },
-      },
-    });
-  }
-
-  let session;
+  let checkoutUrl: string;
+  let externalId: string;
   try {
-    const stripe = getStripe();
-
-    // Descuento: cupón ad-hoc amount_off (reduce el total exactamente en discountMinor).
-    const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
-    if (quote.discountMinor > 0) {
-      const coupon = await stripe.coupons.create({
-        amount_off: quote.discountMinor,
-        currency: quote.currency.toLowerCase(),
-        duration: 'once',
-        name: quote.discountCode ?? 'Descuento',
-        max_redemptions: 1,
+    if (payment.method === 'mercadopago') {
+      const pref = await createMpPreference(payment.mode, {
+        orderId: order.id,
+        orderNumber: number,
+        title: description,
+        totalAmount: quote.totalMinor / 100,
+        currency: quote.currency,
+        payer: { email: input.email, firstName: input.firstName, lastName: input.lastName },
+        successUrl,
+        failureUrl: cancelUrl,
+        pendingUrl: successUrl,
+        notificationUrl: isLocal
+          ? null
+          : `${baseUrl}/api/webhooks/mercadopago?mode=${payment.mode}`,
       });
-      discounts.push({ coupon: coupon.id });
+      checkoutUrl = pref.url;
+      externalId = pref.preferenceId;
+    } else {
+      const ppOrder = await createPpOrder(payment.mode, {
+        orderId: order.id,
+        orderNumber: number,
+        description,
+        totalAmount: fromMinorToDecimalString(quote.totalMinor),
+        currency: quote.currency,
+        returnUrl: `${baseUrl}/api/payments/paypal/return?order=${order.id}`,
+        cancelUrl,
+      });
+      checkoutUrl = ppOrder.url;
+      externalId = ppOrder.paypalOrderId;
     }
-
-    session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer_email: input.email,
-      line_items: lineItems,
-      discounts: discounts.length ? discounts : undefined,
-      success_url: `${baseUrl}/checkout/success?order=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/checkout/cancel?order=${order.id}`,
-      metadata: { orderId: order.id, orderNumber: number },
-      payment_intent_data: { metadata: { orderId: order.id } },
-    });
   } catch (err) {
-    console.error('Inicio de pago falló', err);
+    console.error(`Inicio de pago con ${PAYMENT_METHOD_LABEL[payment.method]} falló`, err);
     await db
       .update(orders)
       .set({ status: 'cancelled', cancelledAt: new Date() })
@@ -298,8 +289,8 @@ export async function POST(req: Request) {
 
   await db
     .update(orders)
-    .set({ externalCheckoutId: session.id, updatedAt: new Date() })
+    .set({ externalCheckoutId: externalId, updatedAt: new Date() })
     .where(eq(orders.id, order.id));
 
-  return NextResponse.json({ url: session.url, orderId: order.id });
+  return NextResponse.json({ url: checkoutUrl, orderId: order.id });
 }

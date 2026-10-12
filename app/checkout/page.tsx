@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { orders, products, shippingRates } from '@/lib/db/schema';
 import { config } from '@/lib/config';
 import { getSessionUser } from '@/lib/nume-session';
+import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import {
   CheckoutForm,
   type CheckoutPrefill,
@@ -45,7 +46,7 @@ async function prefillForSession(): Promise<CheckoutPrefill | null> {
 }
 
 export default async function CheckoutPage() {
-  const [rates, physicalProducts, prefill] = await Promise.all([
+  const [rates, physicalProducts, prefill, paymentMethods] = await Promise.all([
     db
       .select()
       .from(shippingRates)
@@ -56,6 +57,7 @@ export default async function CheckoutPage() {
       .from(products)
       .where(and(eq(products.status, 'active'), eq(products.type, 'physical'))),
     prefillForSession(),
+    getAvailablePaymentMethods(),
   ]);
 
   const dto: ShippingRateDTO[] = rates.map((r) => ({
@@ -83,6 +85,7 @@ export default async function CheckoutPage() {
         shippingRates={dto}
         physicalProductSlugs={physicalProducts.map((product) => product.slug)}
         currency={config.currency}
+        paymentMethods={paymentMethods.map((m) => ({ method: m.method, label: m.label }))}
         simulate={config.simulatePayments}
         prefill={prefill}
       />

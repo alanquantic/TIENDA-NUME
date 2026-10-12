@@ -6,12 +6,12 @@ import {
   sessionCookieOptions,
 } from '@/lib/nume-auth';
 
-const ADMIN_COOKIE = 'admin_session';
-
 type AuthSessionResponse = {
   access_token: string;
   refresh_token: string;
 };
+
+type MeResponse = { role?: string };
 
 function redirectToAccountLogin(req: NextRequest) {
   const url = req.nextUrl.clone();
@@ -122,6 +122,65 @@ async function handleOptionalSession(req: NextRequest) {
   return res;
 }
 
+/**
+ * Protege /admin y /api/admin: exige una sesión de nume cuyo usuario tenga
+ * `role: 'admin'`. Renueva el access token vencido igual que /cuenta. Si la API
+ * de nume no responde, se niega el acceso (a diferencia de /cuenta).
+ */
+async function handleAdmin(req: NextRequest) {
+  try {
+    return await checkAdmin(req);
+  } catch (error) {
+    // API de nume caída o inalcanzable: se niega el acceso sin tumbar la página.
+    console.error('[middleware] no se pudo validar la sesión admin:', error);
+    return req.nextUrl.pathname.startsWith('/api/admin')
+      ? NextResponse.json({ error: 'No se pudo validar la sesión.' }, { status: 503 })
+      : NextResponse.redirect(new URL('/admin/login', req.url));
+  }
+}
+
+async function checkAdmin(req: NextRequest) {
+  const isApi = req.nextUrl.pathname.startsWith('/api/admin');
+  const deny = (clearCookies = false) => {
+    const res = isApi
+      ? NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+      : NextResponse.redirect(new URL('/admin/login', req.url));
+    if (clearCookies) clearSessionCookies(res);
+    return res;
+  };
+
+  const accessToken = req.cookies.get(ACCESS_COOKIE)?.value;
+  const refreshToken = req.cookies.get(REFRESH_COOKIE)?.value;
+  let refreshed: AuthSessionResponse | null = null;
+  let meResponse = accessToken ? await fetchMe(accessToken) : null;
+
+  // Sin access token o vencido (401): intenta renovar con el refresh token.
+  if ((!meResponse || meResponse.status === 401) && refreshToken) {
+    const refreshResponse = await fetch(`${NUME_API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: 'no-store',
+    });
+    if (!refreshResponse.ok) return deny(true);
+    refreshed = (await refreshResponse.json()) as AuthSessionResponse;
+    meResponse = await fetchMe(refreshed.access_token);
+  }
+
+  if (!meResponse?.ok) return deny();
+  const me = (await meResponse.json()) as MeResponse;
+  if (me.role !== 'admin') return deny();
+
+  if (!refreshed) return NextResponse.next();
+
+  req.cookies.set(ACCESS_COOKIE, refreshed.access_token);
+  req.cookies.set(REFRESH_COOKIE, refreshed.refresh_token);
+  const res = NextResponse.next({ request: { headers: req.headers } });
+  res.cookies.set({ name: ACCESS_COOKIE, value: refreshed.access_token, ...sessionCookieOptions });
+  res.cookies.set({ name: REFRESH_COOKIE, value: refreshed.refresh_token, ...sessionCookieOptions });
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -135,29 +194,14 @@ export async function middleware(req: NextRequest) {
     return handleOptionalSession(req);
   }
 
-  // ── Panel admin (cookie local ADMIN_TOKEN) ───────────────────
-  const token = process.env.ADMIN_TOKEN ?? '';
-  const cookie = req.cookies.get(ADMIN_COOKIE)?.value;
-  const authed = token.length > 0 && cookie === token;
-
+  // ── Panel admin (sesión de nume con rol admin) ───────────────
   // El login siempre pasa.
   if (pathname === '/admin/login' || pathname === '/api/admin/login') {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith('/api/admin')) {
-    if (!authed) {
-      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
-    }
-    return NextResponse.next();
-  }
-
-  if (pathname.startsWith('/admin')) {
-    if (!authed) {
-      const url = req.nextUrl.clone();
-      url.pathname = '/admin/login';
-      return NextResponse.redirect(url);
-    }
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    return handleAdmin(req);
   }
 
   return NextResponse.next();
