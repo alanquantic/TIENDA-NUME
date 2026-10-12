@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   ACCESS_COOKIE,
+  clientIpFrom,
   NUME_API_BASE_URL,
+  proxyHeaders,
   REFRESH_COOKIE,
   sessionCookieOptions,
 } from '@/lib/nume-auth';
@@ -61,7 +63,10 @@ async function handleAccount(req: NextRequest) {
 
   const refreshResponse = await fetch(`${NUME_API_BASE_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...proxyHeaders(clientIpFrom(req.headers, req.ip)),
+    },
     body: JSON.stringify({ refresh_token: refreshToken }),
     cache: 'no-store',
   });
@@ -102,7 +107,10 @@ async function handleOptionalSession(req: NextRequest) {
 
   const refreshResponse = await fetch(`${NUME_API_BASE_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...proxyHeaders(clientIpFrom(req.headers, req.ip)),
+    },
     body: JSON.stringify({ refresh_token: refreshToken }),
     cache: 'no-store',
   });
@@ -158,7 +166,10 @@ async function checkAdmin(req: NextRequest) {
   if ((!meResponse || meResponse.status === 401) && refreshToken) {
     const refreshResponse = await fetch(`${NUME_API_BASE_URL}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...proxyHeaders(clientIpFrom(req.headers, req.ip)),
+      },
       body: JSON.stringify({ refresh_token: refreshToken }),
       cache: 'no-store',
     });
