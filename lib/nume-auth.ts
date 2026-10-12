@@ -84,16 +84,48 @@ async function numeFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function numeLogin(email: string, password: string): Promise<NumeAuthSession> {
+/**
+ * IP real del visitante para la API de nume. La tienda llama a la API desde su
+ * servidor, así que sin esto todas las peticiones llegan con la IP de Vercel y
+ * el rate limit por IP de la API bloquearía a todos los clientes a la vez.
+ * Toma el primer valor de `x-forwarded-for`, luego `x-real-ip`, luego el fallback.
+ */
+export function clientIpFrom(headers: Headers, fallback?: string | null): string | null {
+  const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const ip = forwarded || headers.get('x-real-ip')?.trim() || fallback || null;
+  return ip ? ip.slice(0, 64) : null;
+}
+
+/**
+ * Cabeceras para que la API de nume confíe en la IP reenviada. Solo se mandan
+ * si existe INTERNAL_PROXY_SECRET (mismo valor en la API, la web y la tienda);
+ * sin él no se envía nada y la API usa la IP de la conexión, como antes.
+ */
+export function proxyHeaders(clientIp?: string | null): Record<string, string> {
+  const secret = process.env.INTERNAL_PROXY_SECRET?.trim();
+  if (!secret || !clientIp) return {};
+  return { 'X-Nume-Client-IP': clientIp, 'X-Nume-Proxy-Key': secret };
+}
+
+export function numeLogin(
+  email: string,
+  password: string,
+  clientIp?: string | null,
+): Promise<NumeAuthSession> {
   return numeFetch<NumeAuthSession>('/auth/login', {
     method: 'POST',
+    headers: proxyHeaders(clientIp),
     body: JSON.stringify({ email, password }),
   });
 }
 
-export function numeRefresh(refreshToken: string): Promise<NumeAuthSession> {
+export function numeRefresh(
+  refreshToken: string,
+  clientIp?: string | null,
+): Promise<NumeAuthSession> {
   return numeFetch<NumeAuthSession>('/auth/refresh', {
     method: 'POST',
+    headers: proxyHeaders(clientIp),
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
 }
