@@ -38,12 +38,19 @@ export type Quote = {
 
 export class PricingError extends Error {}
 
+type CartItemInput = CheckoutInput['items'][number];
+
 /**
- * Fuente de verdad de precios. NUNCA se confía en montos del cliente: se
- * recalcula todo desde la BD. Valida existencia, estado y stock.
+ * Precio de las líneas del carrito desde la BD: valida existencia, estado,
+ * stock y límite por pedido. Base de `priceCart` y de la vista previa de cupón.
  */
-export async function priceCart(input: CheckoutInput): Promise<Quote> {
-  const variantIds = input.items.map((i) => i.variantId);
+async function priceLines(items: CartItemInput[]): Promise<{
+  lines: PricedLine[];
+  subtotalMinor: number;
+  requiresShipping: boolean;
+  currency: string | null;
+}> {
+  const variantIds = items.map((i) => i.variantId);
 
   const rows = await db
     .select({
@@ -77,7 +84,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
   let requiresShipping = false;
   let currency: string | null = null;
 
-  for (const item of input.items) {
+  for (const item of items) {
     const row = byVariant.get(item.variantId);
     if (!row) throw new PricingError(`La variante ${item.variantId} no existe.`);
     if (row.status !== 'active') {
@@ -134,6 +141,16 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
     }
   }
 
+  return { lines, subtotalMinor, requiresShipping, currency };
+}
+
+/**
+ * Fuente de verdad de precios. NUNCA se confía en montos del cliente: se
+ * recalcula todo desde la BD. Valida existencia, estado y stock.
+ */
+export async function priceCart(input: CheckoutInput): Promise<Quote> {
+  const { lines, subtotalMinor, requiresShipping, currency } = await priceLines(input.items);
+
   // Descuento
   let discountMinor = 0;
   let discountCode: string | null = null;
@@ -178,6 +195,18 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
     totalMinor,
     requiresShipping,
   };
+}
+
+/**
+ * Vista previa de un cupón para el botón "Aplicar" del checkout. Usa la misma
+ * validación que el cobro; lanza PricingError con el motivo si no aplica.
+ */
+export async function previewDiscount(
+  items: CartItemInput[],
+  code: string,
+): Promise<{ code: string; amountMinor: number }> {
+  const { lines, subtotalMinor } = await priceLines(items);
+  return applyDiscount(code, subtotalMinor, lines);
 }
 
 async function applyDiscount(
