@@ -57,6 +57,15 @@ export async function notifyExternalPurchase(input: {
   const payload = buildPurchasePayload(input);
   const url = endpointFor(input.kind);
 
+  // Un aviso de compra solo sale para pedidos pagados: activa membresías y
+  // licencias, así que la API receptora puede (y debe) exigir 'paid'.
+  if (payload.order.status !== 'paid' && payload.order.status !== 'fulfilled') {
+    console.error(
+      `[hook:${input.kind}] pedido ${payload.order.number} con estado "${payload.order.status}": no se envía.`,
+    );
+    return payload;
+  }
+
   if (!url) {
     console.info(
       `[hook:${input.kind}] (sin ${envVarFor(input.kind)}) se habría enviado ` +

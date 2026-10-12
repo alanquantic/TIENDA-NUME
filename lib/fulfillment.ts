@@ -193,7 +193,9 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
       return null;
     }
 
-    await tx
+    // Se usa la fila YA actualizada (status 'paid', paidAt) para el correo y los
+    // avisos externos: la leída arriba todavía dice 'pending'.
+    const [paidOrder] = await tx
       .update(orders)
       .set({
         status: 'paid',
@@ -202,7 +204,8 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
         externalCustomerId: meta.customerId ?? order.externalCustomerId,
         updatedAt: new Date(),
       })
-      .where(eq(orders.id, orderId));
+      .where(eq(orders.id, orderId))
+      .returning();
 
     const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
 
@@ -248,7 +251,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
         .where(eq(discountCodes.code, order.discountCode));
     }
 
-    return { order, items, links };
+    return { order: paidOrder, items, links };
   });
 
   if (!result) return;
@@ -324,7 +327,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   for (const [kind, triggerItems] of byGroup) {
     await notifyExternalPurchase({
       kind,
-      order: { ...order, paidAt: order.paidAt ?? new Date() },
+      order,
       items: allItems,
       triggerItems,
     });
