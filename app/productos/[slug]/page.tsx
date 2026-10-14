@@ -1,6 +1,12 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getProductBySlug, getRelatedProducts } from '@/lib/queries';
+import {
+  getAgendaUpsellTarget,
+  getProductBySlug,
+  getRelatedProducts,
+  listCategories,
+} from '@/lib/queries';
+import { isPreviousAgenda } from '@/lib/agenda-upsell';
 import { AddToCart, type VariantOption } from '@/components/add-to-cart';
 import { ProductViewTracker } from '@/components/analytics/product-view-tracker';
 import { ProductGallery } from '@/components/product-gallery';
@@ -291,7 +297,14 @@ export default async function ProductPage({ params }: { params: { slug: string }
     trackInventory: v.trackInventory,
   }));
 
-  const related = await getRelatedProducts(product.categoryId, product.id);
+  const [related, categories, upsellTarget] = await Promise.all([
+    getRelatedProducts(product.categoryId, product.id),
+    listCategories(),
+    getAgendaUpsellTarget(),
+  ]);
+  const categorySlug = categories.find((c) => c.id === product.categoryId)?.slug ?? null;
+  // Solo las agendas anteriores invitan a la 2027 al agregarlas al carrito.
+  const upsell = isPreviousAgenda(product.slug, categorySlug) ? upsellTarget : null;
   const defaultVariant = variantOptions[0];
   const gaItem = defaultVariant
     ? {
@@ -352,6 +365,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               variants={variantOptions}
               maxPerOrder={product.maxPerOrder}
               attributes={variationAttributes}
+              upsell={upsell}
             />
           </div>
 
@@ -417,7 +431,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {related.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <ProductCard key={p.id} product={p} upsell={upsellTarget} />
             ))}
           </div>
         </div>
