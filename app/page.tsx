@@ -19,14 +19,22 @@ const SECTION_ORDER = [
   'certificaciones',
 ];
 
+// Sección destacada al inicio del home: todo producto activo con "2027" en su
+// slug (agendas, preventas y lo que se agregue de esa colección). Esos
+// productos ya no se repiten en su categoría.
+const FEATURED = { slug: 'coleccion-2027', name: 'Colección 2027', match: /2027/ };
+
 export default async function HomePage() {
   const [products, categories] = await Promise.all([listProducts(), listCategories()]);
 
   // Agrupa productos por categoría.
   const groups = new Map<string, Group>();
   const uncategorized: CatalogCard[] = [];
+  const featured: CatalogCard[] = [];
   for (const p of products) {
-    if (p.categorySlug && p.categoryName) {
+    if (FEATURED.match.test(p.slug)) {
+      featured.push(p);
+    } else if (p.categorySlug && p.categoryName) {
       const g = groups.get(p.categorySlug) ?? { slug: p.categorySlug, name: p.categoryName, items: [] };
       g.items.push(p);
       groups.set(p.categorySlug, g);
@@ -37,6 +45,9 @@ export default async function HomePage() {
 
   // Ordena las secciones según SECTION_ORDER; el resto va después; "Otros" al final.
   const ordered: Group[] = [];
+  if (featured.length) {
+    ordered.push({ slug: FEATURED.slug, name: FEATURED.name, items: featured });
+  }
   const placed = new Set<string>();
   for (const slug of SECTION_ORDER) {
     const g = groups.get(slug);
