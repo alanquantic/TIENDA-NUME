@@ -7,20 +7,26 @@ import { useToast } from '@/lib/toast-store';
 import type { CatalogCard } from '@/lib/queries';
 import { discountPercent } from '@/lib/sale-price';
 import { PriceWithSale, SaleBadge } from '@/components/sale-price';
+import { isPreviousAgenda, type UpsellTarget } from '@/lib/agenda-upsell';
+import { useUpsell } from '@/lib/upsell-store';
 
 export function ProductCard({
   product,
   listId,
   listName,
   index,
+  upsell = null,
 }: {
   product: CatalogCard;
   listId?: string;
   listName?: string;
   index?: number;
+  /** Agenda 2027 a ofrecer si este producto es una agenda anterior. */
+  upsell?: UpsellTarget | null;
 }) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
+  const showUpsell = useUpsell((s) => s.show);
   const hasOptions = product.variantCount > 1;
   // Con opciones, "agotado" solo si TODAS las variantes lo están.
   const soldOut = hasOptions
@@ -72,6 +78,9 @@ export function ProductCard({
       items: [item],
     });
     show('Agregado al carrito');
+    if (upsell && isPreviousAgenda(product.slug, product.categorySlug)) {
+      showUpsell({ ...upsell, productName: product.name });
+    }
   }
 
   return (

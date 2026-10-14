@@ -1,4 +1,9 @@
-import { listCategories, listProducts, type CatalogCard } from '@/lib/queries';
+import {
+  getAgendaUpsellTarget,
+  listCategories,
+  listProducts,
+  type CatalogCard,
+} from '@/lib/queries';
 import { ListingTracker } from '@/components/analytics/listing-tracker';
 import { catalogCardToGaItem } from '@/lib/analytics';
 import { ProductCard } from '@/components/product-card';
@@ -25,7 +30,11 @@ const SECTION_ORDER = [
 const FEATURED = { slug: 'coleccion-2027', name: 'Colección 2027', match: /2027/ };
 
 export default async function HomePage() {
-  const [products, categories] = await Promise.all([listProducts(), listCategories()]);
+  const [products, categories, upsell] = await Promise.all([
+    listProducts(),
+    listCategories(),
+    getAgendaUpsellTarget(),
+  ]);
 
   // Agrupa productos por categoría.
   const groups = new Map<string, Group>();
@@ -126,6 +135,7 @@ export default async function HomePage() {
                         listId={`cat_${g.slug}`}
                         listName={g.name}
                         index={index}
+                        upsell={upsell}
                       />
                     ))}
                   </div>

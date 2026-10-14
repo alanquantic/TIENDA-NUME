@@ -9,6 +9,7 @@ import {
 } from './db/schema';
 import { effectivePrice } from './sale-price';
 import { toMinor } from './money';
+import { AGENDA_CATEGORY_SLUG, CURRENT_YEAR_MATCH, type UpsellTarget } from './agenda-upsell';
 
 export type CatalogCard = {
   id: string;
@@ -284,4 +285,18 @@ export async function reconcileCart(
     if (remap) return { status: 'remapped', variantId: l.variantId, data: remap };
     return { status: 'removed', variantId: l.variantId };
   });
+}
+
+/** Agenda 2027 a la que se invita al agregar una agenda anterior (o null). */
+export async function getAgendaUpsellTarget(): Promise<UpsellTarget | null> {
+  const rows = await db
+    .select({ slug: products.slug, name: products.name })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(and(eq(products.status, 'active'), eq(categories.slug, AGENDA_CATEGORY_SLUG)))
+    .orderBy(desc(products.createdAt));
+  const current = rows.filter((r) => CURRENT_YEAR_MATCH.test(r.slug));
+  // Si hay varios productos 2027, se prefiere la agenda (no un kit o planeador).
+  const target = current.find((r) => r.slug.startsWith('agenda-')) ?? current[0];
+  return target ? { href: `/productos/${target.slug}`, name: target.name } : null;
 }
