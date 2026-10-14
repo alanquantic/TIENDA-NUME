@@ -8,6 +8,8 @@ import { useToast } from '@/lib/toast-store';
 import { formatDecimal } from '@/lib/money';
 import type { VariationAttribute } from '@/lib/variations';
 import { PriceWithSale } from '@/components/sale-price';
+import type { UpsellTarget } from '@/lib/agenda-upsell';
+import { useUpsell } from '@/lib/upsell-store';
 
 export type VariantOption = {
   id: string;
@@ -34,6 +36,8 @@ type Props = {
   maxPerOrder: number | null;
   /** Atributos de las variaciones; si hay, se elige por atributo en vez de una lista. */
   attributes?: VariationAttribute[];
+  /** Agenda 2027 a ofrecer al agregar (solo si este producto es una agenda anterior). */
+  upsell?: UpsellTarget | null;
 };
 
 const same = (a: string | undefined, b: string | undefined) =>
@@ -53,9 +57,11 @@ export function AddToCart({
   variants,
   maxPerOrder,
   attributes = [],
+  upsell = null,
 }: Props) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
+  const showUpsell = useUpsell((s) => s.show);
   const [variantId, setVariantId] = useState(variants[0]?.id ?? '');
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -122,6 +128,7 @@ export function AddToCart({
     });
     setAdded(true);
     show('Agregado al carrito');
+    if (upsell) showUpsell({ ...upsell, productName: name });
   }
 
   return (
