@@ -163,6 +163,26 @@ export const sessionCookieOptions = {
   path: '/',
 };
 
+/** Persist cookies only until their JWT expires; decoding is not authentication. */
+export function tokenMaxAge(token: string, fallback = 0): number {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(payload)) as { exp?: unknown };
+    if (typeof exp === 'number' && Number.isFinite(exp)) {
+      return Math.max(0, Math.floor(exp - Date.now() / 1000));
+    }
+  } catch { /* The API still validates the token. */ }
+  return fallback;
+}
+
+export function createAccessCookie(value: string) {
+  return { name: ACCESS_COOKIE, value, ...sessionCookieOptions, maxAge: tokenMaxAge(value, 15 * 60) };
+}
+
+export function createRefreshCookie(value: string) {
+  return { name: REFRESH_COOKIE, value, ...sessionCookieOptions, maxAge: tokenMaxAge(value, 7 * 24 * 60 * 60) };
+}
+
 /** Nombre para saludar al cliente, según los metadatos que guarda la API. */
 export function displayNameOf(user: NumeUser): string | null {
   const meta = (user.metadata ?? {}) as {
