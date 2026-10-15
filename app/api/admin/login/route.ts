@@ -2,13 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { rejectCrossSite } from '@/lib/request-guard';
 import { isAdminUser } from '@/lib/admin-auth';
 import {
-  ACCESS_COOKIE,
+  createAccessCookie,
+  createRefreshCookie,
   NumeApiError,
   clientIpFrom,
   numeLogin,
   numeLogout,
-  REFRESH_COOKIE,
-  sessionCookieOptions,
 } from '@/lib/nume-auth';
 
 export const runtime = 'nodejs';
@@ -36,8 +35,8 @@ export async function POST(req: NextRequest) {
     }
 
     const res = NextResponse.json({ ok: true });
-    res.cookies.set({ name: ACCESS_COOKIE, value: session.access_token, ...sessionCookieOptions });
-    res.cookies.set({ name: REFRESH_COOKIE, value: session.refresh_token, ...sessionCookieOptions });
+    res.cookies.set(createAccessCookie(session.access_token));
+    res.cookies.set(createRefreshCookie(session.refresh_token));
     return res;
   } catch (error) {
     if (error instanceof NumeApiError) {

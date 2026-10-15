@@ -9,6 +9,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from '@/components/toaster';
 import { UpsellBanner } from '@/components/upsell-banner';
+import { SessionBootstrap } from '@/components/session-bootstrap';
 
 export const metadata: Metadata = {
   title: {
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GoogleAnalytics />
       </head>
       <body className="min-h-screen flex flex-col">
+        <SessionBootstrap />
         <RouteTracker />
         <TopBar />
         <SiteHeader />
