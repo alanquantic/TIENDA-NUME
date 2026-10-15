@@ -119,7 +119,7 @@ GA4 → **Explore → Free form**:
 
 ## Cross-domain con WEB-NUME
 
-WEB-NUME dispara `outbound_click` con `link_domain = tienda-nume-chi.vercel.app` cuando el usuario clickea a la tienda desde el sitio principal. Cuando la sesión cruza de dominio, GA4 la mantiene si:
+WEB-NUME dispara `outbound_click` con `link_domain = tienda.numerologia-cotidiana.com` cuando el usuario clickea a la tienda desde el sitio principal. Cuando la sesión cruza de dominio, GA4 la mantiene si:
 
 1. Ambos dominios están en el mismo Data Stream (Admin → Data Streams → Configure your domains).
 2. Los IDs de measurement no necesitan ser el mismo si tienes propiedades separadas, pero para atribución cross-site conviene una vista roll-up.
