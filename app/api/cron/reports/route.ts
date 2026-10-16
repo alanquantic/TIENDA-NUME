@@ -15,6 +15,7 @@ import {
 } from '@/lib/report-catalog';
 import { markGeneratedReportReady } from '@/lib/report-ready';
 import { expireAbandonedOrders } from '@/lib/payments/expire';
+import { retryMondaySync } from '@/lib/monday/sync';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -79,6 +80,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 
+  let monday: Awaited<ReturnType<typeof retryMondaySync>> | { error: string };
+  try {
+    monday = await retryMondaySync();
+  } catch {
+    console.error('[cron] No se pudieron reintentar los registros de monday.');
+    monday = { error: 'monday-retry-failed' };
+  }
+
   let pedidos: Awaited<ReturnType<typeof expireAbandonedOrders>> | { error: string };
   try {
     pedidos = await expireAbandonedOrders();
@@ -88,7 +97,7 @@ export async function GET(req: Request) {
   }
 
   if (!isReportGeneratorConfigured()) {
-    return NextResponse.json({ ok: true, pedidos, nota: 'generador no configurado' });
+    return NextResponse.json({ ok: true, pedidos, monday, nota: 'generador no configurado' });
   }
 
   const pending = await db
@@ -203,5 +212,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, pedidos, procesados: pending.length, ready, queued, failed });
+  return NextResponse.json({ ok: true, pedidos, monday, procesados: pending.length, ready, queued, failed });
 }

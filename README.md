@@ -144,6 +144,67 @@ Reglas del importador ([lib/db/import-wc.ts](lib/db/import-wc.ts)):
 - **Pedidos inmutables**: `order_items` guarda snapshots (nombre, precio) para
   no depender de cambios futuros del catálogo.
 
+## monday CRM: Agenda 2027 y Numerathum
+
+Al confirmar el pago de `agenda-numerologica-2027`, se crea **un registro por
+pedido** en el tablero `18434858318`, grupo PREVENTA (`new_group`). Configurar
+`MONDAY_API_TOKEN` en `.env` y en el entorno del despliegue. Los otros valores
+opcionales están documentados en `.env.example`.
+
+- VENDEDOR: ALAN (índice `16`). Morada suma en OSCRURA (`numbers_2`) y amarilla
+  en CLARA (`numbers_3`); CANTIDAD contiene la suma de ambas. ESTATUS se envía vacío.
+- Incluye cliente, correo, teléfono, fecha de pago en Ciudad de México,
+  dirección y número de pedido. Como CP es una columna de teléfono, se conserva
+  junto a CALLE, incluyendo ceros iniciales. Si se cambia a Texto, la integración
+  puede usar esa columna sin modificar el código. Calle/número y colonia/interior
+  se conservan como los captura el checkout, sin inventar una separación.
+- PAGO AGENDAS contiene el importe pagado por las agendas después de descuentos
+  e impuestos. En pedidos mixtos se distribuye el neto de mercancías por importe
+  de línea, en centavos. PAGO ENVIO contiene el envío completo del pedido.
+- PayPal usa la opción PAYPAL de FORMA COMPRA. Mercado Pago queda sin etiqueta:
+  no se asume que todo pago sea con tarjeta. ENTREGA, guía, recibo y comprobaciones
+  de envío/empaque se dejan para la operación posterior.
+- Los pagos simulados o sandbox se omiten por defecto. Para pruebas que deban
+  crear registros en el tablero real, usar `MONDAY_SYNC_TEST_ORDERS=true`.
+
+El producto Numerathum `44759e92-c983-41f8-8ff4-c9e972d3bebb` crea su propio
+registro en el tablero `18379779965`, grupo `group_mkxprje7` («NUMERATHUM 2025»,
+nombre actual del grupo proporcionado). También se envía cuando se compra solo.
+
+- VENDEDOR es un dropdown distinto: ALAN usa `27`. PLAN usa ORACULO (`0`).
+- Name recibe los nombres del comprador. Los apellidos del checkout se conservan
+  juntos en Apellido Paterno, y Apellido Materno queda vacío hasta capturarlos por
+  separado; no se intentan dividir automáticamente los apellidos compuestos.
+- DD, MM y AÑO DE AA reciben la fecha de nacimiento del comprador, cuando se
+  informa. MM usa las opciones de mes `1` a `12`, sin confundirlas con vendedor.
+  FECHA DE COMPRA usa el día del pago en Ciudad de México.
+- Correo, teléfono y `# PEDIDO WEB` (`__pedido_web`) corresponden al mismo pedido.
+  Costo de COSTO y PAGO 1 contienen solo el importe pagado por Numerathum, sin
+  otros productos ni envío. Se aplica el mismo reparto de descuentos/impuestos
+  que en Agenda 2027. PAGO 2, RECIBOS y VERIFICAR no se rellenan automáticamente.
+- PayPal usa FORMA DE PAGO `2`; los demás proveedores quedan sin etiqueta hasta
+  definir el método exacto. Se conserva la política de pruebas de
+  `MONDAY_SYNC_TEST_ORDERS` para ambos tableros.
+
+Los trabajos se guardan en `orders.metadata.mondayAgenda2027` y
+`orders.metadata.mondayNumerathum` dentro de la misma
+transacción del pago, sin migraciones nuevas. El envío ocurre antes de generar
+reportes/correos; si monday falla, la compra sigue completándose y el cron horario
+existente (`/api/cron/reports`, protegido con `CRON_SECRET`) reintenta hasta ocho
+intentos totales. Las compras anteriores a esta integración no se importan.
+
+Los avisos simultáneos se coordinan con una reserva atómica; los reintentos buscan
+primero `# PEDIDO WEB` y usan una clave estable de
+[idempotencia de monday](https://developer.monday.com/api-reference/docs/idempotency).
+El estado guarda intentos, error, próximo intento e ID del registro enviado.
+Cada tablero conserva su propio estado e idempotencia: reintentar Numerathum no
+reenvía Agenda 2027. Los trabajos anteriores de Agenda sin campo `kind` siguen
+siendo compatibles. El aviso externo existente de Numerathum sigue funcionando.
+Si se agotan los intentos, revisar ese estado y corregir la causa antes de reactivar
+el trabajo. No se debe borrar `# PEDIDO WEB` en monday, pues identifica el registro.
+
+Verificación local sin escrituras reales en monday: `npm run test:monday`.
+
 ## Siguiente fase (membresías + licencias)
 
 Esta base es la tienda central. Para vender también membresías (nume) y
