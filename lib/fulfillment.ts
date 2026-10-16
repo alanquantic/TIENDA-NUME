@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
+import { initialMondayJobs, syncMondayOrder } from './monday/sync';
 import { sendOrderConfirmation, sendOrderFailed } from './email';
 import type { EmailAddress } from './email-templates';
 import { isReportGeneratorConfigured, submitReport } from './report-generator';
@@ -209,6 +210,14 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
 
     const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
 
+    // Durable outbox: written atomically with the payment, before any external calls.
+    const mondayJobs = initialMondayJobs(paidOrder, items);
+    if (Object.keys(mondayJobs).length) {
+      await tx.update(orders).set({
+        metadata: { ...(paidOrder.metadata as Record<string, unknown>), ...mondayJobs },
+      }).where(eq(orders.id, orderId));
+    }
+
     for (const item of items) {
       if (item.type === 'physical' && item.variantId) {
         await tx
@@ -254,6 +263,8 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     return { order: paidOrder, items, links };
   });
 
+  // Runs on duplicate payment notifications too; stock/downloads remain untouched.
+  await syncMondayOrder(orderId);
   if (!result) return;
 
   const { order, items, links } = result;
