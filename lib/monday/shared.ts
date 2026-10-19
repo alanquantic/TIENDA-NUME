@@ -9,7 +9,7 @@ export type MondayOrder = Pick<Order,
 export type MondayItem = Pick<OrderItem, 'productId' | 'variantName' | 'quantity' | 'totalAmount'>;
 export type MondayColumns = Record<string, string | number | null | { index: number } | { ids: number[] } | { date: string } | { phone: string; countryShortName: string }>;
 export type MondayPayload = { name: string; orderNumber: string; columns: MondayColumns };
-export type MondayKind = 'agenda-2027' | 'numerathum';
+export type MondayKind = 'agenda-2027' | 'numerathum' | 'libro';
 
 export type MondayJob = {
   // Optional to keep previously queued Agenda 2027 jobs compatible.
