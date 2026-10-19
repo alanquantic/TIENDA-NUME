@@ -14,10 +14,11 @@ import { formatDecimal } from '@/lib/money';
 import type { EcommerceItem } from '@/lib/analytics';
 import { PurchaseTracker } from '@/components/analytics/purchase-tracker';
 import { ClearCart } from '@/components/clear-cart';
+import { PendingPaymentRefresh } from '@/components/pending-payment-refresh';
 import { ORDER_ACCESS_COOKIE, readOrderAccess } from '@/lib/order-access';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Gracias por tu compra' };
+export const metadata: Metadata = { title: 'Tu pedido' };
 
 type StoredReportInput = {
   previewUrl?: string | null;
@@ -86,7 +87,14 @@ export default async function SuccessPage() {
     (report) => report.status === 'error' || report.status === 'failed',
   );
 
-  const isPaid = order?.status === 'paid' || order?.status === 'fulfilled';
+  const isPaid =
+    order?.status === 'paid' ||
+    order?.status === 'fulfilled' ||
+    order?.status === 'partially_refunded';
+  // Mercado Pago también regresa aquí con pagos en espera (OXXO, transferencia,
+  // tarjeta en revisión): no se dice "pago aprobado" hasta que lo confirme el aviso.
+  const isPending = order?.status === 'pending';
+  const isClosed = order?.status === 'cancelled' || order?.status === 'refunded';
 
   // Prepara payload de purchase (dedup por order.number en el tracker).
   const purchaseItems: EcommerceItem[] =
@@ -118,18 +126,32 @@ export default async function SuccessPage() {
           coupon={order.discountCode ?? undefined}
         />
       ) : null}
-      <ClearCart />
+      {/* El carrito solo se vacía si el pedido sigue vivo (pagado o por confirmar). */}
+      {!isClosed && <ClearCart />}
+      {isPending && <PendingPaymentRefresh />}
       <div className="text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-3xl font-bold text-white shadow-lg shadow-[hsl(var(--primary))]/25">
-          ✓
+        <div
+          className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl font-bold shadow-lg ${
+            isPending
+              ? 'bg-amber-500 text-white shadow-amber-500/25'
+              : isClosed
+                ? 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+                : 'bg-[hsl(var(--primary))] text-white shadow-[hsl(var(--primary))]/25'
+          }`}
+        >
+          {isPending ? '⏳' : isClosed ? '✕' : '✓'}
         </div>
         <h1 className="mt-5 text-3xl font-bold tracking-tight sm:text-4xl">
-          ¡Gracias por tu compra!
+          {isPending
+            ? 'Tu pago está por confirmarse'
+            : isClosed
+              ? 'Este pedido no se completó'
+              : '¡Gracias por tu compra!'}
         </h1>
         {order ? (
           <p className="mt-2 text-[hsl(var(--muted-foreground))]">
-            Pedido <span className="font-medium">{order.number}</span> · confirmación
-            enviada a {order.customerEmail}
+            Pedido <span className="font-medium">{order.number}</span>
+            {isPaid && <> · confirmación enviada a {order.customerEmail}</>}
           </p>
         ) : (
           <p className="mt-2 text-[hsl(var(--muted-foreground))]">
@@ -142,40 +164,88 @@ export default async function SuccessPage() {
         )}
       </div>
 
-      <div className="mt-8 rounded-xl border-2 border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft))] p-5 text-center">
-        <p className="text-lg font-semibold text-[hsl(var(--primary))]">
-          📩 Muy importante: revisa tu correo electrónico
-        </p>
-        <p className="mt-2 text-base leading-relaxed">
-          {order ? (
-            <>
-              Te enviamos a <strong>{order.customerEmail}</strong> la confirmación de tu
-              compra y tus reportes para descargar.
-            </>
-          ) : (
-            <>
-              En tu correo recibirás la confirmación de tu compra y tus reportes para
-              descargar.
-            </>
-          )}{' '}
-          Si no lo encuentras en unos minutos, busca en la carpeta de{' '}
-          <strong>spam o &ldquo;Promociones&rdquo;</strong>.
-        </p>
-      </div>
+      {isPending && order && (
+        <div className="mt-8 rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-5 text-center">
+          <p className="text-lg font-semibold text-amber-700 dark:text-amber-300">
+            Aún no recibimos la confirmación de tu pago
+          </p>
+          <p className="mt-2 text-base leading-relaxed">
+            Si pagaste con tarjeta, esta página se actualizará sola en unos segundos. Si
+            elegiste pagar en efectivo (OXXO) o por transferencia, tu pedido quedará
+            confirmado cuando se acredite el pago; en ese momento te enviaremos la
+            confirmación a <strong>{order.customerEmail}</strong>.
+          </p>
+          <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
+            Si el pago no se completó, no se hizo ningún cargo y puedes intentarlo de nuevo
+            desde{' '}
+            <Link href="/carrito" className="underline underline-offset-4">
+              tu carrito
+            </Link>
+            . Puedes revisar el estado del pago en tu cuenta de Mercado Pago o PayPal.
+          </p>
+        </div>
+      )}
 
-      {order && (
+      {isClosed && (
+        <div className="mt-8 rounded-xl border border-[hsl(var(--border))] p-5 text-center">
+          <p className="text-base leading-relaxed">
+            No recibimos el pago de este pedido, así que{' '}
+            <strong>no se realizó ningún cargo</strong>. Puedes volver a intentarlo cuando
+            quieras.
+          </p>
+          <Link
+            href="/carrito"
+            className="mt-4 inline-block rounded-lg bg-[hsl(var(--primary))] px-5 py-2.5 font-medium text-[hsl(var(--primary-foreground))]"
+          >
+            Volver al carrito
+          </Link>
+        </div>
+      )}
+
+      {(isPaid || !order) && (
+        <div className="mt-8 rounded-xl border-2 border-[hsl(var(--primary))] bg-[hsl(var(--primary-soft))] p-5 text-center">
+          <p className="text-lg font-semibold text-[hsl(var(--primary))]">
+            📩 Muy importante: revisa tu correo electrónico
+          </p>
+          <p className="mt-2 text-base leading-relaxed">
+            {order ? (
+              <>
+                Te enviamos a <strong>{order.customerEmail}</strong> la confirmación de tu
+                compra y tus reportes para descargar.
+              </>
+            ) : (
+              <>
+                En tu correo recibirás la confirmación de tu compra y tus reportes para
+                descargar.
+              </>
+            )}{' '}
+            Si no lo encuentras en unos minutos, busca en la carpeta de{' '}
+            <strong>spam o &ldquo;Promociones&rdquo;</strong>.
+          </p>
+        </div>
+      )}
+
+      {order && !isClosed && (
         <section className="relative mt-10 overflow-hidden rounded-2xl border-2 border-[hsl(var(--primary))]/25 bg-[hsl(var(--card))] shadow-xl shadow-[hsl(var(--primary))]/10">
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-brand" />
           <div className="flex flex-col gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--primary-soft))]/50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--primary))]">
-                Compra confirmada
+                {isPaid ? 'Compra confirmada' : 'Pedido registrado'}
               </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight">Esto es lo que compraste</h2>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight">
+                {isPaid ? 'Esto es lo que compraste' : 'Esto es lo que pediste'}
+              </h2>
             </div>
-            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[hsl(var(--primary))] px-3.5 py-1.5 text-sm font-bold text-[hsl(var(--primary-foreground))] shadow-sm">
-              <span aria-hidden="true">✓</span> Pago aprobado
-            </span>
+            {isPaid ? (
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[hsl(var(--primary))] px-3.5 py-1.5 text-sm font-bold text-[hsl(var(--primary-foreground))] shadow-sm">
+                <span aria-hidden="true">✓</span> Pago aprobado
+              </span>
+            ) : (
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-amber-500 px-3.5 py-1.5 text-sm font-bold text-white shadow-sm">
+                <span aria-hidden="true">⏳</span> Pago por confirmar
+              </span>
+            )}
           </div>
 
           <ul className="space-y-3 p-5 sm:p-6">
@@ -210,7 +280,9 @@ export default async function SuccessPage() {
             ))}
           </ul>
           <div className="flex items-center justify-between border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-6 py-4">
-            <span className="font-semibold text-[hsl(var(--muted-foreground))]">Total pagado</span>
+            <span className="font-semibold text-[hsl(var(--muted-foreground))]">
+              {isPaid ? 'Total pagado' : 'Total por pagar'}
+            </span>
             <span className="text-2xl font-extrabold text-[hsl(var(--foreground))]">
               {formatDecimal(order.totalAmount, order.currency)}
             </span>
@@ -320,13 +392,6 @@ export default async function SuccessPage() {
         <p className="mt-8 text-center text-sm text-red-500">
           Hay reportes que aún no pudieron terminarse. Intenta actualizar esta página
           más tarde.
-        </p>
-      )}
-
-      {order && !isPaid && (
-        <p className="mt-8 text-center text-base text-[hsl(var(--muted-foreground))]">
-          Estamos confirmando tu pago. Si compraste productos digitales, tus enlaces
-          aparecerán aquí en unos segundos; actualiza la página.
         </p>
       )}
 
