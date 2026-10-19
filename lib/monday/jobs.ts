@@ -1,10 +1,12 @@
 import { initialAgendaJob, MONDAY_JOB_KEY } from './agenda-2027';
 import { initialNumerathumJob, NUMERATHUM_JOB_KEY } from './numerathum';
+import { initialLibroJob, LIBRO_JOB_KEY } from './libro';
 import type { MondayJob, MondayOrder, MondayItem, MondayJobOptions } from './shared';
 
 export const MONDAY_DEFINITIONS = [
   { key: MONDAY_JOB_KEY, envPrefix: 'MONDAY_AGENDA_2027', initial: initialAgendaJob },
   { key: NUMERATHUM_JOB_KEY, envPrefix: 'MONDAY_NUMERATHUM', initial: initialNumerathumJob },
+  { key: LIBRO_JOB_KEY, envPrefix: 'MONDAY_LIBRO', initial: initialLibroJob },
 ] as const;
 export type MondayJobKey = typeof MONDAY_DEFINITIONS[number]['key'];
 

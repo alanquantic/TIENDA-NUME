@@ -1,5 +1,6 @@
 import { buildAgenda2027Payload } from './agenda-2027';
 import { buildNumerathumPayload, NUMERATHUM_ORDER_COLUMN } from './numerathum';
+import { buildLibroPayload } from './libro';
 import type { MondayItem, MondayOrder, MondayJob } from './shared';
 import { MondayError, type MondayClient } from './client';
 
@@ -38,6 +39,8 @@ export async function deliverMondayOrder(orderId: string, store: MondayDeliveryS
     if (!itemId) {
       const payload = isNumerathum
         ? buildNumerathumPayload(order, items, { productId: job.productId })
+        : job.kind === 'libro'
+        ? buildLibroPayload(order, items, { productId: job.productId, postalColumnType: existing.postalColumnType })
         : buildAgenda2027Payload(order, items, { productId: job.productId, postalColumnType: existing.postalColumnType });
       itemId = await client.createPurchaseItem({ boardId: job.boardId, groupId: job.groupId, orderId, payload, kind: job.kind });
     }
