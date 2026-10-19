@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { effectiveMaxPerOrder } from './order-limits';
 
 export type CartItem = {
   variantId: string;
@@ -21,9 +22,13 @@ export type CartItem = {
   maxPerOrder?: number | null;
 };
 
-/** Tope efectivo de un ítem: el menor entre stock y límite por pedido. */
-export function itemCap(item: Pick<CartItem, 'maxStock' | 'maxPerOrder'>): number {
-  return Math.min(item.maxStock ?? Infinity, item.maxPerOrder ?? Infinity);
+/**
+ * Tope efectivo de un ítem: el menor entre stock y límite por pedido. Los
+ * físicos se acotan aquí también, por si el carrito guardado es anterior a
+ * la regla o no trae `maxPerOrder`.
+ */
+export function itemCap(item: Pick<CartItem, 'type' | 'maxStock' | 'maxPerOrder'>): number {
+  return Math.min(item.maxStock ?? Infinity, effectiveMaxPerOrder(item.type, item.maxPerOrder) ?? Infinity);
 }
 
 type ReconcileResult = { removed: number; remapped: number };
@@ -103,6 +108,7 @@ export const useCart = create<CartState>()(
             }
             const merged = { ...item, ...r.data } as CartItem;
             const cap = itemCap(merged);
+            merged.maxPerOrder = effectiveMaxPerOrder(merged.type, merged.maxPerOrder);
             if (Number.isFinite(cap) && cap > 0) {
               merged.quantity = Math.min(item.quantity, cap);
             }
