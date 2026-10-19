@@ -10,6 +10,11 @@ import { isPreviousAgenda } from '@/lib/agenda-upsell';
 import { AddToCart, type VariantOption } from '@/components/add-to-cart';
 import { ProductViewTracker } from '@/components/analytics/product-view-tracker';
 import { ProductGallery } from '@/components/product-gallery';
+import { ProductImageSelection } from '@/components/product-image-selection';
+import { variantImage } from '@/lib/variant-image';
+import { ProductTrust } from '@/components/product-trust';
+import { ProductCountdown } from '@/components/product-countdown';
+import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
 import { ProductCard } from '@/components/product-card';
@@ -290,6 +295,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   const variantOptions: VariantOption[] = pricedVariants.map(({ variant: v, price }) => ({
     id: v.id,
+    image: variantImage(product.slug, images, (v.attributes as Record<string, string>) ?? {}),
     name: v.name,
     attributes: (v.attributes as Record<string, string>) ?? {},
     priceAmount: price.priceAmount,
@@ -298,10 +304,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
     trackInventory: v.trackInventory,
   }));
 
-  const [related, categories, upsellTarget] = await Promise.all([
+  const [related, categories, upsellTarget, paymentMethods] = await Promise.all([
     getRelatedProducts(product.categoryId, product.id),
     listCategories(),
     getAgendaUpsellTarget(),
+    getAvailablePaymentMethods(),
   ]);
   const categorySlug = categories.find((c) => c.id === product.categoryId)?.slug ?? null;
   // Solo las agendas anteriores invitan a la 2027 al agregarlas al carrito.
@@ -320,7 +327,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
     : null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 pb-[calc(8rem+env(safe-area-inset-bottom))]">
       {gaItem ? (
         <ProductViewTracker
           item={gaItem}
@@ -328,6 +335,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
           value={gaItem.price ?? 0}
         />
       ) : null}
+      <ProductImageSelection key={product.id} initialImage={variantOptions[0]?.image ?? images[0] ?? null}>
       <div className="grid gap-10 md:grid-cols-2">
         <ProductGallery images={images} name={product.name} />
 
@@ -370,6 +378,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
             />
           </div>
 
+          <ProductCountdown />
+          <ProductTrust type={product.type} paymentMethods={paymentMethods.map(({ method, label }) => ({ method, label }))} />
+
           {product.type === 'digital' &&
             (['licencia-software-arithmax-3-anos', 'licencia-software-arithmax-1-ano'].includes(
               product.slug,
@@ -395,6 +406,8 @@ export default async function ProductPage({ params }: { params: { slug: string }
             ))}
         </div>
       </div>
+
+      </ProductImageSelection>
 
       {product.description && (
         <div className="mt-12 max-w-3xl">
