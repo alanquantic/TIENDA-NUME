@@ -144,7 +144,7 @@ Reglas del importador ([lib/db/import-wc.ts](lib/db/import-wc.ts)):
 - **Pedidos inmutables**: `order_items` guarda snapshots (nombre, precio) para
   no depender de cambios futuros del catálogo.
 
-## monday CRM: Agenda 2027 y Numerathum
+## monday CRM: Agenda 2027, Numerathum y Libro
 
 Al confirmar el pago de `agenda-numerologica-2027`, se crea **un registro por
 pedido** en el tablero `18434858318`, grupo PREVENTA (`new_group`). Configurar
@@ -186,8 +186,24 @@ nombre actual del grupo proporcionado). También se envía cuando se compra solo
   definir el método exacto. Se conserva la política de pruebas de
   `MONDAY_SYNC_TEST_ORDERS` para ambos tableros.
 
-Los trabajos se guardan en `orders.metadata.mondayAgenda2027` y
-`orders.metadata.mondayNumerathum` dentro de la misma
+El libro `753b6bc0-2e2f-4f9a-a248-4e248dc6fe4f` crea un registro por pedido
+en el tablero `18314877163`, grupo PREVENTA (`new_group`). Opciones de entorno:
+`MONDAY_LIBRO_BOARD_ID`, `MONDAY_LIBRO_GROUP_ID` y `MONDAY_LIBRO_PRODUCT_ID`.
+
+- VENDEDOR: ALAN (`16`), ESTATUS vacío. Cliente, correo, teléfono, fecha de compra,
+  dirección y `# PEDIDO WEB` (`texto`) provienen del pedido pagado.
+- CANTIDAD suma solo los libros; PAGO LIBROS contiene solo su importe neto,
+  incluyendo el reparto de descuentos/impuestos. PAGO ENVIO refleja el cargo
+  completo del pedido, igual que en Agenda: si ambos están en el carrito, ese
+  cargo aparece como referencia en ambos tableros y no debe sumarse entre ellos.
+- CP se conserva junto a CALLE mientras su columna sea Teléfono; si pasa a Texto,
+  se usa esa columna. No se inventa una separación de número/interior.
+- FORMA COMPRA: PAYPAL (`7`) o MERCADO PAGO (`8`). ENTREGA, guía, recibo y
+  comprobaciones de envío/empaque se dejan para operación. Se respeta
+  `MONDAY_SYNC_TEST_ORDERS`, también cuando el libro se compra solo.
+
+Los trabajos se guardan en `orders.metadata.mondayAgenda2027`,
+`orders.metadata.mondayNumerathum` y `orders.metadata.mondayLibro` dentro de la misma
 transacción del pago, sin migraciones nuevas. El envío ocurre antes de generar
 reportes/correos; si monday falla, la compra sigue completándose y el cron horario
 existente (`/api/cron/reports`, protegido con `CRON_SECRET`) reintenta hasta ocho
@@ -197,8 +213,8 @@ Los avisos simultáneos se coordinan con una reserva atómica; los reintentos bu
 primero `# PEDIDO WEB` y usan una clave estable de
 [idempotencia de monday](https://developer.monday.com/api-reference/docs/idempotency).
 El estado guarda intentos, error, próximo intento e ID del registro enviado.
-Cada tablero conserva su propio estado e idempotencia: reintentar Numerathum no
-reenvía Agenda 2027. Los trabajos anteriores de Agenda sin campo `kind` siguen
+Cada tablero conserva su propio estado e idempotencia: reintentar un producto no
+reenvía los otros. Los trabajos anteriores de Agenda sin campo `kind` siguen
 siendo compatibles. El aviso externo existente de Numerathum sigue funcionando.
 Si se agotan los intentos, revisar ese estado y corregir la causa antes de reactivar
 el trabajo. No se debe borrar `# PEDIDO WEB` en monday, pues identifica el registro.
