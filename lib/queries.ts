@@ -8,6 +8,7 @@ import {
   products,
 } from './db/schema';
 import { effectivePrice } from './sale-price';
+import { effectiveMaxPerOrder } from './order-limits';
 import { toMinor } from './money';
 import { AGENDA_CATEGORY_SLUG, CURRENT_YEAR_MATCH, type UpsellTarget } from './agenda-upsell';
 
@@ -108,7 +109,7 @@ export async function listProducts(
       inStock: false,
       variantId: r.variantId,
       maxStock,
-      maxPerOrder: r.maxPerOrder,
+      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),
       categorySlug: r.categorySlug,
       categoryName: r.categoryName,
     };
@@ -242,7 +243,7 @@ function toCartData(r: CartRow): CartVariantData {
     image: images[0] ?? null,
     type: r.type,
     maxStock: r.type === 'physical' && r.trackInventory ? r.stock : null,
-    maxPerOrder: r.maxPerOrder,
+    maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),
   };
 }
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
 import { itemCap, useCart } from '@/lib/cart-store';
+import { effectiveMaxPerOrder } from '@/lib/order-limits';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
 
@@ -91,7 +92,7 @@ export function CartView() {
                 {item.type === 'digital' ? 'Digital' : 'Físico'}
               </p>
               <div className="mt-2 flex items-center gap-3">
-                {item.maxPerOrder === 1 ? (
+                {effectiveMaxPerOrder(item.type, item.maxPerOrder) === 1 ? (
                   <span className="text-sm text-[hsl(var(--muted-foreground))]">
                     1 por pedido
                   </span>

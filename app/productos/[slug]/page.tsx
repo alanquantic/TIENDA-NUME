@@ -14,6 +14,7 @@ import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
 import { ProductCard } from '@/components/product-card';
 import { discountPercent, effectivePrice } from '@/lib/sale-price';
+import { effectiveMaxPerOrder } from '@/lib/order-limits';
 import { readVariationAttributes } from '@/lib/variations';
 import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price';
 
@@ -363,7 +364,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               image={images[0] ?? null}
               currency={product.currency}
               variants={variantOptions}
-              maxPerOrder={product.maxPerOrder}
+              maxPerOrder={effectiveMaxPerOrder(product.type, product.maxPerOrder)}
               attributes={variationAttributes}
               upsell={upsell}
             />

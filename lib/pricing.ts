@@ -5,6 +5,7 @@ import { discountCodes, products, productVariants } from './db/schema';
 import { toMinor } from './money';
 import { resolveShippingRate } from './shipping';
 import { effectivePrice } from './sale-price';
+import { effectiveMaxPerOrder } from './order-limits';
 import type { CheckoutInput } from './validation';
 
 export type PricedLine = {
@@ -133,7 +134,8 @@ async function priceLines(items: CartItemInput[]): Promise<{
   }
   for (const [productId, qty] of qtyByProduct) {
     const row = rows.find((r) => r.productId === productId);
-    const max = row?.maxPerOrder;
+    // Físicos: tope fijo de 1 por pedido aunque la BD diga otra cosa.
+    const max = row ? effectiveMaxPerOrder(row.type, row.maxPerOrder) : null;
     if (max != null && qty > max) {
       throw new PricingError(
         `Solo puedes comprar ${max} ${max === 1 ? 'unidad' : 'unidades'} de "${row?.name}" por pedido.`,
