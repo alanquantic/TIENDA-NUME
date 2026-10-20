@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
 import { itemCap, useCart } from '@/lib/cart-store';
 import { effectiveMaxPerOrder } from '@/lib/order-limits';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
 
-export function CartView() {
+export function CartView({ children }: { children?: ReactNode }) {
   const { items, setQuantity, remove, reconcile } = useCart();
   const show = useToast((s) => s.show);
   const [mounted, setMounted] = useState(false);
@@ -53,7 +53,7 @@ export function CartView() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-[hsl(var(--border))] p-12 text-center">
+      <div className="m-6 rounded-xl border border-dashed border-[hsl(var(--border))] p-12 text-center">
         <p className="text-[hsl(var(--muted-foreground))]">Tu carrito está vacío.</p>
         <Link href="/" className="mt-4 inline-block underline underline-offset-4">
           Ver catálogo
@@ -69,10 +69,11 @@ export function CartView() {
   const currency = items[0]?.currency ?? 'MXN';
 
   return (
-    <div className="grid lg:grid-cols-3 gap-8">
-      <ul className="lg:col-span-2 divide-y divide-[hsl(var(--border))] border border-[hsl(var(--border))] rounded-xl">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6">
+      <ul className="divide-y divide-[hsl(var(--border))]">
         {items.map((item) => (
-          <li key={item.variantId} className="flex gap-4 p-4">
+          <li key={item.variantId} className="flex gap-3 py-5">
             <div className="w-20 h-20 rounded-lg bg-[hsl(var(--muted))] overflow-hidden shrink-0">
               {item.image && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -99,6 +100,7 @@ export function CartView() {
                 ) : (
                   <input
                     type="number"
+                    aria-label={`Cantidad de ${item.name}${item.variantName ? `, ${item.variantName}` : ''}`}
                     min={1}
                     max={Number.isFinite(itemCap(item)) ? itemCap(item) : 99}
                     value={item.quantity}
@@ -114,17 +116,22 @@ export function CartView() {
                 </button>
               </div>
             </div>
-            <div className="font-semibold whitespace-nowrap">
+            <div className="text-sm font-semibold whitespace-nowrap">
               {formatMoney(toMinor(item.priceAmount) * item.quantity, item.currency)}
             </div>
           </li>
         ))}
       </ul>
+      {children}
+      </div>
 
-      <aside className="h-fit border border-[hsl(var(--border))] rounded-xl p-6 space-y-4">
+      <div className="shrink-0 border-t border-[hsl(var(--border))] p-4 sm:p-6 space-y-3" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="flex justify-between">
-          <span className="text-[hsl(var(--muted-foreground))]">Subtotal</span>
-          <span className="font-semibold">{formatMoney(subtotalMinor, currency)}</span>
+          <span className="text-[hsl(var(--muted-foreground))]">Total estimado</span>
+          <span className="text-right font-semibold">
+            {formatMoney(subtotalMinor, currency)}
+            {items.some((item) => item.type === 'physical') && <span className="ml-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">+ envío</span>}
+          </span>
         </div>
         <p className="text-sm text-[hsl(var(--muted-foreground))]">
           Envío e impuestos se calculan en el checkout.
@@ -135,7 +142,7 @@ export function CartView() {
         >
           Proceder al pago
         </Link>
-      </aside>
+      </div>
     </div>
   );
 }

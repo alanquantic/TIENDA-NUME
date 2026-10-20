@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 import { useState } from 'react';
 import { track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-store';
@@ -10,9 +10,11 @@ import type { VariationAttribute } from '@/lib/variations';
 import { PriceWithSale } from '@/components/sale-price';
 import type { UpsellTarget } from '@/lib/agenda-upsell';
 import { useUpsell } from '@/lib/upsell-store';
+import { useProductImageSelection } from '@/components/product-image-selection';
 
 export type VariantOption = {
   id: string;
+  image?: string | null;
   name: string;
   /** Combinación de atributos (`{ color: 'morado' }`); vacío si no hay variaciones. */
   attributes: Record<string, string>;
@@ -60,11 +62,13 @@ export function AddToCart({
   upsell = null,
 }: Props) {
   const add = useCart((s) => s.add);
+  const imageSelection = useProductImageSelection();
   const show = useToast((s) => s.show);
   const showUpsell = useUpsell((s) => s.show);
   const [variantId, setVariantId] = useState(variants[0]?.id ?? '');
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [purchaseBarVisible, setPurchaseBarVisible] = useState(true);
 
   const byAttributes = attributes.length > 0 && variants.length > 1;
   const [selection, setSelection] = useState<Record<string, string>>(
@@ -83,7 +87,10 @@ export function AddToCart({
   }
 
   function choose(key: string, value: string) {
-    setSelection((prev) => ({ ...prev, [key]: value }));
+    const next = { ...selection, [key]: value };
+    setSelection(next);
+    const nextVariant = variants.find((v) => matches(v, next, attributes));
+    imageSelection?.selectImage(nextVariant?.image ?? image);
     setAdded(false);
   }
   const maxStock = type === 'physical' && variant?.trackInventory ? variant.stock : null;
@@ -103,7 +110,7 @@ export function AddToCart({
         variantName: variants.length > 1 ? variant.name : null,
         priceAmount: variant.priceAmount,
         currency,
-        image,
+        image: variant.image ?? image,
         type,
         maxStock,
         maxPerOrder,
@@ -173,6 +180,7 @@ export function AddToCart({
       {byAttributes && variant && pricesVary && (
         <p className="text-xl font-semibold">
           <PriceWithSale
+            shippingExtra={type === 'physical'}
             priceAmount={variant.priceAmount}
             regularPriceAmount={variant.regularPriceAmount}
             currency={currency}
@@ -190,6 +198,7 @@ export function AddToCart({
             value={variantId}
             onChange={(e) => {
               setVariantId(e.target.value);
+              imageSelection?.selectImage(variants.find((v) => v.id === e.target.value)?.image ?? image);
               setAdded(false);
             }}
             className="mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2"
@@ -232,11 +241,51 @@ export function AddToCart({
           {!variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
         </button>
         {added && (
-          <Link href="/carrito" className="text-sm underline underline-offset-4">
+          <button type="button" onClick={useCartDrawer.getState().open} className="text-sm underline underline-offset-4">
             Ver carrito →
-          </Link>
+          </button>
         )}
       </div>
+
+      {purchaseBarVisible && <section
+        aria-label="Compra del producto"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-6 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium sm:text-base">{name}</p>
+            <div className="mt-1 text-sm font-semibold text-[hsl(var(--primary))] sm:text-lg">
+              {variant ? (
+                <PriceWithSale
+                  shippingExtra={type === 'physical'}
+                  priceAmount={variant.priceAmount}
+                  regularPriceAmount={variant.regularPriceAmount}
+                  currency={currency}
+                />
+              ) : 'No disponible'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={soldOut || !variant}
+            className="shrink-0 rounded-lg bg-[hsl(var(--primary))] px-4 py-3 text-sm font-medium text-[hsl(var(--primary-foreground))] disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-base"
+          >
+            {!variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPurchaseBarVisible(false)}
+            aria-label="Cerrar barra de compra"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[hsl(var(--primary))]"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-5 w-5">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+      </section>}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { TopBar } from '@/components/layout/top-bar';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from '@/components/toaster';
-import { UpsellBanner } from '@/components/upsell-banner';
+import { CartDrawer } from '@/components/cart-drawer';
 import { SessionBootstrap } from '@/components/session-bootstrap';
 
 export const metadata: Metadata = {
@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
         <SiteFooter />
         <Toaster />
-        <UpsellBanner />
+        <CartDrawer />
         <ConsentBanner />
       </body>
     </html>

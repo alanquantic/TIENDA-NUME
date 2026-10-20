@@ -10,6 +10,7 @@ import {
 import { effectivePrice } from './sale-price';
 import { effectiveMaxPerOrder } from './order-limits';
 import { toMinor } from './money';
+import { variantImage } from './variant-image';
 import { AGENDA_CATEGORY_SLUG, CURRENT_YEAR_MATCH, type UpsellTarget } from './agenda-upsell';
 
 export type CatalogCard = {
@@ -192,6 +193,7 @@ export type ReconciledLine =
   | { status: 'removed'; variantId: string };
 
 const CART_FIELDS = {
+  attributes: productVariants.attributes,
   variantId: productVariants.id,
   variantName: productVariants.name,
   priceAmount: productVariants.priceAmount,
@@ -211,6 +213,7 @@ const CART_FIELDS = {
 } as const;
 
 type CartRow = {
+  attributes: unknown;
   variantId: string;
   variantName: string;
   priceAmount: string;
@@ -240,7 +243,7 @@ function toCartData(r: CartRow): CartVariantData {
     // Precio vigente: así el carrito se actualiza cuando una oferta empieza o termina.
     priceAmount: effectivePrice(r).priceAmount,
     currency: r.currency,
-    image: images[0] ?? null,
+    image: variantImage(r.slug, images, (r.attributes as Record<string, string>) ?? {}) ?? images[0] ?? null,
     type: r.type,
     maxStock: r.type === 'physical' && r.trackInventory ? r.stock : null,
     maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),

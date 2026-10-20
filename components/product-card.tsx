@@ -16,6 +16,7 @@ export function ProductCard({
   listName,
   index,
   upsell = null,
+  compact = false,
 }: {
   product: CatalogCard;
   listId?: string;
@@ -23,6 +24,7 @@ export function ProductCard({
   index?: number;
   /** Agenda 2027 a ofrecer si este producto es una agenda anterior. */
   upsell?: UpsellTarget | null;
+  compact?: boolean | 'tile';
 }) {
   const add = useCart((s) => s.add);
   const show = useToast((s) => s.show);
@@ -83,6 +85,36 @@ export function ProductCard({
     }
   }
 
+  if (compact) {
+    return (
+      <div className={`flex min-w-0 rounded-2xl border border-[hsl(var(--primary)/0.12)] bg-[hsl(var(--card))] shadow-sm ${compact === 'tile' ? 'flex-col overflow-hidden' : 'items-center gap-4 p-3'}`}>
+        <Link href={`/productos/${product.slug}`} onClick={handleSelect} className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-[hsl(var(--muted))] ${compact === 'tile' ? 'aspect-square w-full' : 'h-28 w-24 rounded-xl sm:w-28'}`}>
+          {product.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
+          ) : <span className="text-center text-xs text-[hsl(var(--muted-foreground))]">Sin imagen</span>}
+        </Link>
+        <div className={`min-w-0 flex-1 ${compact === 'tile' ? 'flex flex-col p-2' : ''}`}>
+          {compact !== 'tile' && <p className="mb-1 text-[10px] font-medium uppercase tracking-widest text-[hsl(var(--muted-foreground))]">{product.type === 'digital' ? 'Producto digital' : 'Producto físico'}</p>}
+          <Link href={`/productos/${product.slug}`} onClick={handleSelect} title={product.name} className={`line-clamp-2 font-semibold leading-snug hover:text-[hsl(var(--primary))] ${compact === 'tile' ? 'min-h-8 text-xs' : 'text-sm'}`}>{product.name}</Link>
+          <div className={`mt-1.5 font-semibold ${compact === 'tile' ? 'mb-2 text-xs' : 'text-sm'}`}>
+            {product.priceFrom && <span className="mr-1 text-xs font-normal text-[hsl(var(--muted-foreground))]">Desde</span>}
+            <PriceWithSale priceAmount={product.priceAmount} regularPriceAmount={product.regularPriceAmount} currency={product.currency} shippingExtra={product.type === 'physical'} />
+          </div>
+          {hasOptions && !soldOut ? (
+            <Link href={`/productos/${product.slug}`} onClick={handleSelect} className={`inline-flex min-h-9 items-center justify-center gap-1 rounded-full border border-[hsl(var(--primary)/0.3)] py-1.5 text-xs font-semibold text-[hsl(var(--primary))] transition-colors hover:bg-[hsl(var(--primary-soft))] ${compact === 'tile' ? 'mt-auto px-1' : 'mt-2.5 px-4'}`}>
+              {compact === 'tile' ? 'Elegir' : 'Elegir opción'} <span aria-hidden="true">→</span>
+            </Link>
+          ) : (
+            <button type="button" onClick={handleAdd} disabled={soldOut} aria-label={soldOut ? `${product.name}: agotado` : `Agregar ${product.name} al carrito`} className={`inline-flex min-h-9 items-center justify-center gap-1 rounded-full bg-[hsl(var(--primary))] py-1.5 text-xs font-semibold text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-50 ${compact === 'tile' ? 'mt-auto px-1' : 'mt-2.5 px-4'}`}>
+              {!soldOut && compact !== 'tile' && <span aria-hidden="true" className="text-base leading-none">+</span>}{soldOut ? 'Agotado' : compact === 'tile' ? 'Agregar' : 'Agregar al carrito'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] transition-shadow hover:shadow-md">
       <Link href={`/productos/${product.slug}`} className="block" onClick={handleSelect}>
@@ -126,6 +158,7 @@ export function ProductCard({
             </span>
           )}
           <PriceWithSale
+            shippingExtra={product.type === 'physical'}
             priceAmount={product.priceAmount}
             regularPriceAmount={product.regularPriceAmount}
             currency={product.currency}
