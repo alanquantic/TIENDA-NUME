@@ -68,6 +68,7 @@ export function AddToCart({
   const [variantId, setVariantId] = useState(variants[0]?.id ?? '');
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [purchaseBarVisible, setPurchaseBarVisible] = useState(true);
 
   const byAttributes = attributes.length > 0 && variants.length > 1;
   const [selection, setSelection] = useState<Record<string, string>>(
@@ -245,7 +246,7 @@ export function AddToCart({
         )}
       </div>
 
-      <section
+      {purchaseBarVisible && <section
         aria-label="Compra del producto"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
@@ -271,8 +272,18 @@ export function AddToCart({
           >
             {!variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
           </button>
+          <button
+            type="button"
+            onClick={() => setPurchaseBarVisible(false)}
+            aria-label="Cerrar barra de compra"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[hsl(var(--primary))]"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-5 w-5">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

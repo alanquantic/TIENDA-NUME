@@ -365,6 +365,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
           <div className="mt-8">
             <AddToCart
+              key={product.id}
               productId={product.id}
               slug={product.slug}
               name={product.name}
@@ -378,7 +379,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
             />
           </div>
 
-          <ProductCountdown />
+          {product.slug === 'agenda-numerologica-2027' && <ProductCountdown />}
           <ProductTrust type={product.type} paymentMethods={paymentMethods.map(({ method, label }) => ({ method, label }))} />
 
           {product.type === 'digital' &&
