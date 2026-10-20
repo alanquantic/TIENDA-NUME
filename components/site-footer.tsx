@@ -7,6 +7,14 @@ export function SiteFooter() {
         <span>
           © {config.storeName}
         </span>
+        <a
+          href="https://www.numerologia-cotidiana.com/paginas/aviso-de-privacidad/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-4 hover:underline hover:text-[hsl(var(--foreground))]"
+        >
+          Términos y condiciones
+        </a>
         <span>Productos digitales y físicos</span>
       </div>
     </footer>
