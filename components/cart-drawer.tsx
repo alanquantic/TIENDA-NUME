@@ -87,7 +87,7 @@ export function CartDrawer() {
         if (event.target === dialog.current) close();
         if ((event.target as HTMLElement).closest('a[href]')) close();
       }}
-      className="cart-drawer m-0 ml-auto h-[100dvh] max-h-none w-full max-w-lg border-0 bg-[hsl(var(--background))] p-0 text-[hsl(var(--foreground))] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm"
+      className="cart-drawer m-0 ml-auto h-[100dvh] max-h-none w-[80vw] max-w-lg border-0 bg-[hsl(var(--background))] p-0 text-[hsl(var(--foreground))] shadow-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm sm:w-full"
     >
       {isOpen && <div className="flex h-full flex-col">
         <header className="flex shrink-0 items-center justify-between border-b border-[hsl(var(--border))] px-4 py-4 sm:px-6">
