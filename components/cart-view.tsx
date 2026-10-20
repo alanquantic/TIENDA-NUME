@@ -128,7 +128,10 @@ export function CartView({ children }: { children?: ReactNode }) {
       <div className="shrink-0 border-t border-[hsl(var(--border))] p-4 sm:p-6 space-y-3" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="flex justify-between">
           <span className="text-[hsl(var(--muted-foreground))]">Total estimado</span>
-          <span className="font-semibold">{formatMoney(subtotalMinor, currency)}</span>
+          <span className="text-right font-semibold">
+            {formatMoney(subtotalMinor, currency)}
+            {items.some((item) => item.type === 'physical') && <span className="ml-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">+ envío</span>}
+          </span>
         </div>
         <p className="text-sm text-[hsl(var(--muted-foreground))]">
           Envío e impuestos se calculan en el checkout.

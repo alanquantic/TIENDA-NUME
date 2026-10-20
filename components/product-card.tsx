@@ -99,7 +99,7 @@ export function ProductCard({
           <Link href={`/productos/${product.slug}`} onClick={handleSelect} title={product.name} className={`line-clamp-2 font-semibold leading-snug hover:text-[hsl(var(--primary))] ${compact === 'tile' ? 'min-h-8 text-xs' : 'text-sm'}`}>{product.name}</Link>
           <div className={`mt-1.5 font-semibold ${compact === 'tile' ? 'mb-2 text-xs' : 'text-sm'}`}>
             {product.priceFrom && <span className="mr-1 text-xs font-normal text-[hsl(var(--muted-foreground))]">Desde</span>}
-            <PriceWithSale priceAmount={product.priceAmount} regularPriceAmount={product.regularPriceAmount} currency={product.currency} />
+            <PriceWithSale priceAmount={product.priceAmount} regularPriceAmount={product.regularPriceAmount} currency={product.currency} shippingExtra={product.type === 'physical'} />
           </div>
           {hasOptions && !soldOut ? (
             <Link href={`/productos/${product.slug}`} onClick={handleSelect} className={`inline-flex min-h-9 items-center justify-center gap-1 rounded-full border border-[hsl(var(--primary)/0.3)] py-1.5 text-xs font-semibold text-[hsl(var(--primary))] transition-colors hover:bg-[hsl(var(--primary-soft))] ${compact === 'tile' ? 'mt-auto px-1' : 'mt-2.5 px-4'}`}>
@@ -158,6 +158,7 @@ export function ProductCard({
             </span>
           )}
           <PriceWithSale
+            shippingExtra={product.type === 'physical'}
             priceAmount={product.priceAmount}
             regularPriceAmount={product.regularPriceAmount}
             currency={product.currency}

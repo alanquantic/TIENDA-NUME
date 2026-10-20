@@ -354,13 +354,14 @@ export default async function ProductPage({ params }: { params: { slug: string }
               </span>
             )}
             <PriceWithSale
+              shippingExtra={product.type === 'physical'}
               priceAmount={fromPrice?.priceAmount ?? '0'}
               regularPriceAmount={fromPrice?.regularPriceAmount ?? null}
               currency={product.currency}
             />
           </p>
           {saleEndText && (
-            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{saleEndText}</p>
+            <p className="mt-3 inline-flex rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-2 text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
           )}
 
           <div className="mt-8">

@@ -180,6 +180,7 @@ export function AddToCart({
       {byAttributes && variant && pricesVary && (
         <p className="text-xl font-semibold">
           <PriceWithSale
+            shippingExtra={type === 'physical'}
             priceAmount={variant.priceAmount}
             regularPriceAmount={variant.regularPriceAmount}
             currency={currency}
@@ -257,6 +258,7 @@ export function AddToCart({
             <div className="mt-1 text-sm font-semibold text-[hsl(var(--primary))] sm:text-lg">
               {variant ? (
                 <PriceWithSale
+                  shippingExtra={type === 'physical'}
                   priceAmount={variant.priceAmount}
                   regularPriceAmount={variant.regularPriceAmount}
                   currency={currency}

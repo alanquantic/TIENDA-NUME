@@ -17,11 +17,13 @@ export function PriceWithSale({
   regularPriceAmount,
   currency,
   className = '',
+  shippingExtra = false,
 }: {
   priceAmount: string;
   regularPriceAmount: string | null;
   currency: string;
   className?: string;
+  shippingExtra?: boolean;
 }) {
   return (
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
@@ -31,6 +33,9 @@ export function PriceWithSale({
           <span className="sr-only">Antes </span>
           {formatDecimal(regularPriceAmount, currency)}
         </s>
+      )}
+      {shippingExtra && (
+        <span className="text-[0.75em] font-medium text-[hsl(var(--muted-foreground))]">+ envío</span>
       )}
     </span>
   );
