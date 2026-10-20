@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useProductImageSelection } from '@/components/product-image-selection';
 
 export function ProductGallery({ images, name }: { images: string[]; name: string }) {
   const [selected, setSelected] = useState(0);
-  const main = images[selected] ?? null;
+  const selection = useProductImageSelection();
+  const main = selection?.image ?? images[selected] ?? null;
 
   return (
     <div className="space-y-3">
@@ -25,10 +27,14 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
             <button
               key={src}
               type="button"
-              onClick={() => setSelected(i)}
+              onClick={() => {
+                setSelected(i);
+                selection?.selectImage(src);
+              }}
+              aria-pressed={src === main}
               aria-label={`Ver imagen ${i + 1}`}
               className={`aspect-square overflow-hidden rounded-lg border-2 transition-colors ${
-                i === selected
+                src === main
                   ? 'border-[hsl(var(--accent))]'
                   : 'border-[hsl(var(--border))] hover:border-[hsl(var(--muted-foreground))]'
               }`}

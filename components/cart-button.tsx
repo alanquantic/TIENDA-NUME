@@ -1,19 +1,23 @@
 'use client';
 
-import Link from 'next/link';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { CartIcon } from '@/components/ui/icons';
 
 export function CartButton({ className }: { className?: string }) {
   const items = useCart((s) => s.items);
+  const open = useCartDrawer((s) => s.open);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const count = mounted ? items.reduce((n, i) => n + i.quantity, 0) : 0;
 
   return (
-    <Link
-      href="/carrito"
+    <button
+      type="button"
+      onClick={open}
+      aria-label={`Abrir carrito${count ? `, ${count} productos` : ''}`}
+      aria-haspopup="dialog"
       className={
         className ??
         'header-chip inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-95'
@@ -26,6 +30,6 @@ export function CartButton({ className }: { className?: string }) {
           {count}
         </span>
       )}
-    </Link>
+    </button>
   );
 }

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { effectiveMaxPerOrder } from './order-limits';
+import { useCartDrawer } from './cart-drawer-store';
 
 export type CartItem = {
   variantId: string;
@@ -48,7 +49,7 @@ export const useCart = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      add: (item, quantity = 1) =>
+      add: (item, quantity = 1) => {
         set((state) => {
           const existing = state.items.find((i) => i.variantId === item.variantId);
           const cap = itemCap(item);
@@ -63,7 +64,9 @@ export const useCart = create<CartState>()(
           return {
             items: [...state.items, { ...item, quantity: Math.min(quantity, cap) }],
           };
-        }),
+        });
+        useCartDrawer.getState().open();
+      },
       remove: (variantId) =>
         set((state) => ({
           items: state.items.filter((i) => i.variantId !== variantId),
@@ -100,7 +103,13 @@ export const useCart = create<CartState>()(
           let removed = 0;
           let remapped = 0;
           const next: CartItem[] = [];
-          for (const item of items) {
+          const requestedIds = new Set(items.map((item) => item.variantId));
+          // Conserva las altas y cambios de cantidad hechos mientras validábamos.
+          for (const item of get().items) {
+            if (!requestedIds.has(item.variantId)) {
+              next.push(item);
+              continue;
+            }
             const r = byVariant.get(item.variantId);
             if (!r || r.status === 'removed' || !r.data) {
               removed++;
