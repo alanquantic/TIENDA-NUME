@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { config } from '@/lib/config';
 import { ConsentBanner } from '@/components/analytics/consent-banner';
 import { GoogleAnalytics } from '@/components/analytics/google-analytics';
 import { RouteTracker } from '@/components/analytics/route-tracker';
@@ -13,9 +12,9 @@ import { SessionBootstrap } from '@/components/session-bootstrap';
 
 export const metadata: Metadata = {
   title: {
-    // Mismo título que la tienda anterior (WooCommerce).
+    // Mismo título y formato "Página – Sitio" que la tienda anterior (WooCommerce).
     default: 'Tienda en Línea Numerología Cotidiana de Laura L. Rodríguez',
-    template: `%s · ${config.storeName}`,
+    template: '%s – Tienda en Línea Numerología Cotidiana de Laura L. Rodríguez',
   },
   description: 'Tienda en línea de productos digitales y físicos.',
   icons: {
