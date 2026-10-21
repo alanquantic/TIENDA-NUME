@@ -70,6 +70,7 @@ datos personales.
 | Generador de reportes | nombre y fecha de nacimiento (persona/pareja), `orderId` | Firmado con HMAC. Los PDF resultantes quedan en URLs públicas del generador. |
 | Webhooks externos (membresía, licencia…) | correo, nombre, **teléfono, fecha de nacimiento**, pedido | Firma HMAC solo si existe `STORE_WEBHOOK_SECRET`; sin él va sin firmar. |
 | Google Analytics | `page_location` completo (incluye `?order=<uuid>`), productos, total, cupón, número de pedido | H2. Solo si el usuario aceptó cookies de analítica. |
+| Meta Pixel | URL de la página, productos, total, número de pedido (`eventID` de `Purchase`) | Solo si el usuario aceptó el banner; nunca desde `/admin`. |
 | Resend (correo) | correo y contenido del pedido, enlaces de descarga | Esperado. |
 
 ---

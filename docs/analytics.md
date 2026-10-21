@@ -1,11 +1,12 @@
 # Analytics — Tienda Nume
 
-Instrumentación GA4 completa del funnel de ecommerce.
+Instrumentación GA4 completa del funnel de ecommerce, replicada en Meta Pixel.
 
 ## Estado actual
 
-- **Plataforma**: Google Analytics 4 únicamente.
+- **Plataformas**: Google Analytics 4 y Meta Pixel (anuncios de Facebook/Instagram).
 - **Measurement ID**: `G-HE7B57PCBV` (env `NEXT_PUBLIC_GA4_MEASUREMENT_ID`).
+- **Meta Pixel ID**: env `NEXT_PUBLIC_META_PIXEL_ID`. Sin la variable, el pixel no se carga.
 - **Consent Mode**: v2 activo. Estados por defecto `denied`. Cookie: `tienda_consent` (180 días).
 - **Cross-domain con WEB-NUME** (`numerologia-cotidiana.com`): en GA4 → Admin → Data Streams → Configure your domains → agrega ambos dominios para que la sesión se mantenga cuando el usuario cruza de un sitio al otro. WEB-NUME usa un measurement ID distinto (`G-42049MCJ59`); si quieres unificar reportes, considera crear una segunda propiedad o roll-up.
 
@@ -16,7 +17,8 @@ lib/analytics/
 ├── index.ts        # barrel: exports públicos
 ├── events.ts       # AnalyticsEventMap tipado (contrato único)
 ├── consent.ts      # Consent Mode v2 + cookie tienda_consent
-├── gtag.ts         # wrapper de window.gtag: track(), pageView()
+├── gtag.ts         # wrapper de window.gtag: track(), pageView(); también despacha a Meta
+├── meta-pixel.ts   # Meta Pixel: carga tras consentimiento, mapeo GA4 → eventos de Meta
 └── ecommerce.ts    # helpers: cartItemToGaItem, catalogCardToGaItem, itemsValue
 
 components/analytics/
@@ -45,6 +47,34 @@ components/analytics/
 | **Compra** | **`purchase`** | `<PurchaseTracker>` en `app/checkout/success/page.tsx` (dedup por `order.number`) |
 
 Todos los eventos siguen el schema estándar GA4 Ecommerce con `items[]`, `currency`, `value`.
+
+## Meta Pixel
+
+`track()` y `pageView()` mandan cada evento a GA4 y, si tiene equivalente, a Meta:
+
+| GA4 | Meta | Parámetros |
+|---|---|---|
+| `page_view` | `PageView` | — |
+| `view_item` | `ViewContent` | `content_ids`, `contents`, `content_name`, `content_category`, `value`, `currency` |
+| `add_to_cart` | `AddToCart` | `content_ids`, `contents`, `num_items`, `value`, `currency` |
+| `begin_checkout` | `InitiateCheckout` | igual que `AddToCart` |
+| `add_payment_info` | `AddPaymentInfo` | igual que `AddToCart` |
+| `purchase` | `Purchase` | igual que `AddToCart` + `eventID = purchase-<número de pedido>` |
+
+El resto (`view_item_list`, `select_item`, `view_cart`, `remove_from_cart`,
+`add_shipping_info`) se queda solo en GA. `content_ids` son los ids de **variante**
+(los mismos `item_id` de GA): si se crea un catálogo en Meta, sus ids deben coincidir.
+
+**Consentimiento**: a diferencia de GA (que manda pings sin cookies aunque se
+rechace), nada de Meta se carga hasta que el usuario acepta el banner
+(`ad_storage = granted`). Los eventos de la página en la que acepta se envían en ese
+momento; si rechaza o no contesta, Meta no recibe nada.
+
+**Exclusiones**: `/admin` nunca manda eventos a Meta. El pixel tiene
+`disablePushState` para que los `PageView` salgan solo de `RouteTracker`.
+
+**Verificar**: Administrador de eventos de Meta → el pixel → **Probar eventos**, o la
+extensión **Meta Pixel Helper** de Chrome (acepta el banner primero).
 
 ## Custom dimensions a registrar en GA4
 
@@ -137,6 +167,6 @@ Como aquí la tienda usa `G-HE7B57PCBV` y WEB-NUME usa `G-42049MCJ59` (propiedad
 
 ## Pendientes
 
-- Sumar Meta Pixel / TikTok Pixel (contrato ya tipado; agregar dispatchers en `gtag.ts`).
-- CAPI (Conversions API) server-side para deduplicación con Ads y para eventos vía webhook de Stripe (`purchase` server-side desde el webhook evita perder eventos por ad-blockers).
+- Sumar TikTok Pixel (contrato ya tipado; mismo patrón que `meta-pixel.ts`).
+- CAPI (Conversions API) de Meta server-side: `purchase` desde los webhooks de pago evita perder ventas por ad-blockers o por no aceptar el banner. Usar `event_id = purchase-<número de pedido>` para que Meta lo deduplique con el del navegador.
 - Refund tracking desde el flujo de reembolsos del admin.
