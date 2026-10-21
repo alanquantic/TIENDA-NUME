@@ -13,7 +13,8 @@ import { SessionBootstrap } from '@/components/session-bootstrap';
 
 export const metadata: Metadata = {
   title: {
-    default: config.storeName,
+    // Mismo título que la tienda anterior (WooCommerce).
+    default: 'Tienda en Línea Numerología Cotidiana de Laura L. Rodríguez',
     template: `%s · ${config.storeName}`,
   },
   description: 'Tienda en línea de productos digitales y físicos.',
