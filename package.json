@@ -9,6 +9,7 @@
         "lint": "next lint",
         "typecheck": "tsc --noEmit",
         "test:auth": "node --import tsx --test tests/session-persistence.test.ts",
+        "test:analytics": "node --import tsx --test tests/meta-pixel.test.ts",
         "test:monday": "node --import tsx --test tests/monday-agenda-2027.test.ts tests/monday-numerathum.test.ts tests/monday-libro.test.ts",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
