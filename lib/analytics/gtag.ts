@@ -1,5 +1,6 @@
 import type { AnalyticsEventMap, AnalyticsEventName } from './events'
 import type { ConsentSettings } from './consent'
+import { metaPageView, metaTrack, setMetaConsent } from './meta-pixel'
 
 declare global {
   interface Window {
@@ -25,10 +26,12 @@ export function track<K extends AnalyticsEventName>(
   params: AnalyticsEventMap[K]
 ) {
   gtag('event', event, params as Record<string, unknown>)
+  metaTrack(event, params)
 }
 
 export function updateConsent(settings: ConsentSettings) {
   gtag('consent', 'update', settings)
+  setMetaConsent(settings.ad_storage === 'granted')
 }
 
 /**
@@ -48,6 +51,7 @@ export function sanitizeUrl(url: string): string {
 }
 
 export function pageView(url: string, title?: string) {
+  metaPageView()
   if (!GA_MEASUREMENT_ID) return
   const pageLocation = sanitizeUrl(typeof window !== 'undefined' ? window.location.href : url)
   // Fija la URL limpia también para los eventos siguientes (purchase, etc.).
