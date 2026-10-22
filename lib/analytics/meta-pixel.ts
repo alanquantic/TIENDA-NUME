@@ -2,6 +2,7 @@
 // que el usuario acepta las cookies de publicidad; mientras tanto, los eventos
 // de la página actual esperan en una cola y se envían al aceptar.
 
+import { isAdminPanelPage } from './admin-panel'
 import type { AnalyticsEventMap, AnalyticsEventName, EcommerceItem } from './events'
 
 type Fbq = ((...args: unknown[]) => void) & {
@@ -118,8 +119,8 @@ function loadPixel(pixelId: string): Fbq {
 function send(args: unknown[]) {
   if (!META_PIXEL_ID || typeof window === 'undefined') return
   // El panel no cuenta como visita a la tienda ni manda sus URLs a Meta.
+  if (isAdminPanelPage()) return
   const path = window.location.pathname
-  if (path.startsWith('/admin')) return
   if (consented) {
     loadPixel(META_PIXEL_ID)(...args)
     return

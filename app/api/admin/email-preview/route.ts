@@ -1,4 +1,5 @@
 import { config } from '@/lib/config';
+import { adminHref } from '@/lib/admin-path';
 import {
   renderOrderConfirmation,
   renderOrderFailed,
@@ -64,7 +65,7 @@ export async function GET(req: Request) {
       : type === 'notification'
         ? renderOrderNotification({
             ...sample,
-            adminUrl: `${config.appUrl}/admin/pedidos/ejemplo`,
+            adminUrl: `${config.appUrl}${adminHref('/pedidos/ejemplo')}`,
             provider: 'mercadopago',
             isTest: false,
             requiresInvoice: true,

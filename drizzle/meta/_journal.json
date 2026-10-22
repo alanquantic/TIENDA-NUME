@@ -57,6 +57,13 @@
       "when": 1791836583387,
       "tag": "0007_precio_oferta",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792704437782,
+      "tag": "0008_admin_two_factor",
+      "breakpoints": true
     }
   ]
 }

@@ -404,6 +404,30 @@ export function renderOrderNotification(
   };
 }
 
+export function renderTwoFactorEnabled(data: { email: string; when: Date }): { subject: string; html: string } {
+  const when = new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'America/Mexico_City',
+  }).format(data.when);
+  const body = `
+    <p style="margin:0 0 14px;">Se activó la verificación en dos pasos para entrar al panel de la tienda con la cuenta <strong>${esc(data.email)}</strong> el ${esc(when)} (hora de Ciudad de México).</p>
+    <p style="margin:0 0 14px;">Si fuiste tú, no tienes que hacer nada.</p>
+    <p style="margin:0;padding:10px 14px;background:#fef2f2;border-left:3px solid ${BRAND.red};border-radius:6px;font-size:14px;color:${BRAND.red};"><strong>Si no fuiste tú:</strong> cambia de inmediato tu contraseña de Numerología Cotidiana y pide al equipo técnico que reinicie tu verificación en dos pasos.</p>
+  `;
+
+  return {
+    subject: 'Se activó la verificación en dos pasos del panel',
+    html: layout({
+      preheader: 'Aviso de seguridad del panel de la tienda',
+      heading: 'Verificación en dos pasos activada',
+      accent: BRAND.purple,
+      body,
+      footer: 'Aviso de seguridad de la tienda.',
+    }),
+  };
+}
+
 export function renderReportReady(data: ReportReadyEmailData): { subject: string; html: string } {
   const body = `
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya está listo.</p>

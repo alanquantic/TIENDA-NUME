@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { and, asc, desc, eq, exists, gte, lt, sql, type SQL } from 'drizzle-orm';
+import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
 import { orderItems, orders, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
@@ -59,7 +60,7 @@ export default async function AdminOrders({ searchParams }: {
     <div>
       <h1 className="text-2xl font-semibold mb-6">Pedidos</h1>
 
-      <form action="/admin/pedidos" method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <form action={adminHref('/pedidos')} method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="min-w-0 sm:col-span-2 lg:col-span-1">
           <label htmlFor="order-product" className="mb-1.5 block text-sm font-medium">Producto</label>
           <select id="order-product" name="producto" defaultValue={filters.productId} className={fieldClass}>
@@ -78,7 +79,7 @@ export default async function AdminOrders({ searchParams }: {
         <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
           <p className="text-xs text-[hsl(var(--muted-foreground))]">Fecha de creación del pedido · Ciudad de México.</p>
           <div className="flex flex-wrap items-center gap-2">
-            <Link href="/admin/pedidos" className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Limpiar filtros</Link>
+            <Link href={adminHref('/pedidos')} className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Limpiar filtros</Link>
             <button type="submit" className="h-11 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-semibold text-white hover:opacity-90">Aplicar filtros</button>
           </div>
         </div>
@@ -108,7 +109,7 @@ export default async function AdminOrders({ searchParams }: {
               {rows.map((o) => (
                 <tr key={o.id} className="hover:bg-[hsl(var(--muted))]">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/pedidos/${o.id}`} className="font-medium hover:underline">
+                    <Link href={adminHref(`/pedidos/${o.id}`)} className="font-medium hover:underline">
                       {o.number}
                     </Link>
                     <div className="mt-1 flex flex-wrap gap-1">

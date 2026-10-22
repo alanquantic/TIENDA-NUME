@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAdminHref } from '@/components/admin/admin-path';
 
 export function LoginForm() {
   const router = useRouter();
+  const adminHref = useAdminHref();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,8 @@ export function LoginForm() {
       body: JSON.stringify({ email, password }),
     });
     if (res.ok) {
-      router.replace('/admin');
+      // Segundo paso: el código de la app autenticadora (o configurarla la primera vez).
+      router.replace(adminHref('/verificacion'));
       router.refresh();
     } else {
       const data = await res.json().catch(() => ({}));
