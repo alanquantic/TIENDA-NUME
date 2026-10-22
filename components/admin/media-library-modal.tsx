@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAdminHref } from '@/components/admin/admin-path';
 
 type MediaItem = {
   id: string;
@@ -133,6 +134,7 @@ export function MediaLibraryModal({
   kind?: MediaKind;
 }) {
   const copy = COPY[kind];
+  const adminHref = useAdminHref();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -365,7 +367,7 @@ export function MediaLibraryModal({
                 {usedByProducts.map((p) => (
                   <li key={p.id}>
                     <a
-                      href={`/admin/productos/${p.id}/editar`}
+                      href={adminHref(`/productos/${p.id}/editar`)}
                       target="_blank"
                       rel="noreferrer"
                       className="underline"

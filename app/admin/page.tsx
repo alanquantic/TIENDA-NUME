@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { desc, eq } from 'drizzle-orm';
+import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
 import { productVariants, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
@@ -34,7 +35,7 @@ export default async function AdminHome() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Productos</h1>
         <Link
-          href="/admin/productos/nuevo"
+          href={adminHref('/productos/nuevo')}
           className="rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-4 py-2 text-sm font-medium"
         >
           + Nuevo
@@ -101,7 +102,7 @@ export default async function AdminHome() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-3">
                       <Link
-                        href={`/admin/productos/${p.id}/editar`}
+                        href={adminHref(`/productos/${p.id}/editar`)}
                         className="text-[hsl(var(--primary))] hover:underline"
                       >
                         Editar

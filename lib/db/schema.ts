@@ -408,6 +408,29 @@ export const generatedReports = pgTable(
 );
 
 // ───────────────────────────────────────────────────────────────
+// Verificación en dos pasos del panel admin
+// ───────────────────────────────────────────────────────────────
+
+// La identidad del admin viene de la API de nume (user_id es su id). Borrar la
+// fila obliga a ese admin a configurar su app autenticadora de nuevo.
+export const adminTwoFactor = pgTable('admin_two_factor', {
+  userId: text('user_id').primaryKey(),
+  email: text('email').notNull(),
+  // Secreto TOTP cifrado con AES-256-GCM (llave derivada de ADMIN_2FA_SECRET).
+  secretEncrypted: text('secret_encrypted').notNull(),
+  // null mientras el admin no confirma su primer código.
+  enabledAt: timestamp('enabled_at', { withTimezone: true }),
+  // SHA-256 de los códigos de respaldo que siguen sin usar.
+  recoveryCodeHashes: jsonb('recovery_code_hashes').$type<string[]>().notNull().default([]),
+  // Último paso TOTP aceptado: un código no sirve dos veces.
+  lastUsedStep: integer('last_used_step'),
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ───────────────────────────────────────────────────────────────
 // Tipos inferidos
 // ───────────────────────────────────────────────────────────────
 
@@ -424,3 +447,4 @@ export type DiscountCode = typeof discountCodes.$inferSelect;
 export type DigitalAsset = typeof digitalAssets.$inferSelect;
 export type DownloadGrant = typeof downloadGrants.$inferSelect;
 export type GeneratedReport = typeof generatedReports.$inferSelect;
+export type AdminTwoFactor = typeof adminTwoFactor.$inferSelect;
