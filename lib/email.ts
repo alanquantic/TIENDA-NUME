@@ -3,8 +3,10 @@ import { emailConfig } from './config';
 import {
   renderOrderConfirmation,
   renderOrderFailed,
+  renderOrderNotification,
   renderReportReady,
   type OrderEmailData,
+  type OrderNotificationEmailData,
   type ReportReadyEmailData,
 } from './email-templates';
 
@@ -16,13 +18,13 @@ function getResend(): Resend | null {
   return _resend;
 }
 
-type SendArgs = { to: string; subject: string; html: string };
+type SendArgs = { to: string | string[]; subject: string; html: string; replyTo?: string };
 
 /**
  * Envía un correo con Resend. Es best-effort: si falla o no hay API key,
  * registra en consola y NO lanza (nunca debe romper el fulfillment).
  */
-async function sendEmail({ to, subject, html }: SendArgs): Promise<void> {
+async function sendEmail({ to, subject, html, replyTo = emailConfig.replyTo }: SendArgs): Promise<void> {
   const resend = getResend();
   if (!resend) {
     console.info(`[email] (sin RESEND_API_KEY) se habría enviado a ${to}: "${subject}"`);
@@ -34,7 +36,7 @@ async function sendEmail({ to, subject, html }: SendArgs): Promise<void> {
       to,
       subject,
       html,
-      ...(emailConfig.replyTo ? { replyTo: emailConfig.replyTo } : {}),
+      ...(replyTo ? { replyTo } : {}),
     });
     if (error) {
       console.error(`[email] Resend rechazó el envío a ${to}:`, error);
@@ -47,6 +49,13 @@ async function sendEmail({ to, subject, html }: SendArgs): Promise<void> {
 export async function sendOrderConfirmation(data: OrderEmailData): Promise<void> {
   const { subject, html } = renderOrderConfirmation(data);
   await sendEmail({ to: data.customerEmail, subject, html });
+}
+
+/** Aviso interno de compra pagada a ORDER_NOTIFY_EMAIL. Responder le escribe al cliente. */
+export async function sendOrderNotification(data: OrderNotificationEmailData): Promise<void> {
+  if (emailConfig.orderNotifyTo.length === 0) return;
+  const { subject, html } = renderOrderNotification(data);
+  await sendEmail({ to: emailConfig.orderNotifyTo, subject, html, replyTo: data.customerEmail });
 }
 
 export async function sendOrderFailed(

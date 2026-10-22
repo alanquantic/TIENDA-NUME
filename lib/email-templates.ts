@@ -64,6 +64,14 @@ export type OrderEmailData = {
   notes?: string[];
 };
 
+// Aviso interno al equipo: el mismo pedido + datos para operarlo.
+export type OrderNotificationEmailData = OrderEmailData & {
+  adminUrl: string;
+  provider: string;
+  isTest: boolean;
+  requiresInvoice: boolean;
+};
+
 export type ReportReadyEmailData = {
   number: string;
   customerName: string;
@@ -86,8 +94,15 @@ function money(value: string, currency: string): string {
 }
 
 // Envoltura común: cabecera de marca + contenido + pie.
-function layout(opts: { preheader: string; heading: string; accent: string; body: string }): string {
+function layout(opts: {
+  preheader: string;
+  heading: string;
+  accent: string;
+  body: string;
+  footer?: string;
+}): string {
   const store = esc(EMAIL_STORE_NAME);
+  const footer = esc(opts.footer ?? '¿Dudas? Responde a este correo y te ayudamos.');
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -119,7 +134,7 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
       </td></tr>
       <tr>
         <td style="padding:20px 28px;background:${BRAND.soft};border-top:1px solid ${BRAND.border};color:${BRAND.muted};font-size:13px;line-height:1.6;font-family:Roboto,Arial,sans-serif;">
-          ${store} · ¿Dudas? Responde a este correo y te ayudamos.<br>
+          ${store} · ${footer}<br>
           <a href="${config.appUrl}" style="color:${BRAND.purple};text-decoration:none;">${esc(config.appUrl.replace(/^https?:\/\//, ''))}</a>
         </td>
       </tr>
@@ -324,6 +339,67 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
       heading: '¡Gracias por tu compra!',
       accent: BRAND.purple,
       body,
+    }),
+  };
+}
+
+const PROVIDER_LABEL: Record<string, string> = {
+  stripe: 'Stripe',
+  mercadopago: 'Mercado Pago',
+  paypal: 'PayPal',
+  manual: 'Manual',
+};
+
+function plural(count: number, singular: string, pluralForm: string): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+// No incluye los enlaces de descarga/reportes del cliente: abrirlos gastaría sus descargas.
+export function renderOrderNotification(
+  data: OrderNotificationEmailData,
+): { subject: string; html: string } {
+  const total = money(data.totalAmount, data.currency);
+  const who = data.customerName || data.customerEmail;
+  const reports = data.reports ?? [];
+  const pendingReports = data.pendingReports ?? [];
+
+  const facts = [
+    `Pago: ${esc(PROVIDER_LABEL[data.provider] ?? data.provider)}${data.isTest ? ' (prueba)' : ''}`,
+    data.requiresShipping ? '<strong>Requiere envío</strong>' : 'Solo digital',
+    data.requiresInvoice ? '<strong>Pidió factura (CFDI)</strong>' : '',
+    data.downloads.length ? plural(data.downloads.length, 'descarga generada', 'descargas generadas') : '',
+    reports.length ? plural(reports.length, 'reporte listo', 'reportes listos') : '',
+    pendingReports.length ? plural(pendingReports.length, 'reporte IA en proceso', 'reportes IA en proceso') : '',
+  ]
+    .filter(Boolean)
+    .map((fact) => `<li style="margin-bottom:4px;">${fact}</li>`)
+    .join('');
+
+  const body = `
+    ${
+      data.isTest
+        ? `<p style="margin:0 0 14px;padding:10px 14px;background:#fef2f2;border-left:3px solid ${BRAND.red};border-radius:6px;font-size:13px;color:${BRAND.red};"><strong>Pedido de prueba:</strong> se pagó en modo sandbox o simulado, no hubo cobro real.</p>`
+        : ''
+    }
+    <p style="margin:0 0 14px;">Entró el pedido <strong style="color:${BRAND.purple};">${esc(data.number)}</strong> por <strong>${total}</strong>.</p>
+    ${customerBlock(data)}
+    <ul style="margin:14px 0 0;padding-left:18px;font-size:14px;color:${BRAND.text};">${facts}</ul>
+    <div style="height:1px;background:${BRAND.border};margin:18px 0;"></div>
+    ${itemsTable(data)}
+    ${addressBlock(data.shippingAddress)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 4px;">
+      <tr><td><a href="${data.adminUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:11px 20px;border-radius:10px;">Ver pedido en el admin</a></td></tr>
+    </table>
+  `;
+
+  return {
+    subject: `${data.isTest ? '[PRUEBA] ' : ''}Nuevo pedido ${data.number} · ${total} · ${who}`,
+    html: layout({
+      preheader: `${who} compró ${plural(data.items.length, 'producto', 'productos')} por ${total}`,
+      heading: 'Nuevo pedido pagado',
+      accent: BRAND.purple,
+      body,
+      footer: 'Aviso interno. Si respondes a este correo, la respuesta le llega al cliente.',
     }),
   };
 }

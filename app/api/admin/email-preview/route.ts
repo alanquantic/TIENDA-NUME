@@ -2,6 +2,7 @@ import { config } from '@/lib/config';
 import {
   renderOrderConfirmation,
   renderOrderFailed,
+  renderOrderNotification,
   type OrderEmailData,
 } from '@/lib/email-templates';
 
@@ -54,11 +55,21 @@ const sample: OrderEmailData = {
 };
 
 // Vista previa de los templates (protegida por el middleware de /api/admin/*).
-// Uso: /api/admin/email-preview?type=confirmation  |  ?type=failed
+// Uso: /api/admin/email-preview?type=confirmation  |  ?type=failed  |  ?type=notification
 export async function GET(req: Request) {
   const type = new URL(req.url).searchParams.get('type') ?? 'confirmation';
   const { html } =
-    type === 'failed' ? renderOrderFailed(sample) : renderOrderConfirmation(sample);
+    type === 'failed'
+      ? renderOrderFailed(sample)
+      : type === 'notification'
+        ? renderOrderNotification({
+            ...sample,
+            adminUrl: `${config.appUrl}/admin/pedidos/ejemplo`,
+            provider: 'mercadopago',
+            isTest: false,
+            requiresInvoice: true,
+          })
+        : renderOrderConfirmation(sample);
   return new Response(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });

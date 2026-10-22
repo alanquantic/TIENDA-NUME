@@ -3,8 +3,9 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
 import { initialMondayJobs, syncMondayOrder } from './monday/sync';
-import { sendOrderConfirmation, sendOrderFailed } from './email';
-import type { EmailAddress } from './email-templates';
+import { sendOrderConfirmation, sendOrderFailed, sendOrderNotification } from './email';
+import type { EmailAddress, OrderEmailData } from './email-templates';
+import { isTestPayment } from './payments/test-payment';
 import { isReportGeneratorConfigured, submitReport } from './report-generator';
 import { reportEngineForKey, type ReportEngine, type ReportKey } from './report-catalog';
 import {
@@ -286,7 +287,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     if (note) notes.push(note);
   }
 
-  await sendOrderConfirmation({
+  const emailData: OrderEmailData = {
     number: order.number,
     customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
     customerEmail: order.customerEmail,
@@ -312,6 +313,14 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     reports: reportLinks,
     pendingReports: pendingAiReports,
     notes,
+  };
+  await sendOrderConfirmation(emailData);
+  await sendOrderNotification({
+    ...emailData,
+    adminUrl: `${config.appUrl}/admin/pedidos/${order.id}`,
+    provider: order.provider,
+    isTest: isTestPayment(order),
+    requiresInvoice: order.requiresInvoice,
   });
 
   const toItemLike = (item: (typeof items)[number]): ItemLike => ({
