@@ -5,6 +5,7 @@ import {
   renderOrderFailed,
   renderOrderNotification,
   renderReportReady,
+  renderTwoFactorEnabled,
   type OrderEmailData,
   type OrderNotificationEmailData,
   type ReportReadyEmailData,
@@ -56,6 +57,12 @@ export async function sendOrderNotification(data: OrderNotificationEmailData): P
   if (emailConfig.orderNotifyTo.length === 0) return;
   const { subject, html } = renderOrderNotification(data);
   await sendEmail({ to: emailConfig.orderNotifyTo, subject, html, replyTo: data.customerEmail });
+}
+
+/** Aviso al admin de que su verificación en dos pasos quedó activa. */
+export async function sendTwoFactorEnabledNotice({ email }: { email: string }): Promise<void> {
+  const { subject, html } = renderTwoFactorEnabled({ email, when: new Date() });
+  await sendEmail({ to: email, subject, html });
 }
 
 export async function sendOrderFailed(

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { eq } from 'drizzle-orm';
+import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
 import {
   digitalAssets,
@@ -54,7 +55,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
 
   return (
     <div>
-      <Link href="/admin/pedidos" className="text-sm text-[hsl(var(--muted-foreground))] hover:underline">
+      <Link href={adminHref('/pedidos')} className="text-sm text-[hsl(var(--muted-foreground))] hover:underline">
         ← Pedidos
       </Link>
       <div className="mt-2 flex items-center justify-between">

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
+import { adminHref } from './admin-path';
 import { initialMondayJobs, syncMondayOrder } from './monday/sync';
 import { sendOrderConfirmation, sendOrderFailed, sendOrderNotification } from './email';
 import type { EmailAddress, OrderEmailData } from './email-templates';
@@ -317,7 +318,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   await sendOrderConfirmation(emailData);
   await sendOrderNotification({
     ...emailData,
-    adminUrl: `${config.appUrl}/admin/pedidos/${order.id}`,
+    adminUrl: `${config.appUrl}${adminHref(`/pedidos/${order.id}`)}`,
     provider: order.provider,
     isTest: isTestPayment(order),
     requiresInvoice: order.requiresInvoice,

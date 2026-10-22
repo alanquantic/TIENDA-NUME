@@ -1,5 +1,6 @@
 import type { AnalyticsEventMap, AnalyticsEventName } from './events'
 import type { ConsentSettings } from './consent'
+import { isAdminPanelPage } from './admin-panel'
 import { metaPageView, metaTrack, setMetaConsent } from './meta-pixel'
 
 declare global {
@@ -25,6 +26,7 @@ export function track<K extends AnalyticsEventName>(
   event: K,
   params: AnalyticsEventMap[K]
 ) {
+  if (isAdminPanelPage()) return
   gtag('event', event, params as Record<string, unknown>)
   metaTrack(event, params)
 }
@@ -51,6 +53,7 @@ export function sanitizeUrl(url: string): string {
 }
 
 export function pageView(url: string, title?: string) {
+  if (isAdminPanelPage()) return
   metaPageView()
   if (!GA_MEASUREMENT_ID) return
   const pageLocation = sanitizeUrl(typeof window !== 'undefined' ? window.location.href : url)
