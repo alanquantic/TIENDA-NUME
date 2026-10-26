@@ -83,14 +83,6 @@ export function TopBar() {
               </span>
             </a>
           ))}
-          <a
-            href={UNIVERSAL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-1 self-start pt-2.5 text-xs font-medium text-white/75 underline decoration-white/40 underline-offset-4 transition-colors hover:text-white hover:decoration-white"
-          >
-            ¿Qué significan? ↗
-          </a>
         </div>
 
         <h2 className="text-2xl font-medium text-white/85 sm:text-3xl">{formatToday()}</h2>
