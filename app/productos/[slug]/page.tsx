@@ -374,7 +374,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               image={images[0] ?? null}
               currency={product.currency}
               variants={variantOptions}
-              maxPerOrder={effectiveMaxPerOrder(product.type, product.maxPerOrder)}
+              maxPerOrder={effectiveMaxPerOrder(product.type, product.maxPerOrder, product.id)}
               attributes={variationAttributes}
               upsell={upsell}
             />

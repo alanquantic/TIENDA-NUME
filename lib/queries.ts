@@ -112,7 +112,7 @@ export async function listProducts(
       inStock: false,
       variantId: r.variantId,
       maxStock,
-      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),
+      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder, r.id),
       categorySlug: r.categorySlug,
       categoryName: r.categoryName,
     };
@@ -261,7 +261,7 @@ function toCartData(r: CartRow): CartVariantData {
     image: variantImage(r.slug, images, (r.attributes as Record<string, string>) ?? {}) ?? images[0] ?? null,
     type: r.type,
     maxStock: r.type === 'physical' && r.trackInventory ? r.stock : null,
-    maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),
+    maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder, r.productId),
   };
 }
 

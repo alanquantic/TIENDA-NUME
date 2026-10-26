@@ -229,6 +229,11 @@ export function AddToCart({
             }
             className="w-20 rounded-lg border border-[hsl(var(--border))] bg-transparent px-3 py-2"
           />
+          {type === 'physical' && maxPerOrder != null && (
+            <span className="text-sm text-[hsl(var(--muted-foreground))]">
+              Máximo {maxPerOrder} por pedido.
+            </span>
+          )}
         </div>
       )}
 

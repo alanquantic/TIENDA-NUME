@@ -93,7 +93,7 @@ export function CartView({ children }: { children?: ReactNode }) {
                 {item.type === 'digital' ? 'Digital' : 'Físico'}
               </p>
               <div className="mt-2 flex items-center gap-3">
-                {effectiveMaxPerOrder(item.type, item.maxPerOrder) === 1 ? (
+                {effectiveMaxPerOrder(item.type, item.maxPerOrder, item.productId) === 1 ? (
                   <span className="text-sm text-[hsl(var(--muted-foreground))]">
                     1 por pedido
                   </span>
@@ -102,7 +102,7 @@ export function CartView({ children }: { children?: ReactNode }) {
                     type="number"
                     aria-label={`Cantidad de ${item.name}${item.variantName ? `, ${item.variantName}` : ''}`}
                     min={1}
-                    max={Number.isFinite(itemCap(item)) ? itemCap(item) : 99}
+                    max={Number.isFinite(itemCap(item, items)) ? itemCap(item, items) : 99}
                     value={item.quantity}
                     onChange={(e) => setQuantity(item.variantId, Number(e.target.value) || 1)}
                     className="w-16 rounded-lg border border-[hsl(var(--border))] bg-transparent px-2 py-1"
