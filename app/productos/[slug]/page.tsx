@@ -151,6 +151,13 @@ const DESCRIPTION_ITALICS_BY_SLUG: Record<string, readonly string[]> = {
 };
 
 function getDisplayDescription(slug: string, description: string) {
+  if (slug === 'agenda-numerologica-2026-fisica') {
+    return description.replace(
+      /^[^\S\n]*(?:[•\-*✅]\s*)?RECIBE\s+EN\s+LA\s+COMPRA\s+DE\s+LA\s+AGENDA\s+1\s+MES\s+GRATIS\s+DE\s+NUMERATHUM[^\n]*(?:\n|$)/gim,
+      '',
+    );
+  }
+
   if (slug === 'certificacion-completa-numerologia') {
     return description
       .replace(/^Incluye:\s*/m, '🎁 ¿Qué incluye?\n')
@@ -272,7 +279,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const data = await getProductBySlug(params.slug);
   if (!data) return { title: 'Producto no encontrado' };
-  return { title: data.product.name, description: data.product.description ?? undefined };
+  return {
+    title: data.product.name,
+    description: data.product.description
+      ? getDisplayDescription(data.product.slug, data.product.description)
+      : undefined,
+  };
 }
 
 export default async function ProductPage({ params }: { params: { slug: string } }) {
