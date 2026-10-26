@@ -200,7 +200,7 @@ export function durationToMonths(duration: ProductDuration): number | null {
 }
 
 function toItem(i: ItemLike, startsAtIso: string): PurchaseItem {
-  const cfg = accessForProduct(i.slug);
+  const cfg = accessForProduct(i.slug, i.variantName);
   return {
     slug: i.slug,
     name: i.name,

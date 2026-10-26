@@ -40,6 +40,8 @@ type Props = {
   attributes?: VariationAttribute[];
   /** Agenda 2027 a ofrecer al agregar (solo si este producto es una agenda anterior). */
   upsell?: UpsellTarget | null;
+  /** Vista previa de un producto no publicado: se ve igual, pero no se puede agregar. */
+  previewOnly?: boolean;
 };
 
 const same = (a: string | undefined, b: string | undefined) =>
@@ -60,6 +62,7 @@ export function AddToCart({
   maxPerOrder,
   attributes = [],
   upsell = null,
+  previewOnly = false,
 }: Props) {
   const add = useCart((s) => s.add);
   const imageSelection = useProductImageSelection();
@@ -100,7 +103,7 @@ export function AddToCart({
   const limitedToOne = maxPerOrder === 1;
 
   function handleAdd() {
-    if (!variant || soldOut) return;
+    if (!variant || soldOut || previewOnly) return;
     add(
       {
         variantId: variant.id,
@@ -240,10 +243,10 @@ export function AddToCart({
       <div className="flex items-center gap-3">
         <button
           onClick={handleAdd}
-          disabled={soldOut || !variant}
+          disabled={soldOut || !variant || previewOnly}
           className="rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-2.5 font-medium disabled:opacity-50"
         >
-          {!variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
+          {previewOnly ? 'Vista previa' : !variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
         </button>
         {added && (
           <button type="button" onClick={useCartDrawer.getState().open} className="text-sm underline underline-offset-4">
@@ -274,10 +277,10 @@ export function AddToCart({
           <button
             type="button"
             onClick={handleAdd}
-            disabled={soldOut || !variant}
+            disabled={soldOut || !variant || previewOnly}
             className="shrink-0 rounded-lg bg-[hsl(var(--primary))] px-4 py-3 text-sm font-medium text-[hsl(var(--primary-foreground))] disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-base"
           >
-            {!variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
+            {previewOnly ? 'Vista previa' : !variant ? 'No disponible' : soldOut ? 'Agotado' : 'Añadir al carrito'}
           </button>
           <button
             type="button"

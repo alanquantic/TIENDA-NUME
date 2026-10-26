@@ -2,6 +2,13 @@
 // (nota en el correo y/o aviso a un sistema externo). Sin dependencias
 // server-only: lo pueden usar tanto el fulfillment como la UI.
 
+import {
+  NUMERATHUM_PLANS,
+  NUMERATHUM_PLANS_CATEGORY_SLUG,
+  PLAN_PERIOD_DURATION,
+  planPeriod,
+} from './numerathum-plans';
+
 export type ProductGroup =
   | 'membership'
   | 'license'
@@ -29,6 +36,8 @@ export function groupForProduct(slug: string, categorySlug?: string | null): Pro
   if ((MEMBERSHIP_SLUGS as readonly string[]).includes(slug)) return 'membership';
   if ((LICENSE_SLUGS as readonly string[]).includes(slug)) return 'license';
   if (slug === NUMERATHUM_SLUG) return 'numerathum';
+  // Planes Numerathum (Espejo, Horizonte 60, Oráculo 365): por categoría.
+  if (categorySlug === NUMERATHUM_PLANS_CATEGORY_SLUG) return 'numerathum';
   if (slug === KIT_PRIMAVERA_SLUG) return 'kit-primavera';
   if (slug === AGENDA_FISICA_2026_SLUG) return 'agenda-fisica-2026';
   if (categorySlug === CERTIFICATION_CATEGORY_SLUG) return 'certification';
@@ -77,6 +86,8 @@ export type ProductAccessConfig = {
   /** Código estable del plan, para mapear del lado receptor. */
   planCode: string;
   duration: ProductDuration;
+  /** La vigencia sale de la variante comprada (Mensual / Anual). */
+  durationByPeriod?: boolean;
 };
 
 /**
@@ -100,9 +111,26 @@ export const PRODUCT_ACCESS: Record<string, ProductAccessConfig> = {
     planCode: 'numerathum-oraculo-365',
     duration: { value: 1, unit: 'year' },
   },
+  // Planes Numerathum: 1 mes o 12 meses según la variante. Si la variante no
+  // dice su vigencia, se asume la anual (la que todos los planes tienen).
+  ...Object.fromEntries(
+    NUMERATHUM_PLANS.map((plan) => [
+      plan.slug,
+      { planCode: plan.planCode, duration: PLAN_PERIOD_DURATION.annual, durationByPeriod: true },
+    ]),
+  ),
 };
 
-/** Vigencia del producto, o null si no otorga un acceso con caducidad. */
-export function accessForProduct(slug: string | null): ProductAccessConfig | null {
-  return slug ? (PRODUCT_ACCESS[slug] ?? null) : null;
+/**
+ * Vigencia del producto, o null si no otorga un acceso con caducidad.
+ * `variantName` decide la duración en los productos con `durationByPeriod`.
+ */
+export function accessForProduct(
+  slug: string | null,
+  variantName?: string | null,
+): ProductAccessConfig | null {
+  const cfg = slug ? (PRODUCT_ACCESS[slug] ?? null) : null;
+  if (!cfg?.durationByPeriod) return cfg;
+  const period = planPeriod(variantName);
+  return { planCode: cfg.planCode, duration: period ? PLAN_PERIOD_DURATION[period] : cfg.duration };
 }

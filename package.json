@@ -18,6 +18,7 @@
         "db:push": "drizzle-kit push",
         "db:seed": "tsx lib/db/seed.ts",
         "db:seed:ai-reports": "tsx scripts/upsert-ai-report-products.ts",
+        "db:seed:numerathum-plans": "tsx scripts/upsert-numerathum-plans.ts",
         "db:import": "tsx lib/db/import-wc.ts",
         "db:studio": "drizzle-kit studio"
     },
