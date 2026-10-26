@@ -169,9 +169,14 @@ export async function GET(req: Request) {
         }
 
         if (job.status === 'error') {
+          // Un job en error no se recupera: se borra jobId para que la
+          // siguiente corrida reenvíe el reporte en lugar de re-consultar el
+          // job muerto hasta agotar MAX_ATTEMPTS sin reintentar nunca.
+          const inputSinJob: StoredInput = { ...input };
+          delete inputSinJob.jobId;
           await db
             .update(generatedReports)
-            .set(failureUpdate(input, job.error ?? 'El job IA terminó con error.'))
+            .set(failureUpdate(inputSinJob, job.error ?? 'El job IA terminó con error.'))
             .where(eq(generatedReports.id, reportRow.id));
           failed++;
           continue;
