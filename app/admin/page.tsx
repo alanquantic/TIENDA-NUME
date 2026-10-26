@@ -1,15 +1,28 @@
 import Link from 'next/link';
-import { desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { adminHref } from '@/lib/admin-path';
+import { NO_CATEGORY, parseCategoryFilter } from '@/lib/admin/order-filters';
 import { db } from '@/lib/db';
-import { productVariants, products } from '@/lib/db/schema';
+import { categories, productVariants, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
 import { effectivePrice } from '@/lib/sale-price';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminHome() {
-  const rows = await db
+export default async function AdminHome({ searchParams }: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  const filter = parseCategoryFilter(searchParams);
+  const categoryCondition = !filter.categoryId || filter.error
+    ? undefined
+    : filter.categoryId === NO_CATEGORY
+      ? isNull(products.categoryId)
+      : eq(products.categoryId, filter.categoryId);
+  const categoryOptions = await db
+    .select({ id: categories.id, name: categories.name })
+    .from(categories)
+    .orderBy(asc(categories.name));
+  const rows = filter.error ? [] : await db
     .select({
       id: products.id,
       name: products.name,
@@ -17,6 +30,7 @@ export default async function AdminHome() {
       type: products.type,
       status: products.status,
       currency: products.currency,
+      categoryName: categories.name,
       price: productVariants.priceAmount,
       salePrice: productVariants.salePriceAmount,
       saleStartsAt: productVariants.saleStartsAt,
@@ -27,8 +41,10 @@ export default async function AdminHome() {
       productVariants,
       eq(productVariants.productId, products.id),
     )
-    .where(eq(productVariants.isDefault, true))
+    .leftJoin(categories, eq(categories.id, products.categoryId))
+    .where(and(eq(productVariants.isDefault, true), categoryCondition))
     .orderBy(desc(products.createdAt));
+  const fieldClass = 'h-11 w-full min-w-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm outline-none focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))]/20';
 
   return (
     <div>
@@ -42,9 +58,26 @@ export default async function AdminHome() {
         </Link>
       </div>
 
-      {rows.length === 0 ? (
+      <form action={adminHref()} method="get" className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-[hsl(var(--border))] p-4">
+        <div className="min-w-0 flex-1 sm:max-w-xs">
+          <label htmlFor="product-category" className="mb-1.5 block text-sm font-medium">Categoría</label>
+          <select id="product-category" name="categoria" defaultValue={filter.categoryId} className={fieldClass}>
+            <option value="">Todas las categorías</option>
+            {categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            <option value={NO_CATEGORY}>Sin categoría</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={adminHref()} className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Limpiar</Link>
+          <button type="submit" className="h-11 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-semibold text-white hover:opacity-90">Filtrar</button>
+        </div>
+      </form>
+
+      {filter.error ? (
+        <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">{filter.error}</p>
+      ) : rows.length === 0 ? (
         <p className="text-[hsl(var(--muted-foreground))]">
-          No hay productos. Crea el primero con “Nuevo”.
+          {filter.categoryId ? 'No hay productos en esta categoría.' : 'No hay productos. Crea el primero con “Nuevo”.'}
         </p>
       ) : (
         <div className="overflow-x-auto border border-[hsl(var(--border))] rounded-xl">
@@ -52,6 +85,7 @@ export default async function AdminHome() {
             <thead className="text-left text-[hsl(var(--muted-foreground))] border-b border-[hsl(var(--border))]">
               <tr>
                 <th className="px-4 py-3 font-medium">Nombre</th>
+                <th className="px-4 py-3 font-medium">Categoría</th>
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Precio</th>
@@ -62,6 +96,7 @@ export default async function AdminHome() {
               {rows.map((p) => (
                 <tr key={p.id}>
                   <td className="px-4 py-3 font-medium">{p.name}</td>
+                  <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">{p.categoryName ?? '—'}</td>
                   <td className="px-4 py-3">{p.type === 'digital' ? 'Digital' : 'Físico'}</td>
                   <td className="px-4 py-3">
                     <span

@@ -1,6 +1,8 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
 import { db } from './db';
+import { groupCatalogSections } from './catalog-sections';
 import {
   categories,
   digitalAssets,
@@ -171,6 +173,19 @@ export async function getRelatedProducts(
 export async function listCategories() {
   return db.select().from(categories).orderBy(asc(categories.name));
 }
+
+/**
+ * Secciones del home (nombre + slug) para el footer. El footer sale en todas
+ * las páginas, así que se cachea 10 min en vez de consultar en cada visita.
+ */
+export const listFooterSections = unstable_cache(
+  async (): Promise<{ slug: string; name: string }[]> => {
+    const [list, cats] = await Promise.all([listProducts(), listCategories()]);
+    return groupCatalogSections(list, cats).map(({ slug, name }) => ({ slug, name }));
+  },
+  ['footer-sections'],
+  { revalidate: 600 },
+);
 
 // ── Reconciliación del carrito con el catálogo ─────────────────
 

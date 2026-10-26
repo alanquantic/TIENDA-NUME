@@ -15,6 +15,9 @@ const SOCIAL_LINKS: readonly Social[] = [
   { id: 'tiktok', label: 'TikTok', href: 'https://www.tiktok.com/@lanumerologiadelaura', Icon: TiktokIcon },
 ];
 
+/** Perfiles oficiales, para el `sameAs` de los datos estructurados. */
+export const SOCIAL_PROFILE_URLS = SOCIAL_LINKS.map((s) => s.href);
+
 export function SocialLinks({
   className,
   itemClassName,
