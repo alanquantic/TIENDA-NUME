@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   getAgendaUpsellTarget,
   getProductBySlug,
@@ -22,6 +23,8 @@ import { discountPercent, effectivePrice } from '@/lib/sale-price';
 import { effectiveMaxPerOrder } from '@/lib/order-limits';
 import { readVariationAttributes } from '@/lib/variations';
 import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price';
+import { isAdminAuthed } from '@/lib/admin-auth';
+import { adminHref } from '@/lib/admin-path';
 
 export const dynamic = 'force-dynamic';
 
@@ -272,13 +275,31 @@ function getDisplayDescription(slug: string, description: string) {
   return description;
 }
 
+const STATUS_LABEL = { draft: 'borrador', archived: 'archivado', active: 'activo' } as const;
+
+/**
+ * Producto publicado, o —solo para administradores con sesión y 2FA— uno en
+ * borrador/archivado como vista previa. La sesión se revisa únicamente cuando
+ * el producto no está activo, así la página pública no paga esa consulta.
+ */
+async function loadProduct(slug: string) {
+  const data = await getProductBySlug(slug);
+  if (data) return { ...data, preview: false };
+  if (!(await isAdminAuthed())) return null;
+  const unpublished = await getProductBySlug(slug, { includeUnpublished: true });
+  return unpublished ? { ...unpublished, preview: true } : null;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
-  const data = await getProductBySlug(params.slug);
+  const data = await loadProduct(params.slug);
   if (!data) return { title: 'Producto no encontrado' };
+  if (data.preview) {
+    return { title: `Vista previa: ${data.product.name}`, robots: { index: false, follow: false } };
+  }
   return {
     title: data.product.name,
     description: data.product.description
@@ -288,10 +309,10 @@ export async function generateMetadata({
 }
 
 export default async function ProductPage({ params }: { params: { slug: string } }) {
-  const data = await getProductBySlug(params.slug);
+  const data = await loadProduct(params.slug);
   if (!data) notFound();
 
-  const { product, variants } = data;
+  const { product, variants, preview } = data;
   const images = (product.images as string[]) ?? [];
   // Precio vigente de cada variante (oferta si está dentro de sus fechas).
   const pricedVariants = variants.map((v) => ({ variant: v, price: effectivePrice(v) }));
@@ -340,7 +361,21 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 pb-[calc(8rem+env(safe-area-inset-bottom))]">
-      {gaItem ? (
+      {preview && (
+        <div
+          role="status"
+          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[hsl(var(--primary)/0.25)] bg-[hsl(var(--primary-soft))] px-4 py-3 text-sm text-[hsl(var(--primary))]"
+        >
+          <p>
+            <strong>Vista previa</strong> · Este producto está en {STATUS_LABEL[product.status]}. Solo
+            lo ven los administradores y no se puede comprar.
+          </p>
+          <Link href={adminHref(`/productos/${product.id}/editar`)} className="font-medium underline underline-offset-4">
+            Editar producto
+          </Link>
+        </div>
+      )}
+      {gaItem && !preview ? (
         <ProductViewTracker
           item={gaItem}
           currency={product.currency}
@@ -389,6 +424,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               maxPerOrder={effectiveMaxPerOrder(product.type, product.maxPerOrder, product.id)}
               attributes={variationAttributes}
               upsell={upsell}
+              previewOnly={preview}
             />
           </div>
 

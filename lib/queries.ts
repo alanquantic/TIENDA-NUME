@@ -1,6 +1,6 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { db } from './db';
 import { groupCatalogSections } from './catalog-sections';
 import {
@@ -135,11 +135,19 @@ export async function listProducts(
   return [...byProduct.values()];
 }
 
-export async function getProductBySlug(slug: string) {
+/**
+ * Producto activo por slug. Con `includeUnpublished` también devuelve
+ * borradores y archivados (vista previa de administradores), nunca borrados.
+ */
+export async function getProductBySlug(slug: string, opts: { includeUnpublished?: boolean } = {}) {
   const [product] = await db
     .select()
     .from(products)
-    .where(and(eq(products.slug, slug), eq(products.status, 'active')))
+    .where(
+      opts.includeUnpublished
+        ? and(eq(products.slug, slug), isNull(products.deletedAt))
+        : and(eq(products.slug, slug), eq(products.status, 'active')),
+    )
     .limit(1);
 
   if (!product) return null;
