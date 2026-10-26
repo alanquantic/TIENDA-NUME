@@ -42,7 +42,8 @@ export function ConsentBanner() {
         <div className="text-sm text-[hsl(var(--foreground))]">
           <p className="font-semibold">Usamos cookies</p>
           <p className="mt-1 leading-6 text-[hsl(var(--muted-foreground))]">
-            Utilizamos cookies para analizar el uso del sitio y mejorar tu experiencia.
+            Utilizamos cookies para analizar el uso del sitio, medir nuestros anuncios y
+            mejorar tu experiencia.
             Puedes aceptarlas o rechazar las opcionales.
           </p>
         </div>

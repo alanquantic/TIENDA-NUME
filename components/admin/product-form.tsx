@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { slugify } from '@/lib/slug';
 import { isReportSlug } from '@/lib/report-catalog';
+import { useAdminHref } from '@/components/admin/admin-path';
 import { MediaLibraryModal } from '@/components/admin/media-library-modal';
 import { FileUploadField } from '@/components/admin/file-upload-field';
 import { effectivePrice } from '@/lib/sale-price';
@@ -81,6 +82,7 @@ export function ProductForm({
   mode?: 'create' | 'edit';
 }) {
   const router = useRouter();
+  const adminHref = useAdminHref();
   const productId = initialValues?.id;
   // El slug de un producto-reporte es la llave del mapeo PRODUCT_TO_REPORTS;
   // cambiarlo desconecta el producto del generador de reportes.
@@ -258,7 +260,7 @@ export function ProductForm({
       body: JSON.stringify(payload),
     });
     if (res.ok) {
-      router.push('/admin');
+      router.push(adminHref());
       router.refresh();
     } else {
       const data = await res.json().catch(() => ({}));

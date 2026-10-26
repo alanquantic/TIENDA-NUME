@@ -15,6 +15,18 @@ function envFlag(value: string | undefined): boolean {
   return v === 'true' || v === '1' || v === 'yes' || v === 'on';
 }
 
+/**
+ * Lista de correos separada por comas o punto y coma ("a@x.com, b@x.com").
+ * Ignora vacíos y comillas sobrantes, igual que envFlag.
+ */
+export function envEmailList(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[,;]/)
+    .map((part) => part.trim().replace(/^["']|["']$/g, '').trim())
+    .filter((part) => part.includes('@'));
+}
+
 export const config = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3002',
   storeName: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Tienda',
@@ -34,6 +46,8 @@ export const emailConfig = {
   // verificado, p. ej. "Tienda Nume <pedidos@numerologia-cotidiana.com>".
   from: process.env.EMAIL_FROM ?? 'Tienda Nume <onboarding@resend.dev>',
   replyTo: process.env.EMAIL_REPLY_TO || undefined,
+  // Aviso interno: a quién le llega un resumen de cada compra pagada. Vacío = no se envía.
+  orderNotifyTo: envEmailList(process.env.ORDER_NOTIFY_EMAIL),
 } as const;
 
 export const reportGeneratorConfig = {

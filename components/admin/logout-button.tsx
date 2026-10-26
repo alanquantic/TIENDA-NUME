@@ -1,12 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useAdminHref } from '@/components/admin/admin-path';
 
 export function LogoutButton() {
   const router = useRouter();
+  const adminHref = useAdminHref();
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
-    router.replace('/admin/login');
+    router.replace(adminHref('/login'));
     router.refresh();
   }
   return (
