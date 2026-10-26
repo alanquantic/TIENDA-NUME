@@ -9,14 +9,15 @@ import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from '@/components/toaster';
 import { CartDrawer } from '@/components/cart-drawer';
 import { SessionBootstrap } from '@/components/session-bootstrap';
+import { SITE_DESCRIPTION, SITE_TITLE } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: {
     // Mismo título y formato "Página – Sitio" que la tienda anterior (WooCommerce).
-    default: 'Tienda en Línea Numerología Cotidiana de Laura L. Rodríguez',
-    template: '%s – Tienda en Línea Numerología Cotidiana de Laura L. Rodríguez',
+    default: SITE_TITLE,
+    template: `%s – ${SITE_TITLE}`,
   },
-  description: 'Tienda en línea de productos digitales y físicos.',
+  description: SITE_DESCRIPTION,
   icons: {
     icon: [
       {

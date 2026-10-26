@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { and, asc, desc, eq, exists, gte, lt, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, gte, isNull, lt, sql, type SQL } from 'drizzle-orm';
 import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
-import { orderItems, orders, products } from '@/lib/db/schema';
+import { categories, orderItems, orders, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
-import { parseOrderFilters } from '@/lib/admin/order-filters';
+import { NO_CATEGORY, parseOrderFilters } from '@/lib/admin/order-filters';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +40,15 @@ export default async function AdminOrders({ searchParams }: {
       eq(orderItems.orderId, orders.id), eq(orderItems.productId, filters.productId),
     ))));
   }
+  if (filters.categoryId) {
+    // Pedidos con al menos un producto de la categoría (o sin categoría).
+    conditions.push(exists(db.select({ id: orderItems.id }).from(orderItems)
+      .innerJoin(products, eq(products.id, orderItems.productId))
+      .where(and(
+        eq(orderItems.orderId, orders.id),
+        filters.categoryId === NO_CATEGORY ? isNull(products.categoryId) : eq(products.categoryId, filters.categoryId),
+      ))));
+  }
   if (filters.from) {
     conditions.push(gte(orders.createdAt, sql`${filters.from}::date::timestamp AT TIME ZONE 'America/Mexico_City'`));
   }
@@ -47,21 +56,30 @@ export default async function AdminOrders({ searchParams }: {
     // Exclusive next-day boundary includes every instant of the selected last day.
     conditions.push(lt(orders.createdAt, sql`(${filters.to}::date + 1)::timestamp AT TIME ZONE 'America/Mexico_City'`));
   }
-  const [productOptions, matches] = await Promise.all([
+  const [categoryOptions, productOptions, matches] = await Promise.all([
+    db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.name)),
     db.select({ id: products.id, name: products.name }).from(products).orderBy(asc(products.name)),
     filters.error ? Promise.resolve([]) : db.select().from(orders).where(and(...conditions))
       .orderBy(desc(orders.createdAt), desc(orders.id)).limit(201),
   ]);
   const rows = matches.slice(0, 200);
-  const hasFilters = Boolean(filters.productId || filters.from || filters.to);
+  const hasFilters = Boolean(filters.productId || filters.categoryId || filters.from || filters.to);
   const fieldClass = 'h-11 w-full min-w-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm outline-none focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))]/20';
 
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-6">Pedidos</h1>
 
-      <form action={adminHref('/pedidos')} method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="min-w-0 sm:col-span-2 lg:col-span-1">
+      <form action={adminHref('/pedidos')} method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="min-w-0">
+          <label htmlFor="order-category" className="mb-1.5 block text-sm font-medium">Categoría</label>
+          <select id="order-category" name="categoria" defaultValue={filters.categoryId} className={fieldClass}>
+            <option value="">Todas las categorías</option>
+            {categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            <option value={NO_CATEGORY}>Sin categoría</option>
+          </select>
+        </div>
+        <div className="min-w-0">
           <label htmlFor="order-product" className="mb-1.5 block text-sm font-medium">Producto</label>
           <select id="order-product" name="producto" defaultValue={filters.productId} className={fieldClass}>
             <option value="">Todos los productos</option>
@@ -76,7 +94,7 @@ export default async function AdminOrders({ searchParams }: {
           <label htmlFor="order-to" className="mb-1.5 block text-sm font-medium">Hasta</label>
           <input id="order-to" name="hasta" type="date" defaultValue={filters.to} min={filters.from || undefined} className={fieldClass} />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2 lg:col-span-4">
           <p className="text-xs text-[hsl(var(--muted-foreground))]">Fecha de creación del pedido · Ciudad de México.</p>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={adminHref('/pedidos')} className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Limpiar filtros</Link>
