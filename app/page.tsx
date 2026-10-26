@@ -3,7 +3,6 @@ import { groupCatalogSections } from '@/lib/catalog-sections';
 import { ListingTracker } from '@/components/analytics/listing-tracker';
 import { catalogCardToGaItem } from '@/lib/analytics';
 import { ProductCard } from '@/components/product-card';
-import { NumerathumCatalog } from '@/components/numerathum-catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +25,6 @@ export default async function HomePage() {
               Categorías
             </h2>
             <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0">
-              <a href="#cat-planes-numerathum" className="flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted"><span>Planes Numerathum</span><span className="text-xs text-muted-foreground">3</span></a>
               {ordered.map((g) => (
                 <a
                   key={g.slug}
@@ -43,7 +41,6 @@ export default async function HomePage() {
 
         {/* Secciones de productos por categoría */}
         <div className="min-w-0 flex-1">
-          <div className="mb-12"><NumerathumCatalog /></div>
           {ordered.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[hsl(var(--border))] p-12 text-center text-[hsl(var(--muted-foreground))]">
               No hay productos todavía.

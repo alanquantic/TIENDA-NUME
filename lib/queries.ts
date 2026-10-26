@@ -14,6 +14,7 @@ import { effectiveMaxPerOrder } from './order-limits';
 import { toMinor } from './money';
 import { variantImage } from './variant-image';
 import { AGENDA_CATEGORY_SLUG, CURRENT_YEAR_MATCH, type UpsellTarget } from './agenda-upsell';
+import { NUMERATHUM_PLANS_CATEGORY_SLUG, PLAN_PERIOD_ATTRIBUTE, planPeriod, type PlanPeriod } from './numerathum-plans';
 
 export type CatalogCard = {
   id: string;
@@ -318,4 +319,81 @@ export async function getAgendaUpsellTarget(): Promise<UpsellTarget | null> {
   // Si hay varios productos 2027, se prefiere la agenda (no un kit o planeador).
   const target = current.find((r) => r.slug.startsWith('agenda-')) ?? current[0];
   return target ? { href: `/productos/${target.slug}`, name: target.name } : null;
+}
+
+export type NumerathumPlanOption = {
+  variantId: string;
+  name: string;
+  period: PlanPeriod;
+  /** Precio vigente (de oferta si aplica). */
+  priceAmount: string;
+  /** Precio regular tachado; null si no hay oferta vigente. */
+  regularPriceAmount: string | null;
+};
+
+export type NumerathumPlan = {
+  id: string;
+  slug: string;
+  name: string;
+  image: string | null;
+  currency: string;
+  maxPerOrder: number | null;
+  /** Una opción por vigencia (Mensual / Anual), si existe. */
+  options: Partial<Record<PlanPeriod, NumerathumPlanOption>>;
+};
+
+/** Planes Numerathum activos para /planes, del más barato al más caro. */
+export async function listNumerathumPlans(): Promise<NumerathumPlan[]> {
+  const rows = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      images: products.images,
+      currency: products.currency,
+      type: products.type,
+      maxPerOrder: products.maxPerOrder,
+      variantId: productVariants.id,
+      variantName: productVariants.name,
+      attributes: productVariants.attributes,
+      priceAmount: productVariants.priceAmount,
+      salePriceAmount: productVariants.salePriceAmount,
+      saleStartsAt: productVariants.saleStartsAt,
+      saleEndsAt: productVariants.saleEndsAt,
+    })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .innerJoin(productVariants, eq(productVariants.productId, products.id))
+    .where(and(eq(products.status, 'active'), eq(categories.slug, NUMERATHUM_PLANS_CATEGORY_SLUG)));
+
+  const byProduct = new Map<string, NumerathumPlan>();
+  for (const r of rows) {
+    const plan = byProduct.get(r.id) ?? {
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      image: ((r.images as string[]) ?? [])[0] ?? null,
+      currency: r.currency,
+      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder, r.id),
+      options: {},
+    };
+    byProduct.set(r.id, plan);
+    const attrs = (r.attributes ?? {}) as Record<string, string>;
+    const period = planPeriod(attrs[PLAN_PERIOD_ATTRIBUTE] ?? r.variantName);
+    if (!period || plan.options[period]) continue;
+    const price = effectivePrice(r);
+    plan.options[period] = {
+      variantId: r.variantId,
+      name: r.variantName,
+      period,
+      priceAmount: price.priceAmount,
+      regularPriceAmount: price.regularPriceAmount,
+    };
+  }
+
+  const minPrice = (plan: NumerathumPlan) =>
+    Math.min(...Object.values(plan.options).map((o) => toMinor(o.priceAmount)));
+  return [...byProduct.values()]
+    .filter((plan) => Object.keys(plan.options).length > 0)
+    .sort((a, b) => minPrice(a) - minPrice(b));
 }
