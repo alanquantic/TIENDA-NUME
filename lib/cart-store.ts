@@ -26,10 +26,18 @@ export type CartItem = {
 /**
  * Tope efectivo de un ítem: el menor entre stock y límite por pedido. Los
  * físicos se acotan aquí también, por si el carrito guardado es anterior a
- * la regla o no trae `maxPerOrder`.
+ * la regla o no trae `maxPerOrder`. Con `items`, el límite por pedido se
+ * cuenta por PRODUCTO: descuenta lo que ya hay de sus otras variantes.
  */
-export function itemCap(item: Pick<CartItem, 'type' | 'maxStock' | 'maxPerOrder'>): number {
-  return Math.min(item.maxStock ?? Infinity, effectiveMaxPerOrder(item.type, item.maxPerOrder) ?? Infinity);
+export function itemCap(
+  item: Pick<CartItem, 'type' | 'maxStock' | 'maxPerOrder' | 'productId' | 'variantId'>,
+  items: CartItem[] = [],
+): number {
+  const others = items
+    .filter((i) => i.productId === item.productId && i.variantId !== item.variantId)
+    .reduce((sum, i) => sum + i.quantity, 0);
+  const perOrder = effectiveMaxPerOrder(item.type, item.maxPerOrder, item.productId) ?? Infinity;
+  return Math.min(item.maxStock ?? Infinity, perOrder - others);
 }
 
 type ReconcileResult = { removed: number; remapped: number };
@@ -52,7 +60,9 @@ export const useCart = create<CartState>()(
       add: (item, quantity = 1) => {
         set((state) => {
           const existing = state.items.find((i) => i.variantId === item.variantId);
-          const cap = itemCap(item);
+          const cap = itemCap(item, state.items);
+          // Ya se alcanzó el tope del producto con otras variantes.
+          if (cap <= 0) return state;
           if (existing) {
             const next = Math.min(existing.quantity + quantity, cap);
             return {
@@ -76,7 +86,7 @@ export const useCart = create<CartState>()(
           items: state.items
             .map((i) => {
               if (i.variantId !== variantId) return i;
-              const cap = itemCap(i);
+              const cap = itemCap(i, state.items);
               return { ...i, quantity: Math.max(1, Math.min(quantity, cap)) };
             })
             .filter((i) => i.quantity > 0),
@@ -117,7 +127,7 @@ export const useCart = create<CartState>()(
             }
             const merged = { ...item, ...r.data } as CartItem;
             const cap = itemCap(merged);
-            merged.maxPerOrder = effectiveMaxPerOrder(merged.type, merged.maxPerOrder);
+            merged.maxPerOrder = effectiveMaxPerOrder(merged.type, merged.maxPerOrder, merged.productId);
             if (Number.isFinite(cap) && cap > 0) {
               merged.quantity = Math.min(item.quantity, cap);
             }
