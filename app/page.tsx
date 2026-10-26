@@ -1,33 +1,10 @@
-import {
-  getAgendaUpsellTarget,
-  listCategories,
-  listProducts,
-  type CatalogCard,
-} from '@/lib/queries';
+import { getAgendaUpsellTarget, listCategories, listProducts } from '@/lib/queries';
+import { groupCatalogSections } from '@/lib/catalog-sections';
 import { ListingTracker } from '@/components/analytics/listing-tracker';
 import { catalogCardToGaItem } from '@/lib/analytics';
 import { ProductCard } from '@/components/product-card';
 
 export const dynamic = 'force-dynamic';
-
-type Group = { slug: string; name: string; items: CatalogCard[] };
-
-// Orden de las secciones del home (por slug de categoría). Las categorías
-// no listadas aquí se muestran después, y "Otros" (sin categoría) al final.
-const SECTION_ORDER = [
-  'agenda-numerologica',
-  'cursos-de-numerologia',
-  'libro',
-  'reportes-numerologicos',
-  'membresias',
-  'licencias',
-  'certificaciones',
-];
-
-// Sección destacada al inicio del home: todo producto activo con "2027" en su
-// slug (agendas, preventas y lo que se agregue de esa colección). Esos
-// productos ya no se repiten en su categoría.
-const FEATURED = { slug: 'coleccion-2027', name: 'Colección 2027', match: /2027/ };
 
 export default async function HomePage() {
   const [products, categories, upsell] = await Promise.all([
@@ -36,42 +13,7 @@ export default async function HomePage() {
     getAgendaUpsellTarget(),
   ]);
 
-  // Agrupa productos por categoría.
-  const groups = new Map<string, Group>();
-  const uncategorized: CatalogCard[] = [];
-  const featured: CatalogCard[] = [];
-  for (const p of products) {
-    if (FEATURED.match.test(p.slug)) {
-      featured.push(p);
-    } else if (p.categorySlug && p.categoryName) {
-      const g = groups.get(p.categorySlug) ?? { slug: p.categorySlug, name: p.categoryName, items: [] };
-      g.items.push(p);
-      groups.set(p.categorySlug, g);
-    } else {
-      uncategorized.push(p);
-    }
-  }
-
-  // Ordena las secciones según SECTION_ORDER; el resto va después; "Otros" al final.
-  const ordered: Group[] = [];
-  if (featured.length) {
-    ordered.push({ slug: FEATURED.slug, name: FEATURED.name, items: featured });
-  }
-  const placed = new Set<string>();
-  for (const slug of SECTION_ORDER) {
-    const g = groups.get(slug);
-    if (g) {
-      ordered.push(g);
-      placed.add(slug);
-    }
-  }
-  for (const c of categories) {
-    if (groups.has(c.slug) && !placed.has(c.slug)) {
-      ordered.push(groups.get(c.slug)!);
-      placed.add(c.slug);
-    }
-  }
-  if (uncategorized.length) ordered.push({ slug: 'otros', name: 'Otros', items: uncategorized });
+  const ordered = groupCatalogSections(products, categories);
 
   return (
     <div className="w-full px-4 sm:px-6 py-6">

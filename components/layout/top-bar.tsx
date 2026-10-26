@@ -1,8 +1,13 @@
 import Universal from '@/lib/numerology';
 
+// Numerathum explica qué significa cada vibración universal (día, semana y mes).
+const UNIVERSAL_URL = 'https://numerathum.numerologia-cotidiana.com/universal';
+
 type CollectiveEnergy = {
   id: string;
   label: string;
+  /** Nombre completo para lectores de pantalla ("Sem" → "Semana universal"). */
+  title: string;
   value: number;
   valueClassName: string;
 };
@@ -28,18 +33,21 @@ function getCollectiveEnergy(): readonly CollectiveEnergy[] {
     {
       id: 'dia',
       label: 'Día',
+      title: 'Día universal',
       value: universal.calcUniversalDay(params),
       valueClassName: 'text-[hsl(var(--fuchsia))]',
     },
     {
       id: 'semana',
       label: 'Sem',
+      title: 'Semana universal',
       value: universal.calcCurrentUniversalWeek(params),
       valueClassName: 'text-[hsl(var(--fuchsia))]',
     },
     {
       id: 'mes',
       label: 'Mes',
+      title: 'Mes universal',
       value: universal.calcUniversalMonth(params),
       valueClassName: 'text-[hsl(var(--fuchsia))]',
     },
@@ -58,14 +66,22 @@ export function TopBar() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           {collectiveEnergy.map((energy) => (
-            <div key={energy.id} className="flex flex-col items-center">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white font-display text-base font-semibold ring-2 ring-navbar shadow-[0_3px_6px_rgb(0_0_0/0.35)]">
+            <a
+              key={energy.id}
+              href={UNIVERSAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ver su significado en Numerathum"
+              aria-label={`${energy.title} ${energy.value}: ver su significado en Numerathum`}
+              className="group flex flex-col items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white font-display text-base font-semibold ring-2 ring-navbar shadow-[0_3px_6px_rgb(0_0_0/0.35)] transition duration-200 group-hover:-translate-y-0.5 group-hover:scale-110 group-hover:ring-white group-hover:shadow-[0_6px_14px_rgb(0_0_0/0.45)]">
                 <span className={energy.valueClassName}>{energy.value}</span>
               </span>
-              <span className="mt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-white/70">
+              <span className="mt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-white/70 transition-colors group-hover:text-white">
                 {energy.label}
               </span>
-            </div>
+            </a>
           ))}
         </div>
 
