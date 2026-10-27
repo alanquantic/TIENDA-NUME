@@ -450,7 +450,10 @@ export function renderReportReady(data: ReportReadyEmailData): { subject: string
 }
 
 export function renderOrderFailed(
-  data: Pick<OrderEmailData, 'number' | 'customerName' | 'currency' | 'items' | 'totalAmount'>,
+  data: Pick<OrderEmailData, 'number' | 'customerName' | 'currency' | 'items' | 'totalAmount'> & {
+    /** Enlace que rearma el carrito (carrito abandonado); si no, vuelve a la tienda. */
+    recoveryUrl?: string | null;
+  },
 ): { subject: string; html: string } {
   const list = data.items
     .map((item) => `<li style="margin-bottom:4px;">${esc(item.name)} <span style="color:${BRAND.muted};">× ${item.quantity}</span></li>`)
@@ -460,7 +463,7 @@ export function renderOrderFailed(
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, no pudimos completar el pago de tu pedido <strong>${esc(data.number)}</strong>, así que <strong>no se realizó ningún cargo</strong>.</p>
     ${list ? `<p style="margin:0 0 6px;color:${BRAND.muted};font-size:13px;">Tu carrito:</p><ul style="margin:0 0 14px;padding-left:18px;color:${BRAND.text};font-size:14px;">${list}</ul>` : ''}
     <p style="margin:0 0 18px;">Puedes intentar de nuevo cuando quieras. Tus productos siguen disponibles.</p>
-    <a href="${config.appUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Volver a la tienda</a>
+    <a href="${esc(data.recoveryUrl || config.appUrl)}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">${data.recoveryUrl ? 'Retomar mi compra' : 'Volver a la tienda'}</a>
     <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si crees que fue un error o necesitas ayuda, responde a este correo.</p>
   `;
 
@@ -470,6 +473,39 @@ export function renderOrderFailed(
       preheader: `Tu compra no se completó — no se hizo ningún cargo`,
       heading: 'Tu compra no se completó',
       accent: BRAND.red,
+      body,
+    }),
+  };
+}
+
+export type CartRecoveryEmailData = {
+  customerName: string;
+  items: { name: string; variantName: string | null; quantity: number }[];
+  recoveryUrl: string;
+};
+
+/** Recordatorio de carrito abandonado (una hora sin terminar la compra). */
+export function renderCartRecovery(data: CartRecoveryEmailData): { subject: string; html: string } {
+  const list = data.items
+    .map(
+      (item) =>
+        `<li style="margin-bottom:4px;">${esc(item.name)}${item.variantName ? ` <span style="color:${BRAND.muted};">(${esc(item.variantName)})</span>` : ''} <span style="color:${BRAND.muted};">× ${item.quantity}</span></li>`,
+    )
+    .join('');
+
+  const body = `
+    <p style="margin:0 0 14px;">Hola${data.customerName ? ` ${esc(data.customerName)}` : ''}, vimos que dejaste tu compra a medias. Guardamos tu carrito para que la termines cuando quieras.</p>
+    ${list ? `<p style="margin:0 0 6px;color:${BRAND.muted};font-size:13px;">Tu carrito:</p><ul style="margin:0 0 18px;padding-left:18px;color:${BRAND.text};font-size:14px;">${list}</ul>` : ''}
+    <a href="${esc(data.recoveryUrl)}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Terminar mi compra</a>
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si tuviste algún problema para pagar, responde a este correo y te ayudamos.</p>
+  `;
+
+  return {
+    subject: 'Tu carrito te está esperando',
+    html: layout({
+      preheader: 'Guardamos tu carrito para que termines tu compra',
+      heading: 'Tu carrito te está esperando',
+      accent: BRAND.purple,
       body,
     }),
   };

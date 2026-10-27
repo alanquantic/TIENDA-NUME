@@ -3,11 +3,13 @@ import { emailConfig } from './config';
 import { db } from './db';
 import { emailMessages } from './db/schema';
 import {
+  renderCartRecovery,
   renderOrderConfirmation,
   renderOrderFailed,
   renderOrderNotification,
   renderReportReady,
   renderTwoFactorEnabled,
+  type CartRecoveryEmailData,
   type OrderEmailData,
   type OrderNotificationEmailData,
   type ReportReadyEmailData,
@@ -117,7 +119,7 @@ export async function sendOrderFailed(
   data: Pick<
     OrderEmailData,
     'number' | 'customerName' | 'customerEmail' | 'currency' | 'items' | 'totalAmount'
-  >,
+  > & { recoveryUrl?: string | null },
   orderId?: string,
 ): Promise<void> {
   const { subject, html } = renderOrderFailed(data);
@@ -127,4 +129,9 @@ export async function sendOrderFailed(
 export async function sendReportReady(data: ReportReadyEmailData, orderId?: string): Promise<void> {
   const { subject, html } = renderReportReady(data);
   await sendEmail({ to: data.customerEmail, subject, html, kind: 'report_ready', orderId });
+}
+
+export async function sendCartRecovery(data: CartRecoveryEmailData & { to: string }): Promise<void> {
+  const { subject, html } = renderCartRecovery(data);
+  await sendEmail({ to: data.to, subject, html, kind: 'cart_recovery' });
 }

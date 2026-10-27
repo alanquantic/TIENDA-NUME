@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
-import { useCart } from '@/lib/cart-store';
+import { readCartToken, useCart, writeCartToken } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
 import { reportsForSlug, type ReportKey } from '@/lib/report-catalog';
@@ -184,6 +184,26 @@ export function CheckoutForm({
     return sections;
   }, [items]);
 
+  // Carrito abandonado: con un correo válido se guarda el carrito (con pausa
+  // para no llamar en cada tecla). Best-effort: si falla, el checkout sigue.
+  useEffect(() => {
+    const trimmed = email.trim();
+    if (simulate || items.length === 0 || !/^\S+@\S+\.\S+$/.test(trimmed)) return;
+    const timer = setTimeout(() => {
+      fetch('/api/cart/guardar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: readCartToken(), email: trimmed, firstName: firstName.trim() || null, items }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { token?: string } | null) => {
+          if (data?.token) writeCartToken(data.token);
+        })
+        .catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [email, firstName, items, simulate]);
+
   function blankReportInput(): ReportInput {
     return {
       personName: `${firstName} ${lastName}`.trim(),
@@ -348,6 +368,7 @@ export function CheckoutForm({
               }
             : null,
           discountCode: appliedCoupon?.code ?? null,
+          cartToken: readCartToken(),
           paymentMethod: simulate || isFree ? null : paymentMethod,
           reports: reportSections.map((s) => {
             const inp = getReportInput(s.sectionKey);
@@ -445,6 +466,9 @@ export function CheckoutForm({
               onChange={(e) => setEmail(e.target.value)}
               className={inputCls}
             />
+            <span className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+              Guardamos tu carrito con este correo para recordártelo si no terminas la compra.
+            </span>
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col">

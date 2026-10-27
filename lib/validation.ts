@@ -83,6 +83,8 @@ export const checkoutSchema = z
     // Facturación (opcional). Si requiresInvoice = true, billingInfo es obligatorio.
     requiresInvoice: z.boolean().default(false),
     billingInfo: billingInfoSchema.nullish(),
+    // Carrito guardado del checkout (carrito abandonado), para ligarlo al pedido.
+    cartToken: z.string().max(64).nullish(),
   })
   .refine((d) => !d.requiresInvoice || !!d.billingInfo, {
     message: 'Faltan los datos fiscales para la factura.',
