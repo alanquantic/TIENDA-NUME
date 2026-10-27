@@ -230,6 +230,7 @@ export const adminCouponSchema = z
     productId: z.string().uuid().nullish().or(z.literal('')),
     minSubtotal: z.string().regex(/^\d+(\.\d{1,2})?$/).nullish().or(z.literal('')),
     maxRedemptions: z.number().int().positive().nullish(),
+    maxRedemptionsPerEmail: z.number().int().positive().nullish(),
     expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().or(z.literal('')),
     isActive: z.boolean().default(true),
   })

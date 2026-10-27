@@ -225,6 +225,8 @@ export const discountCodes = pgTable('discount_codes', {
   productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }),
   minSubtotal: decimal('min_subtotal', { precision: 10, scale: 2 }),
   maxRedemptions: integer('max_redemptions'),
+  // Usos por cliente (correo) en pedidos pagados; null = sin límite.
+  maxRedemptionsPerEmail: integer('max_redemptions_per_email'),
   timesRedeemed: integer('times_redeemed').notNull().default(0),
   isActive: boolean('is_active').notNull().default(true),
   expiresAt: timestamp('expires_at', { withTimezone: true }),

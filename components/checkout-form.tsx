@@ -254,6 +254,7 @@ export function CheckoutForm({
         body: JSON.stringify({
           code: trimmed,
           items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+          email: /^\S+@\S+\.\S+$/.test(email.trim()) ? email.trim() : '',
         }),
       });
       const data = await res.json().catch(() => ({}));

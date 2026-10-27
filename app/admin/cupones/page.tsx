@@ -59,6 +59,11 @@ export default async function AdminCoupons() {
                   <td className="px-4 py-3">
                     {c.timesRedeemed}
                     {c.maxRedemptions != null ? ` / ${c.maxRedemptions}` : ''}
+                    {c.maxRedemptionsPerEmail != null && (
+                      <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {c.maxRedemptionsPerEmail} por correo
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
                     {c.expiresAt ? fmtDate.format(c.expiresAt) : '—'}
