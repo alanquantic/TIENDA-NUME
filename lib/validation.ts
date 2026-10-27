@@ -172,6 +172,7 @@ export const adminProductSchema = z
       .trim()
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido (usa minúsculas, números y guiones).'),
     description: z.string().trim().nullish(),
+    shortDescription: z.string().trim().max(600, 'La descripción corta admite hasta 600 caracteres.').nullish(),
     type: z.enum(['digital', 'physical']),
     categoryId: z.string().uuid().nullish(),
     price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).'),

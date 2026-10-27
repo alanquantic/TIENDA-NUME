@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       slug: d.slug,
       name: d.name,
       description: d.description ?? null,
+      shortDescription: d.shortDescription || null,
       type: d.type,
       status: d.status,
       categoryId: d.categoryId ?? null,

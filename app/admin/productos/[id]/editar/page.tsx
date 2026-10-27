@@ -47,6 +47,7 @@ export default async function EditarProductoPage({
     name: product.name,
     slug: product.slug,
     description: product.description,
+    shortDescription: product.shortDescription,
     type: product.type,
     categoryId: product.categoryId,
     price: variant?.priceAmount ?? '',

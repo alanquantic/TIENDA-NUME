@@ -411,6 +411,12 @@ export default async function ProductPage({ params }: { params: { slug: string }
             <p className="mt-3 inline-flex rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-2 text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
           )}
 
+          {product.shortDescription?.trim() && (
+            <p className="mt-5 whitespace-pre-line text-[hsl(var(--muted-foreground))]">
+              {product.shortDescription.trim()}
+            </p>
+          )}
+
           <div className="mt-8">
             <AddToCart
               key={product.id}

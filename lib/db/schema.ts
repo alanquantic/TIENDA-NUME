@@ -100,6 +100,8 @@ export const products = pgTable(
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
     description: text('description'),
+    // Texto breve antes de "Agregar al carrito"; vacío = no se muestra.
+    shortDescription: text('short_description'),
     type: productTypeEnum('type').notNull(),
     status: productStatusEnum('status').notNull().default('draft'),
     categoryId: uuid('category_id').references(() => categories.id, {
