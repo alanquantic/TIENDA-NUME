@@ -393,6 +393,8 @@ export const generatedReports = pgTable(
     error: text('error'),
     // { person: { name, birthDate }, partner?: { name, birthDate } } — para reintentos
     input: jsonb('input').notNull().default({}),
+    // Consumo del generador IA (lo manda en el aviso de "listo"); null en legacy.
+    usage: jsonb('usage').$type<ReportUsage>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -404,6 +406,51 @@ export const generatedReports = pgTable(
       table.reportKey,
     ),
     statusIdx: index('idx_generated_reports_status').on(table.status),
+  }),
+);
+
+/** Tokens y costos (USD) de un reporte IA, según el generador. */
+export type ReportUsage = {
+  model?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  /** Costo de los tokens del modelo. */
+  tokenCostUsd?: number | null;
+  /** Costo total de producir el reporte (tokens + render/infra). */
+  productionCostUsd?: number | null;
+};
+
+// ───────────────────────────────────────────────────────────────
+// Correos enviados con Resend y su seguimiento (webhook de Resend)
+// ───────────────────────────────────────────────────────────────
+
+export const emailMessages = pgTable(
+  'email_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    // Id que devuelve Resend; null si no se pudo enviar.
+    resendId: text('resend_id').unique(),
+    // order_confirmation | order_notification | order_failed | report_ready | cart_recovery | admin_2fa
+    kind: text('kind').notNull(),
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    toEmail: text('to_email').notNull(),
+    subject: text('subject').notNull(),
+    // sent | delivered | delivery_delayed | bounced | complained | failed | suppressed
+    status: text('status').notNull().default('sent'),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    openedAt: timestamp('opened_at', { withTimezone: true }),
+    clickedAt: timestamp('clicked_at', { withTimezone: true }),
+    openCount: integer('open_count').notNull().default(0),
+    clickCount: integer('click_count').notNull().default(0),
+    lastClickedUrl: text('last_clicked_url'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    orderIdx: index('idx_email_messages_order').on(table.orderId),
+    sentIdx: index('idx_email_messages_sent').on(table.sentAt),
   }),
 );
 
@@ -448,3 +495,4 @@ export type DigitalAsset = typeof digitalAssets.$inferSelect;
 export type DownloadGrant = typeof downloadGrants.$inferSelect;
 export type GeneratedReport = typeof generatedReports.$inferSelect;
 export type AdminTwoFactor = typeof adminTwoFactor.$inferSelect;
+export type EmailMessage = typeof emailMessages.$inferSelect;

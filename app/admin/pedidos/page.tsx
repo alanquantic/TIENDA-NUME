@@ -1,10 +1,13 @@
 import Link from 'next/link';
-import { and, asc, desc, eq, exists, gte, isNull, lt, sql, type SQL } from 'drizzle-orm';
+import { asc, desc } from 'drizzle-orm';
 import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
-import { categories, orderItems, orders, products } from '@/lib/db/schema';
+import { categories, orders, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
-import { NO_CATEGORY, parseOrderFilters } from '@/lib/admin/order-filters';
+import { NO_CATEGORY, orderFiltersQuery, parseOrderFilters } from '@/lib/admin/order-filters';
+import { distinctKinds, itemsForOrders } from '@/lib/admin/order-items';
+import { ITEM_KIND_LABEL, isTestOrder } from '@/lib/admin/order-kinds';
+import { orderConditions } from '@/lib/admin/order-query';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,44 +36,24 @@ export default async function AdminOrders({ searchParams }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = parseOrderFilters(searchParams);
-  const conditions: SQL[] = [];
-  if (filters.productId) {
-    // EXISTS keeps mixed orders unique, even when several variants match.
-    conditions.push(exists(db.select({ id: orderItems.id }).from(orderItems).where(and(
-      eq(orderItems.orderId, orders.id), eq(orderItems.productId, filters.productId),
-    ))));
-  }
-  if (filters.categoryId) {
-    // Pedidos con al menos un producto de la categoría (o sin categoría).
-    conditions.push(exists(db.select({ id: orderItems.id }).from(orderItems)
-      .innerJoin(products, eq(products.id, orderItems.productId))
-      .where(and(
-        eq(orderItems.orderId, orders.id),
-        filters.categoryId === NO_CATEGORY ? isNull(products.categoryId) : eq(products.categoryId, filters.categoryId),
-      ))));
-  }
-  if (filters.from) {
-    conditions.push(gte(orders.createdAt, sql`${filters.from}::date::timestamp AT TIME ZONE 'America/Mexico_City'`));
-  }
-  if (filters.to) {
-    // Exclusive next-day boundary includes every instant of the selected last day.
-    conditions.push(lt(orders.createdAt, sql`(${filters.to}::date + 1)::timestamp AT TIME ZONE 'America/Mexico_City'`));
-  }
   const [categoryOptions, productOptions, matches] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.name)),
     db.select({ id: products.id, name: products.name }).from(products).orderBy(asc(products.name)),
-    filters.error ? Promise.resolve([]) : db.select().from(orders).where(and(...conditions))
+    filters.error ? Promise.resolve([]) : db.select().from(orders).where(orderConditions(filters))
       .orderBy(desc(orders.createdAt), desc(orders.id)).limit(201),
   ]);
   const rows = matches.slice(0, 200);
-  const hasFilters = Boolean(filters.productId || filters.categoryId || filters.from || filters.to);
+  const itemsByOrder = await itemsForOrders(rows.map((o) => o.id));
+  const hasFilters = Boolean(filters.productId || filters.categoryId || filters.from || filters.to || filters.kind);
+  const query = orderFiltersQuery(filters);
+  const exportHref = `/api/admin/pedidos/exportar${query ? `?${query}` : ''}`;
   const fieldClass = 'h-11 w-full min-w-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm outline-none focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))]/20';
 
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-6">Pedidos</h1>
 
-      <form action={adminHref('/pedidos')} method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <form action={adminHref('/pedidos')} method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="min-w-0">
           <label htmlFor="order-category" className="mb-1.5 block text-sm font-medium">Categoría</label>
           <select id="order-category" name="categoria" defaultValue={filters.categoryId} className={fieldClass}>
@@ -87,17 +70,30 @@ export default async function AdminOrders({ searchParams }: {
           </select>
         </div>
         <div className="min-w-0">
+          <label htmlFor="order-kind" className="mb-1.5 block text-sm font-medium">Tipo de pedido</label>
+          <select id="order-kind" name="tipo" defaultValue={filters.kind} className={fieldClass}>
+            <option value="">Reales y de prueba</option>
+            <option value="reales">Solo reales</option>
+            <option value="pruebas">Solo de prueba</option>
+          </select>
+        </div>
+        <div className="min-w-0">
+          <label htmlFor="order-month" className="mb-1.5 block text-sm font-medium">Mes</label>
+          <input id="order-month" name="mes" type="month" defaultValue={filters.month} className={fieldClass} />
+        </div>
+        <div className="min-w-0">
           <label htmlFor="order-from" className="mb-1.5 block text-sm font-medium">Desde</label>
-          <input id="order-from" name="desde" type="date" defaultValue={filters.from} max={filters.to || undefined} className={fieldClass} />
+          <input id="order-from" name="desde" type="date" defaultValue={filters.month ? '' : filters.from} max={filters.to || undefined} className={fieldClass} />
         </div>
         <div className="min-w-0">
           <label htmlFor="order-to" className="mb-1.5 block text-sm font-medium">Hasta</label>
-          <input id="order-to" name="hasta" type="date" defaultValue={filters.to} min={filters.from || undefined} className={fieldClass} />
+          <input id="order-to" name="hasta" type="date" defaultValue={filters.month ? '' : filters.to} min={filters.from || undefined} className={fieldClass} />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2 lg:col-span-4">
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">Fecha de creación del pedido · Ciudad de México.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">Fecha de creación del pedido · Ciudad de México. Si eliges un mes, se ignoran Desde y Hasta.</p>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={adminHref('/pedidos')} className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Limpiar filtros</Link>
+            <a href={exportHref} className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Exportar CSV</a>
             <button type="submit" className="h-11 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-semibold text-white hover:opacity-90">Aplicar filtros</button>
           </div>
         </div>
@@ -131,6 +127,16 @@ export default async function AdminOrders({ searchParams }: {
                       {o.number}
                     </Link>
                     <div className="mt-1 flex flex-wrap gap-1">
+                      {isTestOrder(o) && (
+                        <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-600">
+                          Prueba
+                        </span>
+                      )}
+                      {distinctKinds(itemsByOrder.get(o.id) ?? []).map((kind) => (
+                        <span key={kind} className="rounded-full bg-[hsl(var(--muted))] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                          {ITEM_KIND_LABEL[kind]}
+                        </span>
+                      ))}
                       {o.requiresShipping && (
                         <span className="rounded-full border border-[hsl(var(--border))] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
                           Envío

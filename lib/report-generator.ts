@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
 import { isAIReportKey } from './ai-report-products';
+import type { ReportUsage } from './db/schema';
 import { config, reportGeneratorConfig } from './config';
 import type { ReportKey } from './report-catalog';
 
@@ -43,8 +44,43 @@ export type AIJobStatusResponse = {
   report: string;
   order_id: string;
   result?: AIJobResult | null;
+  usage?: GeneratorUsage | null;
   error?: string | null;
 };
+
+/** Consumo que reporta el generador IA (snake_case, USD). */
+export type GeneratorUsage = {
+  model?: string | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  total_tokens?: number | null;
+  token_cost_usd?: number | null;
+  production_cost_usd?: number | null;
+};
+
+function finiteOrNull(value: unknown): number | null {
+  const n = typeof value === 'string' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Normaliza el `usage` del generador; null si no trae nada útil. */
+export function parseGeneratorUsage(raw: unknown): ReportUsage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const u = raw as GeneratorUsage;
+  const inputTokens = finiteOrNull(u.input_tokens);
+  const outputTokens = finiteOrNull(u.output_tokens);
+  const usage: ReportUsage = {
+    model: typeof u.model === 'string' && u.model ? u.model : null,
+    inputTokens,
+    outputTokens,
+    totalTokens:
+      finiteOrNull(u.total_tokens) ??
+      (inputTokens != null || outputTokens != null ? (inputTokens ?? 0) + (outputTokens ?? 0) : null),
+    tokenCostUsd: finiteOrNull(u.token_cost_usd),
+    productionCostUsd: finiteOrNull(u.production_cost_usd),
+  };
+  return Object.values(usage).some((v) => v != null) ? usage : null;
+}
 
 export type SubmitReportResult =
   | { mode: 'legacy'; url: string }
