@@ -322,8 +322,8 @@ de confirmación sigue llevando los enlaces.
 8. **No avisar cancelaciones a pedidos sin interacción con la pasarela** (H4): solo
    mandar `notifyOrderFailed` si el pedido tiene `externalCheckoutId` y la pasarela
    registra un intento de pago.
-9. 🟡 **Descargas** (H8). Hecho: incremento atómico; faltan la URL firmada y la caducidad: servir el archivo con una URL firmada de vida corta (Cloudinary
-   ya está integrado: `lib/cloudinary.ts`), fijar `expiresAt` (p. ej. 30 días) y hacer
+9. 🟡 **Descargas** (H8). Hecho: incremento atómico; faltan la URL firmada y la caducidad: servir el archivo con una URL firmada de vida corta (R2
+   ya está integrado: `lib/r2.ts`), fijar `expiresAt` (p. ej. 30 días) y hacer
    el incremento atómico:
    `UPDATE … SET downloads_used = downloads_used + 1 WHERE id = $1 AND (download_limit IS NULL OR downloads_used < download_limit) RETURNING …`.
 10. ✅ **Webhooks** (H5): ignorar `?mode` y tomar el modo del pedido
@@ -335,7 +335,7 @@ de confirmación sigue llevando los enlaces.
     `X-Content-Type-Options: nosniff`; `Permissions-Policy` restrictiva.
 12. ✅ **CSRF** (H10): en todas las rutas `POST` con cookies, exigir
     `Content-Type: application/json` y que `Origin` sea el dominio de la tienda.
-13. **Imágenes** (H13): limitar `remotePatterns` a Cloudinary y los dominios propios.
+13. **Imágenes** (H13): limitar `remotePatterns` a R2 (`R2_PUBLIC_URL`) y los dominios propios.
 14. **Reportes generados**: pedir al generador URLs firmadas o con caducidad para los
     PDF, en lugar de enlaces públicos permanentes.
 15. **Minimización de datos**: dejar de enviar teléfono y fecha de nacimiento a los
