@@ -22,6 +22,7 @@ export type ProductFormValues = {
   name?: string;
   slug?: string;
   description?: string | null;
+  shortDescription?: string | null;
   type?: 'digital' | 'physical';
   categoryId?: string | null;
   price?: string;
@@ -95,6 +96,7 @@ export function ProductForm({
   const [slug, setSlug] = useState(initialValues?.slug ?? '');
   const [slugEdited, setSlugEdited] = useState(Boolean(initialValues?.slug));
   const [description, setDescription] = useState(initialValues?.description ?? '');
+  const [shortDescription, setShortDescription] = useState(initialValues?.shortDescription ?? '');
   const [categoryId, setCategoryId] = useState(initialValues?.categoryId ?? '');
   const [price, setPrice] = useState(initialValues?.price ?? '');
   const [imageUrls, setImageUrls] = useState<string[]>(
@@ -210,6 +212,7 @@ export function ProductForm({
       name,
       slug,
       description: description || null,
+      shortDescription: shortDescription.trim() || null,
       type,
       categoryId: categoryId || null,
       // Con variaciones, el precio del producto es el de la predeterminada.
@@ -316,6 +319,18 @@ export function ProductForm({
               cambiar. El nombre y los demás campos sí son editables.
             </p>
           )}
+        </div>
+
+        <div>
+          <label className={label}>Descripción corta (opcional)</label>
+          <textarea
+            value={shortDescription}
+            onChange={(e) => setShortDescription(e.target.value)}
+            rows={2}
+            maxLength={600}
+            placeholder="Se muestra arriba del botón Agregar al carrito. Vacía no aparece."
+            className={input}
+          />
         </div>
 
         <div>

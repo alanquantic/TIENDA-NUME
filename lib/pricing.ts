@@ -1,7 +1,7 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
-import { discountCodes, products, productVariants } from './db/schema';
+import { discountCodes, orders, products, productVariants } from './db/schema';
 import { toMinor } from './money';
 import { resolveShippingRate } from './shipping';
 import { effectivePrice } from './sale-price';
@@ -45,7 +45,7 @@ type CartItemInput = CheckoutInput['items'][number];
  * Precio de las líneas del carrito desde la BD: valida existencia, estado,
  * stock y límite por pedido. Base de `priceCart` y de la vista previa de cupón.
  */
-async function priceLines(items: CartItemInput[]): Promise<{
+export async function priceLines(items: CartItemInput[]): Promise<{
   lines: PricedLine[];
   subtotalMinor: number;
   requiresShipping: boolean;
@@ -157,7 +157,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
   let discountMinor = 0;
   let discountCode: string | null = null;
   if (input.discountCode) {
-    const applied = await applyDiscount(input.discountCode, subtotalMinor, lines);
+    const applied = await applyDiscount(input.discountCode, subtotalMinor, lines, input.email);
     discountMinor = applied.amountMinor;
     discountCode = applied.code;
   }
@@ -206,15 +206,32 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
 export async function previewDiscount(
   items: CartItemInput[],
   code: string,
+  email?: string | null,
 ): Promise<{ code: string; amountMinor: number }> {
   const { lines, subtotalMinor } = await priceLines(items);
-  return applyDiscount(code, subtotalMinor, lines);
+  return applyDiscount(code, subtotalMinor, lines, email);
+}
+
+/** Veces que un correo ya usó el cupón en pedidos pagados. */
+async function redemptionsByEmail(code: string, email: string): Promise<number> {
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.discountCode, code),
+        sql`lower(${orders.customerEmail}) = ${email.trim().toLowerCase()}`,
+        inArray(orders.status, ['paid', 'fulfilled', 'partially_refunded']),
+      ),
+    );
+  return n;
 }
 
 async function applyDiscount(
   code: string,
   subtotalMinor: number,
   lines: PricedLine[],
+  email?: string | null,
 ): Promise<{ code: string; amountMinor: number }> {
   const normalized = code.trim().toUpperCase();
   const [row] = await db
@@ -229,6 +246,18 @@ async function applyDiscount(
   }
   if (row.maxRedemptions != null && row.timesRedeemed >= row.maxRedemptions) {
     throw new PricingError('El cupón alcanzó su límite de usos.');
+  }
+  // Sin correo (vista previa antes de escribirlo) no se puede revisar; el cobro
+  // siempre lo trae y ahí se vuelve a validar.
+  if (row.maxRedemptionsPerEmail != null && email?.trim()) {
+    const used = await redemptionsByEmail(normalized, email);
+    if (used >= row.maxRedemptionsPerEmail) {
+      throw new PricingError(
+        row.maxRedemptionsPerEmail === 1
+          ? 'Ya usaste este cupón con este correo.'
+          : `Este cupón se puede usar ${row.maxRedemptionsPerEmail} veces por correo y ya llegaste al límite.`,
+      );
+    }
   }
   // El mínimo siempre se evalúa contra el subtotal del carrito.
   if (row.minSubtotal && subtotalMinor < toMinor(row.minSubtotal)) {

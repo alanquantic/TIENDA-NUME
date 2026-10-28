@@ -48,6 +48,8 @@ type CartState = {
   remove: (variantId: string) => void;
   setQuantity: (variantId: string, quantity: number) => void;
   clear: () => void;
+  /** Reemplaza el carrito (enlace de recuperación de carrito abandonado). */
+  restore: (items: CartItem[]) => void;
   totalItems: () => number;
   /** Sincroniza el carrito con el catálogo actual (quita/reasigna items obsoletos). */
   reconcile: () => Promise<ReconcileResult>;
@@ -92,6 +94,7 @@ export const useCart = create<CartState>()(
             .filter((i) => i.quantity > 0),
         })),
       clear: () => set({ items: [] }),
+      restore: (items) => set({ items }),
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
       reconcile: async () => {
         const items = get().items;
@@ -144,3 +147,23 @@ export const useCart = create<CartState>()(
     { name: 'tienda-cart' },
   ),
 );
+
+/** Token del carrito guardado en el servidor (carrito abandonado). */
+export const CART_TOKEN_KEY = 'tienda-cart-token';
+
+export function readCartToken(): string | null {
+  try {
+    return localStorage.getItem(CART_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeCartToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(CART_TOKEN_KEY, token);
+    else localStorage.removeItem(CART_TOKEN_KEY);
+  } catch {
+    // Navegación privada o almacenamiento bloqueado: solo se pierde el seguimiento.
+  }
+}

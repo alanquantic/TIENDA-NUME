@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
-import { useCart } from '@/lib/cart-store';
+import { readCartToken, useCart, writeCartToken } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
 import { reportsForSlug, type ReportKey } from '@/lib/report-catalog';
@@ -184,6 +184,26 @@ export function CheckoutForm({
     return sections;
   }, [items]);
 
+  // Carrito abandonado: con un correo válido se guarda el carrito (con pausa
+  // para no llamar en cada tecla). Best-effort: si falla, el checkout sigue.
+  useEffect(() => {
+    const trimmed = email.trim();
+    if (simulate || items.length === 0 || !/^\S+@\S+\.\S+$/.test(trimmed)) return;
+    const timer = setTimeout(() => {
+      fetch('/api/cart/guardar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: readCartToken(), email: trimmed, firstName: firstName.trim() || null, items }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { token?: string } | null) => {
+          if (data?.token) writeCartToken(data.token);
+        })
+        .catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [email, firstName, items, simulate]);
+
   function blankReportInput(): ReportInput {
     return {
       personName: `${firstName} ${lastName}`.trim(),
@@ -254,6 +274,7 @@ export function CheckoutForm({
         body: JSON.stringify({
           code: trimmed,
           items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+          email: /^\S+@\S+\.\S+$/.test(email.trim()) ? email.trim() : '',
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -347,6 +368,7 @@ export function CheckoutForm({
               }
             : null,
           discountCode: appliedCoupon?.code ?? null,
+          cartToken: readCartToken(),
           paymentMethod: simulate || isFree ? null : paymentMethod,
           reports: reportSections.map((s) => {
             const inp = getReportInput(s.sectionKey);
@@ -385,6 +407,32 @@ export function CheckoutForm({
     }
   }
 
+  const submitDisabled =
+    loading ||
+    (requiresShipping && applicableRates.length === 0) ||
+    (!simulate && !isFree && !paymentMethod);
+  const submitLabel = loading ? 'Procesando…' : simulate ? 'Simular compra' : isFree ? 'Confirmar pedido' : 'Pagar';
+
+  // Barra de pago fija en móvil: se activa cuando el formulario es válido
+  // (todos los campos obligatorios llenos) y se oculta al llegar al botón real.
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const [formValid, setFormValid] = useState(false);
+  const [submitInView, setSubmitInView] = useState(false);
+  useEffect(() => {
+    // Barato: solo revisa `required`/`type` de los campos; React no re-renderiza si no cambia.
+    setFormValid(formRef.current?.checkValidity() ?? false);
+  });
+  useEffect(() => {
+    const button = submitRef.current;
+    if (!button || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setSubmitInView(entry.isIntersecting), {
+      rootMargin: '0px 0px 80px 0px',
+    });
+    observer.observe(button);
+    return () => observer.disconnect();
+  }, [mounted, items.length]);
+
   if (!mounted) return null;
   if (items.length === 0) {
     return (
@@ -402,7 +450,12 @@ export function CheckoutForm({
   const labelCls = 'mb-1 text-sm font-medium';
 
   return (
-    <form onSubmit={handleSubmit} className="grid lg:grid-cols-3 gap-8">
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      onInput={() => setFormValid(formRef.current?.checkValidity() ?? false)}
+      className="grid lg:grid-cols-3 gap-8 pb-24 lg:pb-0"
+    >
       <div className="lg:col-span-2 space-y-8">
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">Tus datos</h2>
@@ -444,6 +497,9 @@ export function CheckoutForm({
               onChange={(e) => setEmail(e.target.value)}
               className={inputCls}
             />
+            <span className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+              Guardamos tu carrito con este correo para recordártelo si no terminas la compra.
+            </span>
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col">
@@ -946,15 +1002,12 @@ export function CheckoutForm({
         )}
         {error && <p className="text-sm text-red-500">{error}</p>}
         <button
+          ref={submitRef}
           type="submit"
-          disabled={
-            loading ||
-            (requiresShipping && applicableRates.length === 0) ||
-            (!simulate && !isFree && !paymentMethod)
-          }
+          disabled={submitDisabled}
           className="w-full rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-3.5 text-lg font-semibold disabled:opacity-50"
         >
-          {loading ? 'Procesando…' : simulate ? 'Simular compra' : isFree ? 'Confirmar pedido' : 'Pagar'}
+          {submitLabel}
         </button>
         <p className="text-sm text-[hsl(var(--muted-foreground))] text-center">
           {simulate
@@ -968,6 +1021,32 @@ export function CheckoutForm({
               }.`}
         </p>
       </aside>
+
+      {/* Móvil: botón de pago siempre a mano hasta llegar al botón real. */}
+      <div
+        aria-hidden={submitInView}
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] transition-transform duration-200 lg:hidden ${
+          submitInView ? 'pointer-events-none translate-y-full' : 'translate-y-0'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">Total</div>
+            <div className="truncate text-lg font-semibold">{formatMoney(totalMinor, currency)}</div>
+          </div>
+          <button
+            type="submit"
+            tabIndex={submitInView ? -1 : 0}
+            disabled={submitDisabled || !formValid}
+            className="rounded-lg bg-[hsl(var(--primary))] px-6 py-3 text-base font-semibold text-[hsl(var(--primary-foreground))] disabled:opacity-50"
+          >
+            {submitLabel}
+          </button>
+        </div>
+        {!formValid && (
+          <p className="mt-1.5 text-xs text-[hsl(var(--muted-foreground))]">Completa los campos obligatorios (*) para pagar.</p>
+        )}
+      </div>
     </form>
   );
 }

@@ -5,6 +5,7 @@ import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { orderItems, orders } from '@/lib/db/schema';
 import { priceCart, PricingError } from '@/lib/pricing';
+import { linkCartToOrder } from '@/lib/abandoned-carts';
 import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
@@ -184,6 +185,10 @@ export async function POST(req: Request) {
       metadata: method ? { paymentMode: method.mode } : {},
     })
     .returning();
+
+  await linkCartToOrder(input.cartToken, order.id).catch((err) =>
+    console.error('[checkout] no se pudo ligar el carrito', err),
+  );
 
   // Datos de reporte por (variantId, reportKey). Dos productos que compartan el
   // mismo reportKey capturan datos por separado (regalo para otra persona).

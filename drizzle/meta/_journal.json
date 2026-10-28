@@ -71,6 +71,27 @@
       "when": 1793144578736,
       "tag": "0009_admin_pedidos_correos",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793144889466,
+      "tag": "0010_cupon_usos_por_correo",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793145098173,
+      "tag": "0011_carritos_abandonados",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793145234721,
+      "tag": "0012_descripcion_corta",
+      "breakpoints": true
     }
   ]
 }
