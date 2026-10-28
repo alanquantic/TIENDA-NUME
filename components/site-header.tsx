@@ -56,6 +56,7 @@ const NAV_ITEMS: readonly NavItem[] = [
     ],
   },
   { label: 'Tienda', href: '/' },
+  { label: 'Planes', href: '/planes' },
   { label: 'Blog', href: `${NUME}/blog` },
   { label: 'Horóscopos', href: 'https://www.numerologia-cotidiana.com/horoscopo-personal-2027/' },
   {

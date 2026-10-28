@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { sendReportReady } from './email';
-import { generatedReports, orders } from './db/schema';
+import { generatedReports, orders, type ReportUsage } from './db/schema';
 
 type StoredReportInput = {
   kind?: 'generated' | 'static';
@@ -20,6 +20,7 @@ export async function markGeneratedReportReady(input: {
   pdfUrl: string;
   previewUrl?: string | null;
   jsonUrl?: string | null;
+  usage?: ReportUsage | null;
 }): Promise<{ notified: boolean }> {
   const [row] = await db
     .select({
@@ -50,6 +51,8 @@ export async function markGeneratedReportReady(input: {
         previewUrl: input.previewUrl ?? null,
         jsonUrl: input.jsonUrl ?? null,
       },
+      // Un aviso repetido sin usage no borra el que ya se guardó.
+      ...(input.usage ? { usage: input.usage } : {}),
       updatedAt: new Date(),
     })
     .where(eq(generatedReports.id, input.rowId));
@@ -80,7 +83,7 @@ export async function markGeneratedReportReady(input: {
     reportName: row.productName ?? 'Reporte',
     pdfUrl: input.pdfUrl,
     previewUrl: input.previewUrl ?? null,
-  });
+  }, row.orderId);
 
   return { notified: true };
 }

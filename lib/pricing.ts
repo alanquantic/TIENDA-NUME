@@ -134,8 +134,8 @@ async function priceLines(items: CartItemInput[]): Promise<{
   }
   for (const [productId, qty] of qtyByProduct) {
     const row = rows.find((r) => r.productId === productId);
-    // Físicos: tope fijo de 1 por pedido aunque la BD diga otra cosa.
-    const max = row ? effectiveMaxPerOrder(row.type, row.maxPerOrder) : null;
+    // Físicos: tope fijo por pedido (1, o el propio del producto) aunque la BD diga otra cosa.
+    const max = row ? effectiveMaxPerOrder(row.type, row.maxPerOrder, productId) : null;
     if (max != null && qty > max) {
       throw new PricingError(
         `Solo puedes comprar ${max} ${max === 1 ? 'unidad' : 'unidades'} de "${row?.name}" por pedido.`,

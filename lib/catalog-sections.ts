@@ -7,6 +7,7 @@ export type CatalogSection = { slug: string; name: string; items: CatalogCard[] 
 // Orden de las secciones del home (por slug de categoría). Las categorías
 // no listadas aquí se muestran después, y "Otros" (sin categoría) al final.
 const SECTION_ORDER = [
+  'planes-numerathum',
   'agenda-numerologica',
   'cursos-de-numerologia',
   'libro',

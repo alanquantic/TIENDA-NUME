@@ -146,7 +146,7 @@ export default async function AdminHome({ searchParams }: {
                         href={`/productos/${p.slug}`}
                         className="text-[hsl(var(--muted-foreground))] hover:underline"
                       >
-                        Ver ↗
+                        {p.status === 'active' ? 'Ver ↗' : 'Vista previa ↗'}
                       </Link>
                     </div>
                   </td>

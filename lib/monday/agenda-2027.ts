@@ -4,9 +4,11 @@ import {
   type MondayOrder, type MondayItem, type MondayPayload,
   type MondayJobOptions, type MondayJob, type MondayColumns,
 } from './shared';
+import { AGENDA_2027_PRODUCT_ID } from '../order-limits';
 export type { MondayJob, MondayColumns } from './shared';
 
-export const AGENDA_2027_PRODUCT_ID = '1be11ac4-a5ef-4f05-88de-c13fafd99a91';
+// El ID vive en order-limits (lo usa también el carrito, del lado cliente).
+export { AGENDA_2027_PRODUCT_ID };
 export const AGENDA_2027_BOARD_ID = '18434858318';
 export const AGENDA_2027_GROUP_ID = 'new_group';
 export const MONDAY_JOB_KEY = 'mondayAgenda2027';
