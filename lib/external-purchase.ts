@@ -4,6 +4,7 @@
 //
 // El envío vive en `lib/external-hooks.ts` (ese sí es server-only).
 
+import type { PlanPeriod } from './numerathum-plans';
 import {
   accessForProduct,
   type ExternalHookGroup,
@@ -62,6 +63,12 @@ export type PurchaseAccess = {
   duration: ProductDuration;
   /** La misma duración normalizada a meses (null si viene en días). */
   durationMonths: number | null;
+  /**
+   * Ciclo de cobro: 'monthly' (1 mes) o 'annual' (12 meses); null en otras
+   * duraciones. Numerathum lo usa para saber qué variante se compró
+   * (contrato en demonume/docs/WEBHOOK_TIENDA.md).
+   */
+  billingCycle: PlanPeriod | null;
   /** Inicio del acceso = pago del pedido (ISO-8601). */
   startsAt: string;
   /**
@@ -74,6 +81,11 @@ export type PurchaseAccess = {
 };
 
 export type PurchaseItem = {
+  /**
+   * Id de la línea del pedido (order_items.id). Es el mismo en todos los avisos
+   * del pedido: Numerathum lo usa para no aplicar dos veces un producto.
+   */
+  id: string;
   slug: string | null;
   name: string;
   variantName: string | null;
@@ -153,6 +165,8 @@ export type OrderLike = {
 
 /** Ítem del pedido + su slug (order_items guarda snapshot, no el slug). */
 export type ItemLike = {
+  /** order_items.id */
+  id: string;
   slug: string | null;
   name: string;
   variantName: string | null;
@@ -199,9 +213,18 @@ export function durationToMonths(duration: ProductDuration): number | null {
   return null;
 }
 
+/** Ciclo de cobro de una duración: 1 mes = mensual, 12 meses = anual. */
+export function billingCycleFor(duration: ProductDuration): PlanPeriod | null {
+  const months = durationToMonths(duration);
+  if (months === 1) return 'monthly';
+  if (months === 12) return 'annual';
+  return null;
+}
+
 function toItem(i: ItemLike, startsAtIso: string): PurchaseItem {
   const cfg = accessForProduct(i.slug, i.variantName);
   return {
+    id: i.id,
     slug: i.slug,
     name: i.name,
     variantName: i.variantName,
@@ -215,6 +238,7 @@ function toItem(i: ItemLike, startsAtIso: string): PurchaseItem {
           planCode: cfg.planCode,
           duration: cfg.duration,
           durationMonths: durationToMonths(cfg.duration),
+          billingCycle: billingCycleFor(cfg.duration),
           startsAt: startsAtIso,
           expiresAt: addDuration(new Date(startsAtIso), cfg.duration).toISOString(),
         }

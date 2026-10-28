@@ -107,6 +107,12 @@ export const PRODUCT_ACCESS: Record<string, ProductAccessConfig> = {
     duration: { value: 3, unit: 'year' },
   },
   'kit-primavera': { planCode: 'kit-primavera', duration: { value: 1, unit: 'month' } },
+  // Regalo de 1 mes de Horizonte 60. Numerathum reconoce cada producto por su
+  // planCode: sin él, en un pedido con plan + agenda el regalo se perdía.
+  [AGENDA_FISICA_2026_SLUG]: {
+    planCode: 'agenda-fisica-2026',
+    duration: { value: 1, unit: 'month' },
+  },
   [NUMERATHUM_SLUG]: {
     planCode: 'numerathum-oraculo-365',
     duration: { value: 1, unit: 'year' },
