@@ -14,6 +14,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
   const [productId, setProductId] = useState('');
   const [minSubtotal, setMinSubtotal] = useState('');
   const [maxRedemptions, setMaxRedemptions] = useState('');
+  const [maxPerEmail, setMaxPerEmail] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
         productId: scope === 'product' ? productId : null,
         minSubtotal: minSubtotal || null,
         maxRedemptions: maxRedemptions ? Number(maxRedemptions) : null,
+        maxRedemptionsPerEmail: maxPerEmail ? Number(maxPerEmail) : null,
         expiresAt: expiresAt || null,
         isActive,
       }),
@@ -140,7 +142,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
       )}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={label}>Máx. usos (opcional)</label>
+          <label className={label}>Máx. usos en total (opcional)</label>
           <input
             inputMode="numeric"
             value={maxRedemptions}
@@ -149,6 +151,18 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
             className={input}
           />
         </div>
+        <div>
+          <label className={label}>Máx. usos por correo (opcional)</label>
+          <input
+            inputMode="numeric"
+            value={maxPerEmail}
+            onChange={(e) => setMaxPerEmail(e.target.value)}
+            placeholder="∞"
+            className={input}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={label}>Expira (opcional)</label>
           <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className={input} />
