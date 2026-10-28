@@ -183,6 +183,53 @@ export function createRefreshCookie(value: string) {
   return { name: REFRESH_COOKIE, value, ...sessionCookieOptions, maxAge: tokenMaxAge(value, 7 * 24 * 60 * 60) };
 }
 
+export type NumeProfile = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  /** YYYY-MM-DD o vacío. */
+  birthDate: string;
+};
+
+/**
+ * Datos personales de la cuenta para precargar formularios (checkout, reportes).
+ * Toma el perfil que el cliente llena en nume (metadata.profile) y, de respaldo,
+ * lo que la tienda dejó al crear la cuenta (metadata.customer). Nunca usa el
+ * apodo (profile.nickname / display_name): los reportes llevan el nombre real.
+ */
+export function profileOf(user: NumeUser): NumeProfile {
+  const meta = (user.metadata ?? {}) as {
+    profile?: Record<string, unknown>;
+    customer?: Record<string, unknown>;
+  };
+  const read = (source: Record<string, unknown> | undefined, key: string) => {
+    const value = source?.[key];
+    return typeof value === 'string' ? value.trim() : '';
+  };
+  const pick = (key: string) => read(meta.profile, key) || read(meta.customer, key);
+
+  let firstName = read(meta.profile, 'first_name');
+  let lastName = read(meta.profile, 'last_name');
+  if (!firstName && !lastName) {
+    firstName = read(meta.customer, 'first_name');
+    lastName = read(meta.customer, 'last_name');
+  }
+  if (!firstName && !lastName) {
+    // full_name sin desglose: primera palabra como nombre, el resto apellidos.
+    const [first = '', ...rest] = read(meta.customer, 'full_name').split(/\s+/).filter(Boolean);
+    firstName = first;
+    lastName = rest.join(' ');
+  }
+
+  const birthDate = pick('birth_date').slice(0, 10);
+  return {
+    firstName,
+    lastName,
+    phone: pick('phone'),
+    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : '',
+  };
+}
+
 /** Nombre para saludar al cliente, según los metadatos que guarda la API. */
 export function displayNameOf(user: NumeUser): string | null {
   const meta = (user.metadata ?? {}) as {
