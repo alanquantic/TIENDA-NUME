@@ -98,6 +98,14 @@ export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
 
 const adminMoney = z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).');
 
+/** Imagen: URL absoluta o ruta de /public (p. ej. /images/numerathum/espejo.svg). */
+const adminImageUrl = z
+  .string()
+  .trim()
+  .refine((v) => (v.startsWith('/') && !v.startsWith('//')) || z.url().safeParse(v).success, {
+    message: 'Imagen inválida: usa una URL completa (https://…) o una ruta que empiece con /.',
+  });
+
 /** Una variante del formulario (con `id` si ya existe en la BD). */
 export const adminVariantSchema = z.object({
   id: z.string().uuid().nullish(),
@@ -177,8 +185,8 @@ export const adminProductSchema = z
     categoryId: z.string().uuid().nullish(),
     price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).'),
     currency: z.string().length(3).default('MXN'),
-    imageUrl: z.string().url().nullish().or(z.literal('')),
-    imageUrls: z.array(z.string().url()).nullish(),
+    imageUrl: adminImageUrl.nullish().or(z.literal('')),
+    imageUrls: z.array(adminImageUrl).nullish(),
     status: z.enum(['draft', 'active', 'archived']).default('active'),
     // Digital
     fileUrl: z.string().url().nullish().or(z.literal('')),
