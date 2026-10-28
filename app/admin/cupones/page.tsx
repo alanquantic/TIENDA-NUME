@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { asc, desc, eq } from 'drizzle-orm';
+import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
 import { discountCodes, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
@@ -33,12 +35,17 @@ export default async function AdminCoupons() {
                 <th className="px-4 py-3 font-medium">Usos</th>
                 <th className="px-4 py-3 font-medium">Expira</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody className="divide-y divide-[hsl(var(--border))]">
               {rows.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-3 font-medium">{c.code}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={adminHref(`/cupones/${c.id}/editar`)} className="hover:underline">
+                      {c.code}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">
                     {c.type === 'percent'
                       ? `${parseFloat(c.value)}%`
@@ -72,6 +79,14 @@ export default async function AdminCoupons() {
                     <span className={c.isActive ? 'text-green-600' : 'text-[hsl(var(--muted-foreground))]'}>
                       {c.isActive ? 'Activo' : 'Inactivo'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={adminHref(`/cupones/${c.id}/editar`)}
+                      className="text-[hsl(var(--primary))] hover:underline"
+                    >
+                      Editar
+                    </Link>
                   </td>
                 </tr>
               ))}
