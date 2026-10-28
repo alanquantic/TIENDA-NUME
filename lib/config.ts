@@ -48,6 +48,8 @@ export const emailConfig = {
   replyTo: process.env.EMAIL_REPLY_TO || undefined,
   // Aviso interno: a quién le llega un resumen de cada compra pagada. Vacío = no se envía.
   orderNotifyTo: envEmailList(process.env.ORDER_NOTIFY_EMAIL),
+  // Signing secret del webhook de Resend (Webhooks → tu endpoint). Vacío = no se aceptan avisos.
+  webhookSecret: process.env.RESEND_WEBHOOK_SECRET ?? '',
 } as const;
 
 export const reportGeneratorConfig = {

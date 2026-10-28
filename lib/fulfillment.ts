@@ -315,14 +315,14 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     pendingReports: pendingAiReports,
     notes,
   };
-  await sendOrderConfirmation(emailData);
+  await sendOrderConfirmation(emailData, order.id);
   await sendOrderNotification({
     ...emailData,
     adminUrl: `${config.appUrl}${adminHref(`/pedidos/${order.id}`)}`,
     provider: order.provider,
     isTest: isTestPayment(order),
     requiresInvoice: order.requiresInvoice,
-  });
+  }, order.id);
 
   const toItemLike = (item: (typeof items)[number]): ItemLike => ({
     slug: item.productId ? (info.get(item.productId)?.slug ?? null) : null,
@@ -372,5 +372,5 @@ export async function notifyOrderFailed(orderId: string): Promise<void> {
       type: item.type,
     })),
     totalAmount: order.totalAmount,
-  });
+  }, order.id);
 }

@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div data-admin-panel className="mx-auto max-w-5xl px-4 py-8">
         {authed && (
           <div className="mb-8 flex items-center justify-between border-b border-[hsl(var(--border))] pb-4">
-            <nav className="flex items-center gap-5 text-sm">
+            <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
               <Link href={adminHref()} className="font-semibold">
                 Productos
               </Link>
@@ -25,6 +25,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </Link>
               <Link href={adminHref('/reportes')} className="hover:opacity-70">
                 Reportes
+              </Link>
+              <Link href={adminHref('/correos')} className="hover:opacity-70">
+                Correos
               </Link>
               <Link href={adminHref('/cupones')} className="hover:opacity-70">
                 Cupones

@@ -23,15 +23,50 @@ export function parseCategoryFilter(params: SearchParams) {
   return { categoryId, error };
 }
 
+/** `?tipo=`: pedidos reales, de prueba o todos (vacío). */
+export type OrderKindFilter = '' | 'reales' | 'pruebas';
+
+/** Primer y último día (YYYY-MM-DD) de un mes `YYYY-MM`, o null si no es válido. */
+export function monthRange(month: string): { from: string; to: string } | null {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month.startsWith('0000-')) return null;
+  const [year, mm] = month.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, mm, 0)).getUTCDate();
+  return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` };
+}
+
 export function parseOrderFilters(params: SearchParams) {
   const productId = typeof params.producto === 'string' ? params.producto.trim() : '';
-  const from = typeof params.desde === 'string' ? params.desde.trim() : '';
-  const to = typeof params.hasta === 'string' ? params.hasta.trim() : '';
+  const month = typeof params.mes === 'string' ? params.mes.trim() : '';
+  let from = typeof params.desde === 'string' ? params.desde.trim() : '';
+  let to = typeof params.hasta === 'string' ? params.hasta.trim() : '';
+  const rawKind = typeof params.tipo === 'string' ? params.tipo.trim() : '';
+  const kind: OrderKindFilter = rawKind === 'reales' || rawKind === 'pruebas' ? rawKind : '';
   const { categoryId, error: categoryError } = parseCategoryFilter(params);
+  const range = month ? monthRange(month) : null;
+  // El mes manda sobre Desde/Hasta: es el atajo para ver un mes completo.
+  if (range) ({ from, to } = range);
   let error: string | null = null;
   if (categoryError) error = categoryError;
   else if (productId && !z.string().uuid().safeParse(productId).success) error = 'Selecciona un producto válido.';
+  else if (month && !range) error = 'Selecciona un mes válido.';
+  else if (rawKind && !kind) error = 'Selecciona un tipo de pedido válido.';
   else if ((from && !validDate(from)) || (to && !validDate(to))) error = 'Selecciona fechas válidas.';
   else if (from && to && from > to) error = 'La fecha Desde debe ser anterior o igual a Hasta.';
-  return { productId, categoryId, from, to, error };
+  return { productId, categoryId, month: range ? month : '', from, to, kind, error };
+}
+
+export type OrderFilters = ReturnType<typeof parseOrderFilters>;
+
+/** Los filtros como query string (para el CSV y los enlaces). */
+export function orderFiltersQuery(filters: OrderFilters): string {
+  const qs = new URLSearchParams();
+  if (filters.categoryId) qs.set('categoria', filters.categoryId);
+  if (filters.productId) qs.set('producto', filters.productId);
+  if (filters.month) qs.set('mes', filters.month);
+  else {
+    if (filters.from) qs.set('desde', filters.from);
+    if (filters.to) qs.set('hasta', filters.to);
+  }
+  if (filters.kind) qs.set('tipo', filters.kind);
+  return qs.toString();
 }

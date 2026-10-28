@@ -6,6 +6,7 @@ import { generatedReports } from '@/lib/db/schema';
 import {
   getAIReportJob,
   isReportGeneratorConfigured,
+  parseGeneratorUsage,
   submitReport,
 } from '@/lib/report-generator';
 import {
@@ -163,6 +164,7 @@ export async function GET(req: Request) {
             pdfUrl: job.result.pdf.url,
             previewUrl: job.result.html?.url ?? null,
             jsonUrl: job.result.json?.url ?? null,
+            usage: parseGeneratorUsage(job.usage),
           });
           ready++;
           continue;

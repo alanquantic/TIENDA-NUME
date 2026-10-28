@@ -12,7 +12,7 @@
         "test:analytics": "node --import tsx --test tests/meta-pixel.test.ts",
         "test:monday": "node --import tsx --test tests/monday-agenda-2027.test.ts tests/monday-numerathum.test.ts tests/monday-libro.test.ts",
         "test:email": "node --import tsx --test tests/order-notification.test.ts",
-        "test:admin": "node --import tsx --test tests/admin-security.test.ts tests/admin-filters.test.ts",
+        "test:admin": "node --import tsx --test tests/admin-security.test.ts tests/admin-filters.test.ts tests/admin-orders.test.ts",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
         "db:push": "drizzle-kit push",
