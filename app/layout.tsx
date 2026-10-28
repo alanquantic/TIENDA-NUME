@@ -18,20 +18,7 @@ export const metadata: Metadata = {
     template: `%s – ${SITE_TITLE}`,
   },
   description: SITE_DESCRIPTION,
-  icons: {
-    icon: [
-      {
-        url: 'https://woocommerce-883512-3174482.cloudwaysapps.com/wp-content/uploads/2023/06/cropped-LOGO_Morado-32x32.png',
-        sizes: '32x32',
-        type: 'image/png',
-      },
-      {
-        url: 'https://woocommerce-883512-3174482.cloudwaysapps.com/wp-content/uploads/2023/06/cropped-LOGO_Morado-192x192.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-    ],
-  },
+  // Favicon: app/icon.png y app/apple-icon.png (logo de numerologia-cotidiana.com).
 };
 
 // Fija el tema antes del primer paint para evitar parpadeo.
