@@ -83,6 +83,8 @@ export const checkoutSchema = z
     // Facturación (opcional). Si requiresInvoice = true, billingInfo es obligatorio.
     requiresInvoice: z.boolean().default(false),
     billingInfo: billingInfoSchema.nullish(),
+    // Carrito guardado del checkout (carrito abandonado), para ligarlo al pedido.
+    cartToken: z.string().max(64).nullish(),
   })
   .refine((d) => !d.requiresInvoice || !!d.billingInfo, {
     message: 'Faltan los datos fiscales para la factura.',
@@ -170,6 +172,7 @@ export const adminProductSchema = z
       .trim()
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido (usa minúsculas, números y guiones).'),
     description: z.string().trim().nullish(),
+    shortDescription: z.string().trim().max(600, 'La descripción corta admite hasta 600 caracteres.').nullish(),
     type: z.enum(['digital', 'physical']),
     categoryId: z.string().uuid().nullish(),
     price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).'),
@@ -230,6 +233,7 @@ export const adminCouponSchema = z
     productId: z.string().uuid().nullish().or(z.literal('')),
     minSubtotal: z.string().regex(/^\d+(\.\d{1,2})?$/).nullish().or(z.literal('')),
     maxRedemptions: z.number().int().positive().nullish(),
+    maxRedemptionsPerEmail: z.number().int().positive().nullish(),
     expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().or(z.literal('')),
     isActive: z.boolean().default(true),
   })

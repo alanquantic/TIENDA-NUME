@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       productId: d.scope === 'product' ? (d.productId || null) : null,
       minSubtotal: d.minSubtotal ? d.minSubtotal : null,
       maxRedemptions: d.maxRedemptions ?? null,
+      maxRedemptionsPerEmail: d.maxRedemptionsPerEmail ?? null,
       expiresAt: d.expiresAt ? new Date(d.expiresAt) : null,
       isActive: d.isActive,
     })

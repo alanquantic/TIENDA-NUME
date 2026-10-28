@@ -16,6 +16,7 @@ import {
 } from '@/lib/report-catalog';
 import { markGeneratedReportReady } from '@/lib/report-ready';
 import { expireAbandonedOrders } from '@/lib/payments/expire';
+import { notifyAbandonedCarts } from '@/lib/abandoned-carts';
 import { retryMondaySync } from '@/lib/monday/sync';
 
 export const runtime = 'nodejs';
@@ -97,8 +98,16 @@ export async function GET(req: Request) {
     pedidos = { error: String(err) };
   }
 
+  let carritos: Awaited<ReturnType<typeof notifyAbandonedCarts>> | { error: string };
+  try {
+    carritos = await notifyAbandonedCarts();
+  } catch (err) {
+    console.error('[cron] fallo al avisar carritos abandonados', err);
+    carritos = { error: String(err) };
+  }
+
   if (!isReportGeneratorConfigured()) {
-    return NextResponse.json({ ok: true, pedidos, monday, nota: 'generador no configurado' });
+    return NextResponse.json({ ok: true, pedidos, carritos, monday, nota: 'generador no configurado' });
   }
 
   const pending = await db
@@ -219,5 +228,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, pedidos, monday, procesados: pending.length, ready, queued, failed });
+  return NextResponse.json({ ok: true, pedidos, carritos, monday, procesados: pending.length, ready, queued, failed });
 }
