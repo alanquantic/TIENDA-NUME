@@ -45,7 +45,7 @@ type CartItemInput = CheckoutInput['items'][number];
  * Precio de las líneas del carrito desde la BD: valida existencia, estado,
  * stock y límite por pedido. Base de `priceCart` y de la vista previa de cupón.
  */
-async function priceLines(items: CartItemInput[]): Promise<{
+export async function priceLines(items: CartItemInput[]): Promise<{
   lines: PricedLine[];
   subtotalMinor: number;
   requiresShipping: boolean;

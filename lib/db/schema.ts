@@ -457,6 +457,42 @@ export const emailMessages = pgTable(
 );
 
 // ───────────────────────────────────────────────────────────────
+// Carritos abandonados: se guardan desde que el cliente escribe su correo en
+// el checkout. Ciclo: open → notified (correo de recuperación) →
+// recovered (compró después del correo) | converted (compró sin correo).
+// ───────────────────────────────────────────────────────────────
+
+export const abandonedCarts = pgTable(
+  'abandoned_carts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    // Va en el enlace de recuperación y en el navegador del cliente.
+    token: text('token').notNull().unique(),
+    email: text('email').notNull(),
+    firstName: text('first_name'),
+    // Snapshot del carrito del navegador (CartItem[]) para rearmarlo.
+    items: jsonb('items').notNull().default([]),
+    subtotalAmount: decimal('subtotal_amount', { precision: 10, scale: 2 }),
+    currency: varchar('currency', { length: 3 }),
+    status: text('status').notNull().default('open'),
+    // Último pedido que se creó desde este carrito (puede quedar sin pagar).
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+    clickedAt: timestamp('clicked_at', { withTimezone: true }),
+    purchasedAt: timestamp('purchased_at', { withTimezone: true }),
+    purchasedOrderId: uuid('purchased_order_id').references(() => orders.id, { onDelete: 'set null' }),
+    purchasedAmount: decimal('purchased_amount', { precision: 10, scale: 2 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusUpdatedIdx: index('idx_abandoned_carts_status_updated').on(table.status, table.updatedAt),
+    emailIdx: index('idx_abandoned_carts_email').on(table.email),
+    orderIdx: index('idx_abandoned_carts_order').on(table.orderId),
+  }),
+);
+
+// ───────────────────────────────────────────────────────────────
 // Verificación en dos pasos del panel admin
 // ───────────────────────────────────────────────────────────────
 
@@ -498,3 +534,4 @@ export type DownloadGrant = typeof downloadGrants.$inferSelect;
 export type GeneratedReport = typeof generatedReports.$inferSelect;
 export type AdminTwoFactor = typeof adminTwoFactor.$inferSelect;
 export type EmailMessage = typeof emailMessages.$inferSelect;
+export type AbandonedCart = typeof abandonedCarts.$inferSelect;
