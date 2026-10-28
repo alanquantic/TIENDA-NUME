@@ -330,6 +330,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   }, order.id);
 
   const toItemLike = (item: (typeof items)[number]): ItemLike => ({
+    id: item.id,
     slug: item.productId ? (info.get(item.productId)?.slug ?? null) : null,
     name: item.name,
     variantName: item.variantName,
