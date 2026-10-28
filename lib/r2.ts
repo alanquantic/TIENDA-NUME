@@ -75,7 +75,10 @@ export function getR2Config(): R2Config {
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY ?? '';
   const bucket = process.env.R2_BUCKET ?? '';
   const prefix = (process.env.R2_PREFIX ?? 'tienda').replace(/^\/+|\/+$/g, '');
-  const publicUrl = (process.env.R2_PUBLIC_URL ?? '').replace(/\/+$/, '');
+  // Acepta el dominio solo ("cdn.ejemplo.com") o con protocolo.
+  const rawPublicUrl = (process.env.R2_PUBLIC_URL ?? '').trim().replace(/\/+$/, '');
+  const publicUrl =
+    rawPublicUrl && !/^https?:\/\//i.test(rawPublicUrl) ? `https://${rawPublicUrl}` : rawPublicUrl;
 
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicUrl) {
     throw new Error(
