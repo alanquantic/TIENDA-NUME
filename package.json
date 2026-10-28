@@ -19,10 +19,13 @@
         "db:seed": "tsx lib/db/seed.ts",
         "db:seed:ai-reports": "tsx scripts/upsert-ai-report-products.ts",
         "db:seed:numerathum-plans": "tsx scripts/upsert-numerathum-plans.ts",
+        "media:migrate-r2": "tsx scripts/migrate-images-to-r2.ts",
         "db:import": "tsx lib/db/import-wc.ts",
         "db:studio": "drizzle-kit studio"
     },
     "dependencies": {
+        "@aws-sdk/client-s3": "^3.1158.0",
+        "@aws-sdk/s3-request-presigner": "^3.1158.0",
         "csv-parse": "^7.0.1",
         "drizzle-orm": "^0.45.2",
         "next": "14.2.35",

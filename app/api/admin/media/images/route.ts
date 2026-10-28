@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { products } from '@/lib/db/schema';
-import { destroyImage, listImages } from '@/lib/cloudinary';
+import { deleteMedia, listMedia } from '@/lib/r2';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const result = await listImages({ limit, cursor });
+    const result = await listMedia('image', { limit, cursor });
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al listar imágenes.';
@@ -58,7 +58,7 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    await destroyImage(publicId);
+    await deleteMedia('image', publicId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al borrar la imagen.';
