@@ -46,8 +46,9 @@ export default async function AdminOrders({ searchParams }: {
     // Exclusive next-day boundary includes every instant of the selected last day.
     conditions.push(lt(orders.createdAt, sql`(${filters.to}::date + 1)::timestamp AT TIME ZONE 'America/Mexico_City'`));
   }
-  const [productOptions, matches] = await Promise.all([
+  const [productOptions, monthOptions, matches] = await Promise.all([
     db.select({ id: products.id, name: products.name }).from(products).orderBy(asc(products.name)),
+    db.selectDistinct({ month: sql<string>`to_char(${orders.createdAt} AT TIME ZONE 'America/Mexico_City', 'YYYY-MM')` }).from(orders).orderBy(desc(sql`to_char(${orders.createdAt} AT TIME ZONE 'America/Mexico_City', 'YYYY-MM')`)),
     filters.error ? Promise.resolve([]) : db.select().from(orders).where(and(...conditions))
       .orderBy(desc(orders.createdAt), desc(orders.id)).limit(201),
   ]);
@@ -59,8 +60,8 @@ export default async function AdminOrders({ searchParams }: {
     <div>
       <h1 className="text-2xl font-semibold mb-6">Pedidos</h1>
 
-      <form action="/admin/pedidos" method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="min-w-0 sm:col-span-2 lg:col-span-1">
+      <form action="/admin/pedidos" method="get" className="mb-6 grid gap-4 rounded-xl border border-[hsl(var(--border))] p-4 sm:grid-cols-2">
+        <div className="min-w-0">
           <label htmlFor="order-product" className="mb-1.5 block text-sm font-medium">Producto</label>
           <select id="order-product" name="producto" defaultValue={filters.productId} className={fieldClass}>
             <option value="">Todos los productos</option>
@@ -68,14 +69,17 @@ export default async function AdminOrders({ searchParams }: {
           </select>
         </div>
         <div className="min-w-0">
-          <label htmlFor="order-from" className="mb-1.5 block text-sm font-medium">Desde</label>
-          <input id="order-from" name="desde" type="date" defaultValue={filters.from} max={filters.to || undefined} className={fieldClass} />
+          <label htmlFor="order-month" className="mb-1.5 block text-sm font-medium">Mes</label>
+          <select id="order-month" name="mes" defaultValue={filters.month} className={fieldClass}>
+            <option value="">Todos los meses</option>
+            {Array.from(new Set([...monthOptions.map(({ month }) => month), ...(filters.month && !filters.error ? [filters.month] : [])])).sort().reverse().map((month) => (
+              <option key={month} value={month}>
+                {new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T12:00:00Z`))}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="min-w-0">
-          <label htmlFor="order-to" className="mb-1.5 block text-sm font-medium">Hasta</label>
-          <input id="order-to" name="hasta" type="date" defaultValue={filters.to} min={filters.from || undefined} className={fieldClass} />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2">
           <p className="text-xs text-[hsl(var(--muted-foreground))]">Fecha de creación del pedido · Ciudad de México.</p>
           <div className="flex flex-wrap items-center gap-2">
             <Link href="/admin/pedidos" className="inline-flex h-11 items-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]">Limpiar filtros</Link>

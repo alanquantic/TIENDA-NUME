@@ -37,7 +37,9 @@ export type Quote = {
   requiresShipping: boolean;
 };
 
-export class PricingError extends Error {}
+import { PricingError } from './pricing-error';
+export { PricingError } from './pricing-error';
+import { assertCouponEmailLimit } from './coupon-usage';
 
 type CartItemInput = CheckoutInput['items'][number];
 
@@ -157,7 +159,7 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
   let discountMinor = 0;
   let discountCode: string | null = null;
   if (input.discountCode) {
-    const applied = await applyDiscount(input.discountCode, subtotalMinor, lines);
+    const applied = await applyDiscount(input.discountCode, subtotalMinor, lines, input.email);
     discountMinor = applied.amountMinor;
     discountCode = applied.code;
   }
@@ -206,15 +208,17 @@ export async function priceCart(input: CheckoutInput): Promise<Quote> {
 export async function previewDiscount(
   items: CartItemInput[],
   code: string,
+  email?: string,
 ): Promise<{ code: string; amountMinor: number }> {
   const { lines, subtotalMinor } = await priceLines(items);
-  return applyDiscount(code, subtotalMinor, lines);
+  return applyDiscount(code, subtotalMinor, lines, email);
 }
 
 async function applyDiscount(
   code: string,
   subtotalMinor: number,
   lines: PricedLine[],
+  email?: string,
 ): Promise<{ code: string; amountMinor: number }> {
   const normalized = code.trim().toUpperCase();
   const [row] = await db
@@ -230,6 +234,7 @@ async function applyDiscount(
   if (row.maxRedemptions != null && row.timesRedeemed >= row.maxRedemptions) {
     throw new PricingError('El cupón alcanzó su límite de usos.');
   }
+  await assertCouponEmailLimit(db, row, email);
   // El mínimo siempre se evalúa contra el subtotal del carrito.
   if (row.minSubtotal && subtotalMinor < toMinor(row.minSubtotal)) {
     throw new PricingError('El subtotal no alcanza el mínimo del cupón.');

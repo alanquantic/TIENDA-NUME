@@ -14,6 +14,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
   const [productId, setProductId] = useState('');
   const [minSubtotal, setMinSubtotal] = useState('');
   const [maxRedemptions, setMaxRedemptions] = useState('');
+  const [maxRedemptionsPerEmail, setMaxRedemptionsPerEmail] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
         productId: scope === 'product' ? productId : null,
         minSubtotal: minSubtotal || null,
         maxRedemptions: maxRedemptions ? Number(maxRedemptions) : null,
+        maxRedemptionsPerEmail: maxRedemptionsPerEmail ? Number(maxRedemptionsPerEmail) : null,
         expiresAt: expiresAt || null,
         isActive,
       }),
@@ -45,6 +47,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
       setProductId('');
       setMinSubtotal('');
       setMaxRedemptions('');
+      setMaxRedemptionsPerEmail('');
       setExpiresAt('');
       router.refresh();
     } else {
@@ -140,7 +143,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
       )}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={label}>Máx. usos (opcional)</label>
+          <label className={label}>Máx. usos totales (opcional)</label>
           <input
             inputMode="numeric"
             value={maxRedemptions}
@@ -153,6 +156,19 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
           <label className={label}>Expira (opcional)</label>
           <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className={input} />
         </div>
+      </div>
+      <div>
+        <label htmlFor="coupon-email-limit" className={label}>Máx. usos por correo (opcional)</label>
+        <input
+          id="coupon-email-limit" type="number" min="1" max="2147483647" step="1"
+          value={maxRedemptionsPerEmail}
+          onChange={(e) => setMaxRedemptionsPerEmail(e.target.value)}
+          placeholder="Sin límite" className={input}
+        />
+        <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+          Vacío: sin límite. Cada pedido cuenta como un uso. Los pedidos pendientes reservan un uso;
+          cancelar uno sin pagar lo libera. Los reembolsos no restituyen usos.
+        </p>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

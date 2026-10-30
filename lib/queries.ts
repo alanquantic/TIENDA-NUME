@@ -58,6 +58,8 @@ export async function listProducts(
       categorySlug: categories.slug,
       categoryName: categories.name,
       variantId: productVariants.id,
+      variantName: productVariants.name,
+      variantAttributes: productVariants.attributes,
       variantPrice: productVariants.priceAmount,
       variantSalePrice: productVariants.salePriceAmount,
       variantSaleStartsAt: productVariants.saleStartsAt,
@@ -127,6 +129,28 @@ export async function listProducts(
     }
     card.priceFrom = prices.size > 1;
     byProduct.set(r.id, card);
+  }
+  // Los planes Numerathum muestran el importe anual, aunque la mensualidad sea menor.
+  for (const r of rows) {
+    if (r.categorySlug !== 'planes-numerathum') continue;
+    const attributes = (r.variantAttributes ?? {}) as Record<string, unknown>;
+    const period = String(attributes.vigencia ?? r.variantName ?? '')
+      .normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase();
+    if (!/\b(anual|12 meses|1 ano)\b/.test(period)) continue;
+    const card = byProduct.get(r.id);
+    if (!card) continue;
+    const price = effectivePrice({
+      priceAmount: r.variantPrice,
+      salePriceAmount: r.variantSalePrice,
+      saleStartsAt: r.variantSaleStartsAt,
+      saleEndsAt: r.variantSaleEndsAt,
+    });
+    card.priceAmount = price.priceAmount;
+    card.regularPriceAmount = price.regularPriceAmount;
+    card.saleEndsAt = price.saleEndsAt;
+    card.variantId = r.variantId;
+    card.maxStock = r.type === 'physical' && r.variantTrack ? r.variantStock : null;
+    card.priceFrom = false;
   }
   return [...byProduct.values()];
 }

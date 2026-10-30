@@ -11,13 +11,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       {authed && (
-        <div className="mb-8 flex items-center justify-between border-b border-[hsl(var(--border))] pb-4">
-          <nav className="flex items-center gap-5 text-sm">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[hsl(var(--border))] pb-4">
+          <nav className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm" aria-label="Administración">
             <Link href="/admin" className="font-semibold">
               Productos
             </Link>
             <Link href="/admin/pedidos" className="hover:opacity-70">
               Pedidos
+            </Link>
+            <Link href="/admin/metricas" className="hover:opacity-70">
+              Métricas
             </Link>
             <Link href="/admin/cupones" className="hover:opacity-70">
               Cupones

@@ -253,6 +253,7 @@ export function CheckoutForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: trimmed,
+          email: email.trim() || undefined,
           items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
         }),
       });
