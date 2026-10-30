@@ -6,6 +6,7 @@ import { discountCodes, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
 import { config } from '@/lib/config';
 import { CouponForm } from '@/components/admin/coupon-form';
+import { CouponEmailLimit } from '@/components/admin/coupon-email-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,7 @@ export default async function AdminCoupons() {
                 <th className="px-4 py-3 font-medium">Descuento</th>
                 <th className="px-4 py-3 font-medium">Aplica a</th>
                 <th className="px-4 py-3 font-medium">Usos</th>
+                <th className="px-4 py-3 font-medium">Máx. usos por correo</th>
                 <th className="px-4 py-3 font-medium">Expira</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium" />
@@ -66,11 +68,9 @@ export default async function AdminCoupons() {
                   <td className="px-4 py-3">
                     {c.timesRedeemed}
                     {c.maxRedemptions != null ? ` / ${c.maxRedemptions}` : ''}
-                    {c.maxRedemptionsPerEmail != null && (
-                      <div className="text-xs text-[hsl(var(--muted-foreground))]">
-                        {c.maxRedemptionsPerEmail} por correo
-                      </div>
-                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <CouponEmailLimit id={c.id} code={c.code} limit={c.maxRedemptionsPerEmail} />
                   </td>
                   <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
                     {c.expiresAt ? fmtDate.format(c.expiresAt) : '—'}
