@@ -435,7 +435,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
               )}
               <a
                 href="https://numerathum.numerologia-cotidiana.com/universal"
-                className="inline-block rounded-sm text-lg font-bold text-purple-700 underline decoration-2 underline-offset-4 transition-colors hover:text-purple-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-600 dark:text-purple-300 dark:hover:text-purple-200"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-sm text-lg font-bold text-navbar underline decoration-2 underline-offset-4 hover:decoration-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navbar"
               >
                 Conoce Numerathum Universal
               </a>
