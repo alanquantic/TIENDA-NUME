@@ -7,8 +7,9 @@ export const runtime = 'nodejs';
 
 const schema = z.object({
   code: z.string().trim().min(1, 'Escribe un código.'),
-  email: z.string().trim().email().optional(),
   items: z.array(checkoutLineSchema).min(1),
+  // Opcional: con él se revisa el límite de usos por correo desde la vista previa.
+  email: z.string().trim().email().optional().or(z.literal('')),
 });
 
 /**
@@ -22,7 +23,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { code, amountMinor } = await previewDiscount(parsed.data.items, parsed.data.code, parsed.data.email);
+    const { code, amountMinor } = await previewDiscount(
+      parsed.data.items,
+      parsed.data.code,
+      parsed.data.email,
+    );
     return NextResponse.json({ code, discountMinor: amountMinor });
   } catch (err) {
     if (err instanceof PricingError) {

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   getAgendaUpsellTarget,
   getProductBySlug,
@@ -10,6 +11,11 @@ import { isPreviousAgenda } from '@/lib/agenda-upsell';
 import { AddToCart, type VariantOption } from '@/components/add-to-cart';
 import { ProductViewTracker } from '@/components/analytics/product-view-tracker';
 import { ProductGallery } from '@/components/product-gallery';
+import { ProductImageSelection } from '@/components/product-image-selection';
+import { variantImage } from '@/lib/variant-image';
+import { ProductTrust } from '@/components/product-trust';
+import { ProductCountdown } from '@/components/product-countdown';
+import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
 import { ProductRecommendations } from '@/components/product-recommendations';
@@ -17,6 +23,8 @@ import { discountPercent, effectivePrice } from '@/lib/sale-price';
 import { effectiveMaxPerOrder } from '@/lib/order-limits';
 import { readVariationAttributes } from '@/lib/variations';
 import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price';
+import { isAdminAuthed } from '@/lib/admin-auth';
+import { adminHref } from '@/lib/admin-path';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,6 +154,13 @@ const DESCRIPTION_ITALICS_BY_SLUG: Record<string, readonly string[]> = {
 };
 
 function getDisplayDescription(slug: string, description: string) {
+  if (slug === 'agenda-numerologica-2026-fisica') {
+    return description.replace(
+      /^[^\S\n]*(?:[•\-*✅]\s*)?RECIBE\s+EN\s+LA\s+COMPRA\s+DE\s+LA\s+AGENDA\s+1\s+MES\s+GRATIS\s+DE\s+NUMERATHUM[^\n]*(?:\n|$)/gim,
+      '',
+    );
+  }
+
   if (slug === 'certificacion-completa-numerologia') {
     return description
       .replace(/^Incluye:\s*/m, '🎁 ¿Qué incluye?\n')
@@ -260,21 +275,44 @@ function getDisplayDescription(slug: string, description: string) {
   return description;
 }
 
+const STATUS_LABEL = { draft: 'borrador', archived: 'archivado', active: 'activo' } as const;
+
+/**
+ * Producto publicado, o —solo para administradores con sesión y 2FA— uno en
+ * borrador/archivado como vista previa. La sesión se revisa únicamente cuando
+ * el producto no está activo, así la página pública no paga esa consulta.
+ */
+async function loadProduct(slug: string) {
+  const data = await getProductBySlug(slug);
+  if (data) return { ...data, preview: false };
+  if (!(await isAdminAuthed())) return null;
+  const unpublished = await getProductBySlug(slug, { includeUnpublished: true });
+  return unpublished ? { ...unpublished, preview: true } : null;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
-  const data = await getProductBySlug(params.slug);
+  const data = await loadProduct(params.slug);
   if (!data) return { title: 'Producto no encontrado' };
-  return { title: data.product.name, description: data.product.description ?? undefined };
+  if (data.preview) {
+    return { title: `Vista previa: ${data.product.name}`, robots: { index: false, follow: false } };
+  }
+  return {
+    title: data.product.name,
+    description: data.product.description
+      ? getDisplayDescription(data.product.slug, data.product.description)
+      : undefined,
+  };
 }
 
 export default async function ProductPage({ params }: { params: { slug: string } }) {
-  const data = await getProductBySlug(params.slug);
+  const data = await loadProduct(params.slug);
   if (!data) notFound();
 
-  const { product, variants } = data;
+  const { product, variants, preview } = data;
   const images = (product.images as string[]) ?? [];
   // Precio vigente de cada variante (oferta si está dentro de sus fechas).
   const pricedVariants = variants.map((v) => ({ variant: v, price: effectivePrice(v) }));
@@ -289,6 +327,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   const variantOptions: VariantOption[] = pricedVariants.map(({ variant: v, price }) => ({
     id: v.id,
+    image: variantImage(product.slug, images, (v.attributes as Record<string, string>) ?? {}),
     name: v.name,
     attributes: (v.attributes as Record<string, string>) ?? {},
     priceAmount: price.priceAmount,
@@ -297,10 +336,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
     trackInventory: v.trackInventory,
   }));
 
-  const [related, categories, upsellTarget] = await Promise.all([
+  const [related, categories, upsellTarget, paymentMethods] = await Promise.all([
     listProducts(),
     listCategories(),
     getAgendaUpsellTarget(),
+    getAvailablePaymentMethods(),
   ]);
   const categorySlug = categories.find((c) => c.id === product.categoryId)?.slug ?? null;
   const annualVariant = categorySlug === 'planes-numerathum'
@@ -329,14 +369,29 @@ export default async function ProductPage({ params }: { params: { slug: string }
     : null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
-      {gaItem ? (
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 pb-[calc(8rem+env(safe-area-inset-bottom))]">
+      {preview && (
+        <div
+          role="status"
+          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[hsl(var(--primary)/0.25)] bg-[hsl(var(--primary-soft))] px-4 py-3 text-sm text-[hsl(var(--primary))]"
+        >
+          <p>
+            <strong>Vista previa</strong> · Este producto está en {STATUS_LABEL[product.status]}. Solo
+            lo ven los administradores y no se puede comprar.
+          </p>
+          <Link href={adminHref(`/productos/${product.id}/editar`)} className="font-medium underline underline-offset-4">
+            Editar producto
+          </Link>
+        </div>
+      )}
+      {gaItem && !preview ? (
         <ProductViewTracker
           item={gaItem}
           currency={product.currency}
           value={gaItem.price ?? 0}
         />
       ) : null}
+      <ProductImageSelection key={product.id} initialImage={variantOptions[0]?.image ?? images[0] ?? null}>
       <div className="grid gap-10 md:grid-cols-2">
         <ProductGallery images={images} name={product.name} />
 
@@ -355,13 +410,20 @@ export default async function ProductPage({ params }: { params: { slug: string }
               </span>
             )}
             <PriceWithSale
+              shippingExtra={product.type === 'physical'}
               priceAmount={displayPrice?.priceAmount ?? '0'}
               regularPriceAmount={displayPrice?.regularPriceAmount ?? null}
               currency={product.currency}
             />
           </p>
           {saleEndText && (
-            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{saleEndText}</p>
+            <p className="mt-3 inline-flex rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-2 text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
+          )}
+
+          {product.shortDescription?.trim() && (
+            <p className="mt-5 whitespace-pre-line text-[hsl(var(--muted-foreground))]">
+              {product.shortDescription.trim()}
+            </p>
           )}
 
           {categorySlug === 'planes-numerathum' && (
@@ -382,6 +444,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
           <div className="mt-8">
             <AddToCart
+              key={product.id}
               productId={product.id}
               slug={product.slug}
               name={product.name}
@@ -389,11 +452,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
               image={images[0] ?? null}
               currency={product.currency}
               variants={variantOptions}
-              maxPerOrder={effectiveMaxPerOrder(product.type, product.maxPerOrder)}
+              maxPerOrder={effectiveMaxPerOrder(product.type, product.maxPerOrder, product.id)}
               attributes={variationAttributes}
               upsell={upsell}
+              previewOnly={preview}
             />
           </div>
+
+          {product.slug === 'agenda-numerologica-2027' && <ProductCountdown />}
+          <ProductTrust type={product.type} paymentMethods={paymentMethods.map(({ method, label }) => ({ method, label }))} />
 
           {product.type === 'digital' &&
             (['licencia-software-arithmax-3-anos', 'licencia-software-arithmax-1-ano'].includes(
@@ -420,6 +487,8 @@ export default async function ProductPage({ params }: { params: { slug: string }
             ))}
         </div>
       </div>
+
+      </ProductImageSelection>
 
       {product.description && (
         <div className="mt-12 max-w-3xl">

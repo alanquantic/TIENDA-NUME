@@ -2,24 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { discountCodes } from '@/lib/db/schema';
 import { adminCouponSchema } from '@/lib/validation';
-import { z } from 'zod';
-import { eq } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
-
-const emailLimitSchema = z.object({
-  id: z.string().uuid(),
-  maxRedemptionsPerEmail: z.number().int().positive().max(2147483647).nullable(),
-});
-
-export async function PATCH(req: Request) {
-  const parsed = emailLimitSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'El límite debe ser un entero positivo o quedar vacío.' }, { status: 400 });
-  const [row] = await db.update(discountCodes)
-    .set({ maxRedemptionsPerEmail: parsed.data.maxRedemptionsPerEmail })
-    .where(eq(discountCodes.id, parsed.data.id)).returning({ id: discountCodes.id });
-  return row ? NextResponse.json(row) : NextResponse.json({ error: 'Cupón no encontrado.' }, { status: 404 });
-}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);

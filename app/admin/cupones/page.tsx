@@ -1,10 +1,11 @@
+import Link from 'next/link';
 import { asc, desc, eq } from 'drizzle-orm';
+import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
 import { discountCodes, products } from '@/lib/db/schema';
 import { formatDecimal } from '@/lib/money';
 import { config } from '@/lib/config';
 import { CouponForm } from '@/components/admin/coupon-form';
-import { CouponEmailLimit } from '@/components/admin/coupon-email-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,15 +33,19 @@ export default async function AdminCoupons() {
                 <th className="px-4 py-3 font-medium">Descuento</th>
                 <th className="px-4 py-3 font-medium">Aplica a</th>
                 <th className="px-4 py-3 font-medium">Usos</th>
-                <th className="px-4 py-3 font-medium">Máx. usos por correo</th>
                 <th className="px-4 py-3 font-medium">Expira</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody className="divide-y divide-[hsl(var(--border))]">
               {rows.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-3 font-medium">{c.code}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={adminHref(`/cupones/${c.id}/editar`)} className="hover:underline">
+                      {c.code}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">
                     {c.type === 'percent'
                       ? `${parseFloat(c.value)}%`
@@ -61,8 +66,12 @@ export default async function AdminCoupons() {
                   <td className="px-4 py-3">
                     {c.timesRedeemed}
                     {c.maxRedemptions != null ? ` / ${c.maxRedemptions}` : ''}
+                    {c.maxRedemptionsPerEmail != null && (
+                      <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {c.maxRedemptionsPerEmail} por correo
+                      </div>
+                    )}
                   </td>
-                  <td className="px-4 py-3"><CouponEmailLimit id={c.id} code={c.code} limit={c.maxRedemptionsPerEmail} /></td>
                   <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
                     {c.expiresAt ? fmtDate.format(c.expiresAt) : '—'}
                   </td>
@@ -70,6 +79,14 @@ export default async function AdminCoupons() {
                     <span className={c.isActive ? 'text-green-600' : 'text-[hsl(var(--muted-foreground))]'}>
                       {c.isActive ? 'Activo' : 'Inactivo'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={adminHref(`/cupones/${c.id}/editar`)}
+                      className="text-[hsl(var(--primary))] hover:underline"
+                    >
+                      Editar
+                    </Link>
                   </td>
                 </tr>
               ))}

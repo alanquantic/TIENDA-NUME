@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { config } from '@/lib/config';
 import { ConsentBanner } from '@/components/analytics/consent-banner';
 import { GoogleAnalytics } from '@/components/analytics/google-analytics';
 import { RouteTracker } from '@/components/analytics/route-tracker';
@@ -8,29 +7,18 @@ import { TopBar } from '@/components/layout/top-bar';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from '@/components/toaster';
-import { UpsellBanner } from '@/components/upsell-banner';
+import { CartDrawer } from '@/components/cart-drawer';
 import { SessionBootstrap } from '@/components/session-bootstrap';
+import { SITE_DESCRIPTION, SITE_TITLE } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: {
-    default: config.storeName,
-    template: `%s · ${config.storeName}`,
+    // Mismo título y formato "Página – Sitio" que la tienda anterior (WooCommerce).
+    default: SITE_TITLE,
+    template: `%s – ${SITE_TITLE}`,
   },
-  description: 'Tienda en línea de productos digitales y físicos.',
-  icons: {
-    icon: [
-      {
-        url: 'https://woocommerce-883512-3174482.cloudwaysapps.com/wp-content/uploads/2023/06/cropped-LOGO_Morado-32x32.png',
-        sizes: '32x32',
-        type: 'image/png',
-      },
-      {
-        url: 'https://woocommerce-883512-3174482.cloudwaysapps.com/wp-content/uploads/2023/06/cropped-LOGO_Morado-192x192.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-    ],
-  },
+  description: SITE_DESCRIPTION,
+  // Favicon: app/icon.png y app/apple-icon.png (logo de numerologia-cotidiana.com).
 };
 
 // Fija el tema antes del primer paint para evitar parpadeo.
@@ -53,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
         <SiteFooter />
         <Toaster />
-        <UpsellBanner />
+        <CartDrawer />
         <ConsentBanner />
       </body>
     </html>

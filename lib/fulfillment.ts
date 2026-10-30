@@ -2,9 +2,12 @@ import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { config } from './config';
+import { adminHref } from './admin-path';
 import { initialMondayJobs, syncMondayOrder } from './monday/sync';
-import { sendOrderConfirmation, sendOrderFailed } from './email';
-import type { EmailAddress } from './email-templates';
+import { cartForOrder, cartRecoveryUrl, markCartNotified, markCartPurchased } from './abandoned-carts';
+import { sendOrderConfirmation, sendOrderFailed, sendOrderNotification } from './email';
+import type { EmailAddress, OrderEmailData } from './email-templates';
+import { isTestPayment } from './payments/test-payment';
 import { isReportGeneratorConfigured, submitReport } from './report-generator';
 import { reportEngineForKey, type ReportEngine, type ReportKey } from './report-catalog';
 import {
@@ -268,6 +271,10 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   if (!result) return;
 
   const { order, items, links } = result;
+  // Métricas de carrito abandonado; nunca debe frenar la entrega.
+  await markCartPurchased(order).catch((err) =>
+    console.error('[fulfillment] no se pudo cerrar el carrito', order.number, err),
+  );
   const { reportLinks, pendingAiReports } = await generateReportsForOrder(order.id, items);
 
   const info = await productInfoFor(items);
@@ -286,7 +293,7 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     if (note) notes.push(note);
   }
 
-  await sendOrderConfirmation({
+  const emailData: OrderEmailData = {
     number: order.number,
     customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
     customerEmail: order.customerEmail,
@@ -312,9 +319,18 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
     reports: reportLinks,
     pendingReports: pendingAiReports,
     notes,
-  });
+  };
+  await sendOrderConfirmation(emailData, order.id);
+  await sendOrderNotification({
+    ...emailData,
+    adminUrl: `${config.appUrl}${adminHref(`/pedidos/${order.id}`)}`,
+    provider: order.provider,
+    isTest: isTestPayment(order),
+    requiresInvoice: order.requiresInvoice,
+  }, order.id);
 
   const toItemLike = (item: (typeof items)[number]): ItemLike => ({
+    id: item.id,
     slug: item.productId ? (info.get(item.productId)?.slug ?? null) : null,
     name: item.name,
     variantName: item.variantName,
@@ -349,7 +365,12 @@ export async function notifyOrderFailed(orderId: string): Promise<void> {
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!order) return;
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  // Si el pedido salió de un carrito guardado, el correo lleva el enlace para
+  // rearmarlo y cuenta como aviso de carrito abandonado.
+  const cart = await cartForOrder(orderId);
+  if (cart) await markCartNotified(cart.id);
   await sendOrderFailed({
+    recoveryUrl: cart ? cartRecoveryUrl(cart.token) : null,
     number: order.number,
     customerName: `${order.customerFirstName ?? ''} ${order.customerLastName ?? ''}`.trim(),
     customerEmail: order.customerEmail,
@@ -362,5 +383,5 @@ export async function notifyOrderFailed(orderId: string): Promise<void> {
       type: item.type,
     })),
     totalAmount: order.totalAmount,
-  });
+  }, order.id);
 }

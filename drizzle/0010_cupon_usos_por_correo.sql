@@ -1,0 +1,1 @@
+ALTER TABLE "discount_codes" ADD COLUMN IF NOT EXISTS "max_redemptions_per_email" integer;

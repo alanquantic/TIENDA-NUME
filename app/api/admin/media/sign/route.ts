@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createFileUploadSignature, createUploadSignature } from '@/lib/cloudinary';
+import { createUploadTarget } from '@/lib/r2';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
   filename: z.string().trim().min(1).max(255),
-  // 'image' (default) → resource_type image, carpeta base.
-  // 'file'            → resource_type raw, subcarpeta /files (para PDF/ZIP/EPUB).
+  contentType: z.string().trim().max(120).optional(),
+  // 'image' (default) → carpeta images/.
+  // 'file'            → carpeta files/ (para PDF/ZIP/EPUB).
   kind: z.enum(['image', 'file']).default('image'),
 });
 
@@ -20,11 +21,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const signed =
-      parsed.data.kind === 'file'
-        ? createFileUploadSignature(parsed.data.filename)
-        : createUploadSignature(parsed.data.filename);
-    return NextResponse.json(signed);
+    const target = await createUploadTarget(
+      parsed.data.filename,
+      parsed.data.kind,
+      parsed.data.contentType,
+    );
+    return NextResponse.json(target);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al firmar la subida.';
     return NextResponse.json({ error: message }, { status: 500 });

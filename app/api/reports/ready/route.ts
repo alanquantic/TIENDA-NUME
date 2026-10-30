@@ -5,6 +5,7 @@ import { reportGeneratorConfig } from '@/lib/config';
 import { db } from '@/lib/db';
 import { generatedReports } from '@/lib/db/schema';
 import { markGeneratedReportReady } from '@/lib/report-ready';
+import { parseGeneratorUsage, type GeneratorUsage } from '@/lib/report-generator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ type ReportReadyPayload = {
     html?: { url?: string | null };
     json?: { url?: string | null };
   } | null;
+  usage?: GeneratorUsage | null;
   error?: string | null;
 };
 
@@ -59,6 +61,7 @@ export async function POST(req: Request) {
       pdfUrl: payload.result.pdf.url,
       previewUrl: payload.result.html?.url ?? null,
       jsonUrl: payload.result.json?.url ?? null,
+      usage: parseGeneratorUsage(payload.usage),
     });
     return NextResponse.json({ ok: true, status: 'ready', notified: result.notified });
   }

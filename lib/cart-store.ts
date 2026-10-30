@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { effectiveMaxPerOrder } from './order-limits';
+import { useCartDrawer } from './cart-drawer-store';
 
 export type CartItem = {
   variantId: string;
@@ -25,10 +26,18 @@ export type CartItem = {
 /**
  * Tope efectivo de un ítem: el menor entre stock y límite por pedido. Los
  * físicos se acotan aquí también, por si el carrito guardado es anterior a
- * la regla o no trae `maxPerOrder`.
+ * la regla o no trae `maxPerOrder`. Con `items`, el límite por pedido se
+ * cuenta por PRODUCTO: descuenta lo que ya hay de sus otras variantes.
  */
-export function itemCap(item: Pick<CartItem, 'type' | 'maxStock' | 'maxPerOrder'>): number {
-  return Math.min(item.maxStock ?? Infinity, effectiveMaxPerOrder(item.type, item.maxPerOrder) ?? Infinity);
+export function itemCap(
+  item: Pick<CartItem, 'type' | 'maxStock' | 'maxPerOrder' | 'productId' | 'variantId'>,
+  items: CartItem[] = [],
+): number {
+  const others = items
+    .filter((i) => i.productId === item.productId && i.variantId !== item.variantId)
+    .reduce((sum, i) => sum + i.quantity, 0);
+  const perOrder = effectiveMaxPerOrder(item.type, item.maxPerOrder, item.productId) ?? Infinity;
+  return Math.min(item.maxStock ?? Infinity, perOrder - others);
 }
 
 type ReconcileResult = { removed: number; remapped: number };
@@ -39,6 +48,8 @@ type CartState = {
   remove: (variantId: string) => void;
   setQuantity: (variantId: string, quantity: number) => void;
   clear: () => void;
+  /** Reemplaza el carrito (enlace de recuperación de carrito abandonado). */
+  restore: (items: CartItem[]) => void;
   totalItems: () => number;
   /** Sincroniza el carrito con el catálogo actual (quita/reasigna items obsoletos). */
   reconcile: () => Promise<ReconcileResult>;
@@ -48,10 +59,12 @@ export const useCart = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      add: (item, quantity = 1) =>
+      add: (item, quantity = 1) => {
         set((state) => {
           const existing = state.items.find((i) => i.variantId === item.variantId);
-          const cap = itemCap(item);
+          const cap = itemCap(item, state.items);
+          // Ya se alcanzó el tope del producto con otras variantes.
+          if (cap <= 0) return state;
           if (existing) {
             const next = Math.min(existing.quantity + quantity, cap);
             return {
@@ -63,7 +76,9 @@ export const useCart = create<CartState>()(
           return {
             items: [...state.items, { ...item, quantity: Math.min(quantity, cap) }],
           };
-        }),
+        });
+        useCartDrawer.getState().open();
+      },
       remove: (variantId) =>
         set((state) => ({
           items: state.items.filter((i) => i.variantId !== variantId),
@@ -73,12 +88,13 @@ export const useCart = create<CartState>()(
           items: state.items
             .map((i) => {
               if (i.variantId !== variantId) return i;
-              const cap = itemCap(i);
+              const cap = itemCap(i, state.items);
               return { ...i, quantity: Math.max(1, Math.min(quantity, cap)) };
             })
             .filter((i) => i.quantity > 0),
         })),
       clear: () => set({ items: [] }),
+      restore: (items) => set({ items }),
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
       reconcile: async () => {
         const items = get().items;
@@ -100,7 +116,13 @@ export const useCart = create<CartState>()(
           let removed = 0;
           let remapped = 0;
           const next: CartItem[] = [];
-          for (const item of items) {
+          const requestedIds = new Set(items.map((item) => item.variantId));
+          // Conserva las altas y cambios de cantidad hechos mientras validábamos.
+          for (const item of get().items) {
+            if (!requestedIds.has(item.variantId)) {
+              next.push(item);
+              continue;
+            }
             const r = byVariant.get(item.variantId);
             if (!r || r.status === 'removed' || !r.data) {
               removed++;
@@ -108,7 +130,7 @@ export const useCart = create<CartState>()(
             }
             const merged = { ...item, ...r.data } as CartItem;
             const cap = itemCap(merged);
-            merged.maxPerOrder = effectiveMaxPerOrder(merged.type, merged.maxPerOrder);
+            merged.maxPerOrder = effectiveMaxPerOrder(merged.type, merged.maxPerOrder, merged.productId);
             if (Number.isFinite(cap) && cap > 0) {
               merged.quantity = Math.min(item.quantity, cap);
             }
@@ -125,3 +147,23 @@ export const useCart = create<CartState>()(
     { name: 'tienda-cart' },
   ),
 );
+
+/** Token del carrito guardado en el servidor (carrito abandonado). */
+export const CART_TOKEN_KEY = 'tienda-cart-token';
+
+export function readCartToken(): string | null {
+  try {
+    return localStorage.getItem(CART_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeCartToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(CART_TOKEN_KEY, token);
+    else localStorage.removeItem(CART_TOKEN_KEY);
+  } catch {
+    // Navegación privada o almacenamiento bloqueado: solo se pierde el seguimiento.
+  }
+}

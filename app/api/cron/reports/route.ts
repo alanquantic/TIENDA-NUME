@@ -6,6 +6,7 @@ import { generatedReports } from '@/lib/db/schema';
 import {
   getAIReportJob,
   isReportGeneratorConfigured,
+  parseGeneratorUsage,
   submitReport,
 } from '@/lib/report-generator';
 import {
@@ -15,6 +16,7 @@ import {
 } from '@/lib/report-catalog';
 import { markGeneratedReportReady } from '@/lib/report-ready';
 import { expireAbandonedOrders } from '@/lib/payments/expire';
+import { notifyAbandonedCarts } from '@/lib/abandoned-carts';
 import { retryMondaySync } from '@/lib/monday/sync';
 
 export const runtime = 'nodejs';
@@ -96,8 +98,16 @@ export async function GET(req: Request) {
     pedidos = { error: String(err) };
   }
 
+  let carritos: Awaited<ReturnType<typeof notifyAbandonedCarts>> | { error: string };
+  try {
+    carritos = await notifyAbandonedCarts();
+  } catch (err) {
+    console.error('[cron] fallo al avisar carritos abandonados', err);
+    carritos = { error: String(err) };
+  }
+
   if (!isReportGeneratorConfigured()) {
-    return NextResponse.json({ ok: true, pedidos, monday, nota: 'generador no configurado' });
+    return NextResponse.json({ ok: true, pedidos, carritos, monday, nota: 'generador no configurado' });
   }
 
   const pending = await db
@@ -163,15 +173,21 @@ export async function GET(req: Request) {
             pdfUrl: job.result.pdf.url,
             previewUrl: job.result.html?.url ?? null,
             jsonUrl: job.result.json?.url ?? null,
+            usage: parseGeneratorUsage(job.usage),
           });
           ready++;
           continue;
         }
 
         if (job.status === 'error') {
+          // Un job en error no se recupera: se borra jobId para que la
+          // siguiente corrida reenvíe el reporte en lugar de re-consultar el
+          // job muerto hasta agotar MAX_ATTEMPTS sin reintentar nunca.
+          const inputSinJob: StoredInput = { ...input };
+          delete inputSinJob.jobId;
           await db
             .update(generatedReports)
-            .set(failureUpdate(input, job.error ?? 'El job IA terminó con error.'))
+            .set(failureUpdate(inputSinJob, job.error ?? 'El job IA terminó con error.'))
             .where(eq(generatedReports.id, reportRow.id));
           failed++;
           continue;
@@ -212,5 +228,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, pedidos, monday, procesados: pending.length, ready, queued, failed });
+  return NextResponse.json({ ok: true, pedidos, carritos, monday, procesados: pending.length, ready, queued, failed });
 }

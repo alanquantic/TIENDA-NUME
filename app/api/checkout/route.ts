@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 import { rejectCrossSite } from '@/lib/request-guard';
 import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { discountCodes, orderItems, orders } from '@/lib/db/schema';
-import { assertCouponEmailLimit } from '@/lib/coupon-usage';
+import { orderItems, orders } from '@/lib/db/schema';
 import { priceCart, PricingError } from '@/lib/pricing';
+import { linkCartToOrder } from '@/lib/abandoned-carts';
 import { config } from '@/lib/config';
 import { fromMinorToDecimalString } from '@/lib/money';
 import { checkoutSchema } from '@/lib/validation';
@@ -159,107 +159,92 @@ export async function POST(req: Request) {
 
   // 2) Crear pedido pending + ítems (snapshot inmutable).
   const number = generateOrderNumber();
-  let order: typeof orders.$inferSelect;
-  try {
-    order = await db.transaction(async (tx) => {
-      if (quote.discountCode) {
-        // Serialize reservations for this coupon before counting and inserting.
-        const [coupon] = await tx.select().from(discountCodes)
-          .where(eq(discountCodes.code, quote.discountCode)).limit(1).for('update');
-        if (!coupon || !coupon.isActive) throw new PricingError('El cupón no es válido.');
-        await assertCouponEmailLimit(tx, coupon, input.email);
-      }
-      const [order] = await tx
-        .insert(orders)
-        .values({
-          number,
-          customerEmail: input.email,
-          customerFirstName: input.firstName,
-          customerLastName: input.lastName,
-          customerPhone: input.phone,
-          customerBirthDate: input.birthDate ? input.birthDate : null,
-          status: 'pending',
-          provider: method?.method ?? 'manual',
-          currency: quote.currency,
-          subtotalAmount: fromMinorToDecimalString(quote.subtotalMinor),
-          shippingAmount: fromMinorToDecimalString(quote.shippingMinor),
-          taxAmount: fromMinorToDecimalString(quote.taxMinor),
-          discountAmount: fromMinorToDecimalString(quote.discountMinor),
-          totalAmount: fromMinorToDecimalString(quote.totalMinor),
-          discountCode: quote.discountCode,
-          requiresShipping: quote.requiresShipping,
-          shippingMethod: quote.shippingMethod,
-          shippingAddress: input.shippingAddress ?? null,
-          requiresInvoice: input.requiresInvoice ?? false,
-          billingInfo: input.requiresInvoice ? (input.billingInfo ?? null) : null,
-          metadata: method ? { paymentMode: method.mode } : {},
-        })
-        .returning();
+  const [order] = await db
+    .insert(orders)
+    .values({
+      number,
+      customerEmail: input.email,
+      customerFirstName: input.firstName,
+      customerLastName: input.lastName,
+      customerPhone: input.phone,
+      customerBirthDate: input.birthDate ? input.birthDate : null,
+      status: 'pending',
+      provider: method?.method ?? 'manual',
+      currency: quote.currency,
+      subtotalAmount: fromMinorToDecimalString(quote.subtotalMinor),
+      shippingAmount: fromMinorToDecimalString(quote.shippingMinor),
+      taxAmount: fromMinorToDecimalString(quote.taxMinor),
+      discountAmount: fromMinorToDecimalString(quote.discountMinor),
+      totalAmount: fromMinorToDecimalString(quote.totalMinor),
+      discountCode: quote.discountCode,
+      requiresShipping: quote.requiresShipping,
+      shippingMethod: quote.shippingMethod,
+      shippingAddress: input.shippingAddress ?? null,
+      requiresInvoice: input.requiresInvoice ?? false,
+      billingInfo: input.requiresInvoice ? (input.billingInfo ?? null) : null,
+      metadata: method ? { paymentMode: method.mode } : {},
+    })
+    .returning();
 
-      // Datos de reporte por (variantId, reportKey). Dos productos que compartan el
-      // mismo reportKey capturan datos por separado (regalo para otra persona).
-      const reportByVariantAndKey = new Map(
-        (input.reports ?? []).map((r) => [`${r.variantId}:${r.reportKey}`, r]),
-      );
+  await linkCartToOrder(input.cartToken, order.id).catch((err) =>
+    console.error('[checkout] no se pudo ligar el carrito', err),
+  );
 
-      await tx.insert(orderItems).values(
-        quote.lines.map((line) => {
-          // Un producto puede entregar varios reportes (membresías, kits, bundles).
-          const reportMetas = reportsForSlug(line.slug).flatMap((m): ReportMetaOut[] => {
-            if (m.kind === 'static') {
-              // PDF pre-hecho: sin person/partner. Agenda 2025 lleva `variant` (color).
-              return [
-                {
-                  key: m.report,
-                  kind: 'static' as const,
-                  engine: m.engine,
-                  label: m.label,
-                  ...(m.needsVariant
-                    ? { variant: variantColor(line.variantAttributes, line.variantName) }
-                    : {}),
-                },
-              ];
-            }
-            // Generado: usa los datos capturados para ESTA variante + reporte.
-            const reportInput = reportByVariantAndKey.get(`${line.variantId}:${m.report}`);
-            if (!reportInput) return [];
-            return [
-              {
-                key: m.report,
-                kind: 'generated' as const,
-                engine: m.engine,
-                label: m.label,
-                person: reportInput.person,
-                // Solo los que lo piden reciben pareja (los demás darían 422).
-                partner: m.needsPartner ? (reportInput.partner ?? null) : null,
-              },
-            ];
-          });
-          const metadata: Record<string, unknown> = reportMetas.length ? { reports: reportMetas } : {};
-          return {
-            orderId: order.id,
-            productId: line.productId,
-            variantId: line.variantId,
-            name: line.name,
-            variantName: line.variantName,
-            sku: line.sku,
-            type: line.type,
-            unitAmount: fromMinorToDecimalString(line.unitAmountMinor),
-            quantity: line.quantity,
-            totalAmount: fromMinorToDecimalString(line.totalMinor),
-            metadata,
-          };
-        }),
-      );
-      return order;
-    });
-  } catch (err) {
-    if (err instanceof PricingError) {
-      return NextResponse.json({ error: err.message }, { status: 409 });
-    }
-    console.error('No se pudo crear el pedido', err);
-    return NextResponse.json({ error: 'No se pudo crear el pedido. Intenta de nuevo.' }, { status: 500 });
-  }
+  // Datos de reporte por (variantId, reportKey). Dos productos que compartan el
+  // mismo reportKey capturan datos por separado (regalo para otra persona).
+  const reportByVariantAndKey = new Map(
+    (input.reports ?? []).map((r) => [`${r.variantId}:${r.reportKey}`, r]),
+  );
+
+  await db.insert(orderItems).values(
+    quote.lines.map((line) => {
+      // Un producto puede entregar varios reportes (membresías, kits, bundles).
+      const reportMetas = reportsForSlug(line.slug).flatMap((m): ReportMetaOut[] => {
+        if (m.kind === 'static') {
+          // PDF pre-hecho: sin person/partner. Agenda 2025 lleva `variant` (color).
+          return [
+            {
+              key: m.report,
+              kind: 'static' as const,
+              engine: m.engine,
+              label: m.label,
+              ...(m.needsVariant
+                ? { variant: variantColor(line.variantAttributes, line.variantName) }
+                : {}),
+            },
+          ];
+        }
+        // Generado: usa los datos capturados para ESTA variante + reporte.
+        const reportInput = reportByVariantAndKey.get(`${line.variantId}:${m.report}`);
+        if (!reportInput) return [];
+        return [
+          {
+            key: m.report,
+            kind: 'generated' as const,
+            engine: m.engine,
+            label: m.label,
+            person: reportInput.person,
+            // Solo los que lo piden reciben pareja (los demás darían 422).
+            partner: m.needsPartner ? (reportInput.partner ?? null) : null,
+          },
+        ];
+      });
+      const metadata: Record<string, unknown> = reportMetas.length ? { reports: reportMetas } : {};
+      return {
+        orderId: order.id,
+        productId: line.productId,
+        variantId: line.variantId,
+        name: line.name,
+        variantName: line.variantName,
+        sku: line.sku,
+        type: line.type,
+        unitAmount: fromMinorToDecimalString(line.unitAmountMinor),
+        quantity: line.quantity,
+        totalAmount: fromMinorToDecimalString(line.totalMinor),
+        metadata,
+      };
+    }),
+  );
 
   // ── Sin pasarela: pago simulado (pruebas) o pedido de $0 ─────────
   // Marca el pedido como pagado y corre el fulfillment real (stock +

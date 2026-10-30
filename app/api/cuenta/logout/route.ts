@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { rejectCrossSite } from '@/lib/request-guard';
+import { clearedAdminMfaCookie } from '@/lib/admin-mfa-cookie';
 import { ACCESS_COOKIE, numeLogout, REFRESH_COOKIE } from '@/lib/nume-auth';
 
 export const runtime = 'nodejs';
@@ -18,5 +19,7 @@ export async function POST(req: Request) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set({ name: ACCESS_COOKIE, value: '', maxAge: 0, path: '/' });
   res.cookies.set({ name: REFRESH_COOKIE, value: '', maxAge: 0, path: '/' });
+  // Misma sesión que el admin: salir también cierra su verificación en dos pasos.
+  res.cookies.set(clearedAdminMfaCookie);
   return res;
 }

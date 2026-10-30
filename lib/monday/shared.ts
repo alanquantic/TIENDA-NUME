@@ -1,5 +1,6 @@
 import type { Order, OrderItem } from '../db/schema';
 import { toMinor } from '../money';
+import { isTestPayment } from '../payments/test-payment';
 
 export type MondayOrder = Pick<Order,
   'id' | 'number' | 'status' | 'paidAt' | 'currency' | 'customerFirstName' |
@@ -37,8 +38,7 @@ export function initialProductJob(order: MondayOrder, items: MondayItem[], setti
   boardId: string; groupId: string; productId: string; kind: MondayKind; syncTestOrders?: boolean;
 }): MondayJob | null {
   if (!items.some((item) => item.productId === settings.productId)) return null;
-  const metadata = order.metadata as { paymentMode?: string } | null;
-  const isTest = metadata?.paymentMode === 'sandbox' || order.externalPaymentIntentId?.startsWith('SIMULADO-');
+  const isTest = isTestPayment(order);
   return {
     kind: settings.kind,
     status: isTest && !settings.syncTestOrders ? 'skipped' : 'pending',

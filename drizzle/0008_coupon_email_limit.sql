@@ -1,1 +1,0 @@
-ALTER TABLE "discount_codes" ADD COLUMN "max_redemptions_per_email" integer;

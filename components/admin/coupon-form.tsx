@@ -2,21 +2,52 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAdminHref } from '@/components/admin/admin-path';
 
 export type CouponProductOption = { id: string; name: string };
 
-export function CouponForm({ products }: { products: CouponProductOption[] }) {
+/** Valores de un cupón existente para editarlo (montos como texto, fecha YYYY-MM-DD). */
+export type CouponFormValues = {
+  id: string;
+  code: string;
+  type: 'percent' | 'fixed';
+  value: string;
+  scope: 'cart' | 'product';
+  productId: string | null;
+  minSubtotal: string | null;
+  maxRedemptions: number | null;
+  maxRedemptionsPerEmail: number | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  timesRedeemed: number;
+};
+
+export function CouponForm({
+  products,
+  initialValues,
+}: {
+  products: CouponProductOption[];
+  initialValues?: CouponFormValues;
+}) {
   const router = useRouter();
-  const [code, setCode] = useState('');
-  const [type, setType] = useState<'percent' | 'fixed'>('percent');
-  const [value, setValue] = useState('');
-  const [scope, setScope] = useState<'cart' | 'product'>('cart');
-  const [productId, setProductId] = useState('');
-  const [minSubtotal, setMinSubtotal] = useState('');
-  const [maxRedemptions, setMaxRedemptions] = useState('');
-  const [maxRedemptionsPerEmail, setMaxRedemptionsPerEmail] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  const adminHref = useAdminHref();
+  const editing = !!initialValues;
+  // El conteo por correo va por código: un cupón ya usado no se renombra.
+  const codeLocked = editing && initialValues.timesRedeemed > 0;
+  const [code, setCode] = useState(initialValues?.code ?? '');
+  const [type, setType] = useState<'percent' | 'fixed'>(initialValues?.type ?? 'percent');
+  const [value, setValue] = useState(initialValues ? String(parseFloat(initialValues.value)) : '');
+  const [scope, setScope] = useState<'cart' | 'product'>(initialValues?.scope ?? 'cart');
+  const [productId, setProductId] = useState(initialValues?.productId ?? '');
+  const [minSubtotal, setMinSubtotal] = useState(initialValues?.minSubtotal ?? '');
+  const [maxRedemptions, setMaxRedemptions] = useState(
+    initialValues?.maxRedemptions != null ? String(initialValues.maxRedemptions) : '',
+  );
+  const [maxPerEmail, setMaxPerEmail] = useState(
+    initialValues?.maxRedemptionsPerEmail != null ? String(initialValues.maxRedemptionsPerEmail) : '',
+  );
+  const [expiresAt, setExpiresAt] = useState(initialValues?.expiresAt ?? '');
+  const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,8 +55,8 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await fetch('/api/admin/cupones', {
-      method: 'POST',
+    const res = await fetch(editing ? `/api/admin/cupones/${initialValues.id}` : '/api/admin/cupones', {
+      method: editing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code,
@@ -35,11 +66,16 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
         productId: scope === 'product' ? productId : null,
         minSubtotal: minSubtotal || null,
         maxRedemptions: maxRedemptions ? Number(maxRedemptions) : null,
-        maxRedemptionsPerEmail: maxRedemptionsPerEmail ? Number(maxRedemptionsPerEmail) : null,
+        maxRedemptionsPerEmail: maxPerEmail ? Number(maxPerEmail) : null,
         expiresAt: expiresAt || null,
         isActive,
       }),
     });
+    if (res.ok && editing) {
+      router.push(adminHref('/cupones'));
+      router.refresh();
+      return;
+    }
     if (res.ok) {
       setCode('');
       setValue('');
@@ -47,12 +83,12 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
       setProductId('');
       setMinSubtotal('');
       setMaxRedemptions('');
-      setMaxRedemptionsPerEmail('');
+      setMaxPerEmail('');
       setExpiresAt('');
       router.refresh();
     } else {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? 'No se pudo crear el cupón.');
+      setError(data.error ?? (editing ? 'No se pudo guardar el cupón.' : 'No se pudo crear el cupón.'));
     }
     setLoading(false);
   }
@@ -62,7 +98,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
 
   return (
     <form onSubmit={handleSubmit} className="border border-[hsl(var(--border))] rounded-xl p-5 space-y-4 max-w-xl">
-      <h2 className="font-medium">Nuevo cupón</h2>
+      {!editing && <h2 className="font-medium">Nuevo cupón</h2>}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={label}>Código</label>
@@ -71,7 +107,9 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="BIENVENIDA"
-            className={input}
+            disabled={codeLocked}
+            title={codeLocked ? 'El cupón ya se usó: su código no se puede cambiar.' : undefined}
+            className={`${input} disabled:opacity-60`}
           />
         </div>
         <div>
@@ -143,7 +181,7 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
       )}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={label}>Máx. usos totales (opcional)</label>
+          <label className={label}>Máx. usos en total (opcional)</label>
           <input
             inputMode="numeric"
             value={maxRedemptions}
@@ -153,22 +191,24 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
           />
         </div>
         <div>
+          <label className={label}>Máx. usos por correo (opcional)</label>
+          <input
+            inputMode="numeric"
+            value={maxPerEmail}
+            onChange={(e) => setMaxPerEmail(e.target.value)}
+            placeholder="∞"
+            className={input}
+          />
+          <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+            1 = una sola compra por cliente. Cuenta pedidos pagados con ese correo.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
           <label className={label}>Expira (opcional)</label>
           <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className={input} />
         </div>
-      </div>
-      <div>
-        <label htmlFor="coupon-email-limit" className={label}>Máx. usos por correo (opcional)</label>
-        <input
-          id="coupon-email-limit" type="number" min="1" max="2147483647" step="1"
-          value={maxRedemptionsPerEmail}
-          onChange={(e) => setMaxRedemptionsPerEmail(e.target.value)}
-          placeholder="Sin límite" className={input}
-        />
-        <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-          Vacío: sin límite. Cada pedido cuenta como un uso. Los pedidos pendientes reservan un uso;
-          cancelar uno sin pagar lo libera. Los reembolsos no restituyen usos.
-        </p>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
@@ -176,13 +216,24 @@ export function CouponForm({ products }: { products: CouponProductOption[] }) {
       </label>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-2.5 font-medium disabled:opacity-50"
-      >
-        {loading ? 'Guardando…' : 'Crear cupón'}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-5 py-2.5 font-medium disabled:opacity-50"
+        >
+          {loading ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear cupón'}
+        </button>
+        {editing && (
+          <button
+            type="button"
+            onClick={() => router.push(adminHref('/cupones'))}
+            className="text-sm text-[hsl(var(--muted-foreground))] hover:underline"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }

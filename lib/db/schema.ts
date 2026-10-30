@@ -100,6 +100,8 @@ export const products = pgTable(
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
     description: text('description'),
+    // Texto breve antes de "Agregar al carrito"; vacío = no se muestra.
+    shortDescription: text('short_description'),
     type: productTypeEnum('type').notNull(),
     status: productStatusEnum('status').notNull().default('draft'),
     categoryId: uuid('category_id').references(() => categories.id, {
@@ -225,6 +227,7 @@ export const discountCodes = pgTable('discount_codes', {
   productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }),
   minSubtotal: decimal('min_subtotal', { precision: 10, scale: 2 }),
   maxRedemptions: integer('max_redemptions'),
+  // Usos por cliente (correo) en pedidos pagados; null = sin límite.
   maxRedemptionsPerEmail: integer('max_redemptions_per_email'),
   timesRedeemed: integer('times_redeemed').notNull().default(0),
   isActive: boolean('is_active').notNull().default(true),
@@ -394,6 +397,8 @@ export const generatedReports = pgTable(
     error: text('error'),
     // { person: { name, birthDate }, partner?: { name, birthDate } } — para reintentos
     input: jsonb('input').notNull().default({}),
+    // Consumo del generador IA (lo manda en el aviso de "listo"); null en legacy.
+    usage: jsonb('usage').$type<ReportUsage>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -407,6 +412,110 @@ export const generatedReports = pgTable(
     statusIdx: index('idx_generated_reports_status').on(table.status),
   }),
 );
+
+/** Tokens y costos (USD) de un reporte IA, según el generador. */
+export type ReportUsage = {
+  model?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  /** Costo de los tokens del modelo. */
+  tokenCostUsd?: number | null;
+  /** Costo total de producir el reporte (tokens + render/infra). */
+  productionCostUsd?: number | null;
+};
+
+// ───────────────────────────────────────────────────────────────
+// Correos enviados con Resend y su seguimiento (webhook de Resend)
+// ───────────────────────────────────────────────────────────────
+
+export const emailMessages = pgTable(
+  'email_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    // Id que devuelve Resend; null si no se pudo enviar.
+    resendId: text('resend_id').unique(),
+    // order_confirmation | order_notification | order_failed | report_ready | cart_recovery | admin_2fa
+    kind: text('kind').notNull(),
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    toEmail: text('to_email').notNull(),
+    subject: text('subject').notNull(),
+    // sent | delivered | delivery_delayed | bounced | complained | failed | suppressed
+    status: text('status').notNull().default('sent'),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    openedAt: timestamp('opened_at', { withTimezone: true }),
+    clickedAt: timestamp('clicked_at', { withTimezone: true }),
+    openCount: integer('open_count').notNull().default(0),
+    clickCount: integer('click_count').notNull().default(0),
+    lastClickedUrl: text('last_clicked_url'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    orderIdx: index('idx_email_messages_order').on(table.orderId),
+    sentIdx: index('idx_email_messages_sent').on(table.sentAt),
+  }),
+);
+
+// ───────────────────────────────────────────────────────────────
+// Carritos abandonados: se guardan desde que el cliente escribe su correo en
+// el checkout. Ciclo: open → notified (correo de recuperación) →
+// recovered (compró después del correo) | converted (compró sin correo).
+// ───────────────────────────────────────────────────────────────
+
+export const abandonedCarts = pgTable(
+  'abandoned_carts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    // Va en el enlace de recuperación y en el navegador del cliente.
+    token: text('token').notNull().unique(),
+    email: text('email').notNull(),
+    firstName: text('first_name'),
+    // Snapshot del carrito del navegador (CartItem[]) para rearmarlo.
+    items: jsonb('items').notNull().default([]),
+    subtotalAmount: decimal('subtotal_amount', { precision: 10, scale: 2 }),
+    currency: varchar('currency', { length: 3 }),
+    status: text('status').notNull().default('open'),
+    // Último pedido que se creó desde este carrito (puede quedar sin pagar).
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+    clickedAt: timestamp('clicked_at', { withTimezone: true }),
+    purchasedAt: timestamp('purchased_at', { withTimezone: true }),
+    purchasedOrderId: uuid('purchased_order_id').references(() => orders.id, { onDelete: 'set null' }),
+    purchasedAmount: decimal('purchased_amount', { precision: 10, scale: 2 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusUpdatedIdx: index('idx_abandoned_carts_status_updated').on(table.status, table.updatedAt),
+    emailIdx: index('idx_abandoned_carts_email').on(table.email),
+    orderIdx: index('idx_abandoned_carts_order').on(table.orderId),
+  }),
+);
+
+// ───────────────────────────────────────────────────────────────
+// Verificación en dos pasos del panel admin
+// ───────────────────────────────────────────────────────────────
+
+// La identidad del admin viene de la API de nume (user_id es su id). Borrar la
+// fila obliga a ese admin a configurar su app autenticadora de nuevo.
+export const adminTwoFactor = pgTable('admin_two_factor', {
+  userId: text('user_id').primaryKey(),
+  email: text('email').notNull(),
+  // Secreto TOTP cifrado con AES-256-GCM (llave derivada de ADMIN_2FA_SECRET).
+  secretEncrypted: text('secret_encrypted').notNull(),
+  // null mientras el admin no confirma su primer código.
+  enabledAt: timestamp('enabled_at', { withTimezone: true }),
+  // SHA-256 de los códigos de respaldo que siguen sin usar.
+  recoveryCodeHashes: jsonb('recovery_code_hashes').$type<string[]>().notNull().default([]),
+  // Último paso TOTP aceptado: un código no sirve dos veces.
+  lastUsedStep: integer('last_used_step'),
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 // ───────────────────────────────────────────────────────────────
 // Tipos inferidos
@@ -425,3 +534,6 @@ export type DiscountCode = typeof discountCodes.$inferSelect;
 export type DigitalAsset = typeof digitalAssets.$inferSelect;
 export type DownloadGrant = typeof downloadGrants.$inferSelect;
 export type GeneratedReport = typeof generatedReports.$inferSelect;
+export type AdminTwoFactor = typeof adminTwoFactor.$inferSelect;
+export type EmailMessage = typeof emailMessages.$inferSelect;
+export type AbandonedCart = typeof abandonedCarts.$inferSelect;

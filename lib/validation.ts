@@ -83,6 +83,8 @@ export const checkoutSchema = z
     // Facturación (opcional). Si requiresInvoice = true, billingInfo es obligatorio.
     requiresInvoice: z.boolean().default(false),
     billingInfo: billingInfoSchema.nullish(),
+    // Carrito guardado del checkout (carrito abandonado), para ligarlo al pedido.
+    cartToken: z.string().max(64).nullish(),
   })
   .refine((d) => !d.requiresInvoice || !!d.billingInfo, {
     message: 'Faltan los datos fiscales para la factura.',
@@ -95,6 +97,14 @@ export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
 // ── Admin: alta de producto ─────────────────────────────────────
 
 const adminMoney = z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).');
+
+/** Imagen: URL absoluta o ruta de /public (p. ej. /images/numerathum/espejo.svg). */
+const adminImageUrl = z
+  .string()
+  .trim()
+  .refine((v) => (v.startsWith('/') && !v.startsWith('//')) || z.url().safeParse(v).success, {
+    message: 'Imagen inválida: usa una URL completa (https://…) o una ruta que empiece con /.',
+  });
 
 /** Una variante del formulario (con `id` si ya existe en la BD). */
 export const adminVariantSchema = z.object({
@@ -170,12 +180,13 @@ export const adminProductSchema = z
       .trim()
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido (usa minúsculas, números y guiones).'),
     description: z.string().trim().nullish(),
+    shortDescription: z.string().trim().max(600, 'La descripción corta admite hasta 600 caracteres.').nullish(),
     type: z.enum(['digital', 'physical']),
     categoryId: z.string().uuid().nullish(),
     price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Precio inválido (ej. 9.99).'),
     currency: z.string().length(3).default('MXN'),
-    imageUrl: z.string().url().nullish().or(z.literal('')),
-    imageUrls: z.array(z.string().url()).nullish(),
+    imageUrl: adminImageUrl.nullish().or(z.literal('')),
+    imageUrls: z.array(adminImageUrl).nullish(),
     status: z.enum(['draft', 'active', 'archived']).default('active'),
     // Digital
     fileUrl: z.string().url().nullish().or(z.literal('')),
@@ -230,7 +241,7 @@ export const adminCouponSchema = z
     productId: z.string().uuid().nullish().or(z.literal('')),
     minSubtotal: z.string().regex(/^\d+(\.\d{1,2})?$/).nullish().or(z.literal('')),
     maxRedemptions: z.number().int().positive().nullish(),
-    maxRedemptionsPerEmail: z.number().int().positive().max(2147483647).nullish(),
+    maxRedemptionsPerEmail: z.number().int().positive().nullish(),
     expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().or(z.literal('')),
     isActive: z.boolean().default(true),
   })

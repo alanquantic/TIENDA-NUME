@@ -12,6 +12,8 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Evita que el build de producción sobrescriba la caché del servidor local.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   reactStrictMode: true,
   poweredByHeader: false,
   images: {

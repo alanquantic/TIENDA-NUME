@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAdminHref } from '@/components/admin/admin-path';
 
 type MediaItem = {
   id: string;
@@ -21,27 +22,30 @@ type ListResponse = {
 };
 
 type SignResponse = {
-  api_key: string;
-  cloud_name: string;
-  folder: string;
-  public_id: string;
-  signature: string;
-  tags: string;
-  timestamp: number;
   upload_url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  key: string;
+  url: string;
 };
 
-type UploadResponse = {
-  asset_id?: string;
-  public_id: string;
-  secure_url: string;
-  width?: number;
-  height?: number;
-  bytes?: number;
-  format?: string;
-  original_filename?: string;
-  created_at?: string;
-};
+/** Medidas de la imagen recién subida (R2 no las calcula). */
+function readImageSize(file: File): Promise<{ width: number; height: number } | null> {
+  if (!file.type.startsWith('image/')) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const src = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(src);
+    };
+    img.onerror = () => {
+      resolve(null);
+      URL.revokeObjectURL(src);
+    };
+    img.src = src;
+  });
+}
 
 export type MediaKind = 'image' | 'file';
 
@@ -133,6 +137,7 @@ export function MediaLibraryModal({
   kind?: MediaKind;
 }) {
   const copy = COPY[kind];
+  const adminHref = useAdminHref();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -192,7 +197,11 @@ export function MediaLibraryModal({
       const signRes = await fetch('/api/admin/media/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, kind: copy.signKind }),
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type || undefined,
+          kind: copy.signKind,
+        }),
       });
       if (!signRes.ok) {
         const data = (await signRes.json().catch(() => ({}))) as { error?: string };
@@ -200,34 +209,30 @@ export function MediaLibraryModal({
       }
       const signed = (await signRes.json()) as SignResponse;
 
-      const formData = new FormData();
-      formData.set('file', file);
-      formData.set('api_key', signed.api_key);
-      formData.set('folder', signed.folder);
-      formData.set('public_id', signed.public_id);
-      formData.set('signature', signed.signature);
-      formData.set('tags', signed.tags);
-      formData.set('timestamp', String(signed.timestamp));
-
       const uploadRes = await fetch(signed.upload_url, {
-        method: 'POST',
-        body: formData,
-      });
+        method: signed.method,
+        headers: signed.headers,
+        body: file,
+      }).catch(() => null);
+      if (!uploadRes) {
+        // fetch rechaza sin status cuando el bucket no permite el origen (CORS).
+        throw new Error('No se pudo conectar con el almacenamiento (revisa la regla CORS del bucket R2).');
+      }
       if (!uploadRes.ok) {
         throw new Error(`Error ${uploadRes.status} al subir el archivo.`);
       }
-      const uploaded = (await uploadRes.json()) as UploadResponse;
 
+      const size = await readImageSize(file);
       const nextItem: MediaItem = {
-        id: uploaded.asset_id ?? uploaded.public_id,
-        public_id: uploaded.public_id,
-        url: uploaded.secure_url,
-        width: uploaded.width ?? null,
-        height: uploaded.height ?? null,
-        bytes: uploaded.bytes ?? null,
-        format: uploaded.format ?? null,
-        original_filename: uploaded.original_filename ?? file.name,
-        created_at: uploaded.created_at ?? null,
+        id: signed.key,
+        public_id: signed.key,
+        url: signed.url,
+        width: size?.width ?? null,
+        height: size?.height ?? null,
+        bytes: file.size,
+        format: file.name.split('.').pop()?.toLowerCase() ?? null,
+        original_filename: file.name,
+        created_at: new Date().toISOString(),
       };
 
       setItems((prev) => [nextItem, ...prev]);
@@ -365,7 +370,7 @@ export function MediaLibraryModal({
                 {usedByProducts.map((p) => (
                   <li key={p.id}>
                     <a
-                      href={`/admin/productos/${p.id}/editar`}
+                      href={adminHref(`/productos/${p.id}/editar`)}
                       target="_blank"
                       rel="noreferrer"
                       className="underline"

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { digitalAssets, products } from '@/lib/db/schema';
-import { destroyRawResource, listFiles } from '@/lib/cloudinary';
+import { deleteMedia, listMedia } from '@/lib/r2';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const result = await listFiles({ limit, cursor });
+    const result = await listMedia('file', { limit, cursor });
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al listar archivos.';
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 }
 
 /**
- * Borra un archivo raw (PDF/ZIP/…) de Cloudinary solo si ningún digital_asset
+ * Borra un archivo (PDF/ZIP/…) de R2 solo si ningún digital_asset
  * lo referencia por fileUrl.
  */
 export async function DELETE(req: Request) {
@@ -69,7 +69,7 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    await destroyRawResource(publicId);
+    await deleteMedia('file', publicId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al borrar el archivo.';

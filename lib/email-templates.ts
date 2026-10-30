@@ -64,6 +64,14 @@ export type OrderEmailData = {
   notes?: string[];
 };
 
+// Aviso interno al equipo: el mismo pedido + datos para operarlo.
+export type OrderNotificationEmailData = OrderEmailData & {
+  adminUrl: string;
+  provider: string;
+  isTest: boolean;
+  requiresInvoice: boolean;
+};
+
 export type ReportReadyEmailData = {
   number: string;
   customerName: string;
@@ -86,8 +94,15 @@ function money(value: string, currency: string): string {
 }
 
 // Envoltura común: cabecera de marca + contenido + pie.
-function layout(opts: { preheader: string; heading: string; accent: string; body: string }): string {
+function layout(opts: {
+  preheader: string;
+  heading: string;
+  accent: string;
+  body: string;
+  footer?: string;
+}): string {
   const store = esc(EMAIL_STORE_NAME);
+  const footer = esc(opts.footer ?? '¿Dudas? Responde a este correo y te ayudamos.');
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -119,7 +134,7 @@ function layout(opts: { preheader: string; heading: string; accent: string; body
       </td></tr>
       <tr>
         <td style="padding:20px 28px;background:${BRAND.soft};border-top:1px solid ${BRAND.border};color:${BRAND.muted};font-size:13px;line-height:1.6;font-family:Roboto,Arial,sans-serif;">
-          ${store} · ¿Dudas? Responde a este correo y te ayudamos.<br>
+          ${store} · ${footer}<br>
           <a href="${config.appUrl}" style="color:${BRAND.purple};text-decoration:none;">${esc(config.appUrl.replace(/^https?:\/\//, ''))}</a>
         </td>
       </tr>
@@ -328,6 +343,91 @@ export function renderOrderConfirmation(data: OrderEmailData): { subject: string
   };
 }
 
+const PROVIDER_LABEL: Record<string, string> = {
+  stripe: 'Stripe',
+  mercadopago: 'Mercado Pago',
+  paypal: 'PayPal',
+  manual: 'Manual',
+};
+
+function plural(count: number, singular: string, pluralForm: string): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+// No incluye los enlaces de descarga/reportes del cliente: abrirlos gastaría sus descargas.
+export function renderOrderNotification(
+  data: OrderNotificationEmailData,
+): { subject: string; html: string } {
+  const total = money(data.totalAmount, data.currency);
+  const who = data.customerName || data.customerEmail;
+  const reports = data.reports ?? [];
+  const pendingReports = data.pendingReports ?? [];
+
+  const facts = [
+    `Pago: ${esc(PROVIDER_LABEL[data.provider] ?? data.provider)}${data.isTest ? ' (prueba)' : ''}`,
+    data.requiresShipping ? '<strong>Requiere envío</strong>' : 'Solo digital',
+    data.requiresInvoice ? '<strong>Pidió factura (CFDI)</strong>' : '',
+    data.downloads.length ? plural(data.downloads.length, 'descarga generada', 'descargas generadas') : '',
+    reports.length ? plural(reports.length, 'reporte listo', 'reportes listos') : '',
+    pendingReports.length ? plural(pendingReports.length, 'reporte IA en proceso', 'reportes IA en proceso') : '',
+  ]
+    .filter(Boolean)
+    .map((fact) => `<li style="margin-bottom:4px;">${fact}</li>`)
+    .join('');
+
+  const body = `
+    ${
+      data.isTest
+        ? `<p style="margin:0 0 14px;padding:10px 14px;background:#fef2f2;border-left:3px solid ${BRAND.red};border-radius:6px;font-size:13px;color:${BRAND.red};"><strong>Pedido de prueba:</strong> se pagó en modo sandbox o simulado, no hubo cobro real.</p>`
+        : ''
+    }
+    <p style="margin:0 0 14px;">Entró el pedido <strong style="color:${BRAND.purple};">${esc(data.number)}</strong> por <strong>${total}</strong>.</p>
+    ${customerBlock(data)}
+    <ul style="margin:14px 0 0;padding-left:18px;font-size:14px;color:${BRAND.text};">${facts}</ul>
+    <div style="height:1px;background:${BRAND.border};margin:18px 0;"></div>
+    ${itemsTable(data)}
+    ${addressBlock(data.shippingAddress)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 4px;">
+      <tr><td><a href="${data.adminUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:11px 20px;border-radius:10px;">Ver pedido en el admin</a></td></tr>
+    </table>
+  `;
+
+  return {
+    subject: `${data.isTest ? '[PRUEBA] ' : ''}Nuevo pedido ${data.number} · ${total} · ${who}`,
+    html: layout({
+      preheader: `${who} compró ${plural(data.items.length, 'producto', 'productos')} por ${total}`,
+      heading: 'Nuevo pedido pagado',
+      accent: BRAND.purple,
+      body,
+      footer: 'Aviso interno. Si respondes a este correo, la respuesta le llega al cliente.',
+    }),
+  };
+}
+
+export function renderTwoFactorEnabled(data: { email: string; when: Date }): { subject: string; html: string } {
+  const when = new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'America/Mexico_City',
+  }).format(data.when);
+  const body = `
+    <p style="margin:0 0 14px;">Se activó la verificación en dos pasos para entrar al panel de la tienda con la cuenta <strong>${esc(data.email)}</strong> el ${esc(when)} (hora de Ciudad de México).</p>
+    <p style="margin:0 0 14px;">Si fuiste tú, no tienes que hacer nada.</p>
+    <p style="margin:0;padding:10px 14px;background:#fef2f2;border-left:3px solid ${BRAND.red};border-radius:6px;font-size:14px;color:${BRAND.red};"><strong>Si no fuiste tú:</strong> cambia de inmediato tu contraseña de Numerología Cotidiana y pide al equipo técnico que reinicie tu verificación en dos pasos.</p>
+  `;
+
+  return {
+    subject: 'Se activó la verificación en dos pasos del panel',
+    html: layout({
+      preheader: 'Aviso de seguridad del panel de la tienda',
+      heading: 'Verificación en dos pasos activada',
+      accent: BRAND.purple,
+      body,
+      footer: 'Aviso de seguridad de la tienda.',
+    }),
+  };
+}
+
 export function renderReportReady(data: ReportReadyEmailData): { subject: string; html: string } {
   const body = `
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, tu reporte <strong style="color:${BRAND.purple};">${esc(data.reportName)}</strong> ya está listo.</p>
@@ -350,7 +450,10 @@ export function renderReportReady(data: ReportReadyEmailData): { subject: string
 }
 
 export function renderOrderFailed(
-  data: Pick<OrderEmailData, 'number' | 'customerName' | 'currency' | 'items' | 'totalAmount'>,
+  data: Pick<OrderEmailData, 'number' | 'customerName' | 'currency' | 'items' | 'totalAmount'> & {
+    /** Enlace que rearma el carrito (carrito abandonado); si no, vuelve a la tienda. */
+    recoveryUrl?: string | null;
+  },
 ): { subject: string; html: string } {
   const list = data.items
     .map((item) => `<li style="margin-bottom:4px;">${esc(item.name)} <span style="color:${BRAND.muted};">× ${item.quantity}</span></li>`)
@@ -360,7 +463,7 @@ export function renderOrderFailed(
     <p style="margin:0 0 14px;">Hola ${esc(data.customerName || '')}, no pudimos completar el pago de tu pedido <strong>${esc(data.number)}</strong>, así que <strong>no se realizó ningún cargo</strong>.</p>
     ${list ? `<p style="margin:0 0 6px;color:${BRAND.muted};font-size:13px;">Tu carrito:</p><ul style="margin:0 0 14px;padding-left:18px;color:${BRAND.text};font-size:14px;">${list}</ul>` : ''}
     <p style="margin:0 0 18px;">Puedes intentar de nuevo cuando quieras. Tus productos siguen disponibles.</p>
-    <a href="${config.appUrl}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Volver a la tienda</a>
+    <a href="${esc(data.recoveryUrl || config.appUrl)}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">${data.recoveryUrl ? 'Retomar mi compra' : 'Volver a la tienda'}</a>
     <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si crees que fue un error o necesitas ayuda, responde a este correo.</p>
   `;
 
@@ -370,6 +473,39 @@ export function renderOrderFailed(
       preheader: `Tu compra no se completó — no se hizo ningún cargo`,
       heading: 'Tu compra no se completó',
       accent: BRAND.red,
+      body,
+    }),
+  };
+}
+
+export type CartRecoveryEmailData = {
+  customerName: string;
+  items: { name: string; variantName: string | null; quantity: number }[];
+  recoveryUrl: string;
+};
+
+/** Recordatorio de carrito abandonado (una hora sin terminar la compra). */
+export function renderCartRecovery(data: CartRecoveryEmailData): { subject: string; html: string } {
+  const list = data.items
+    .map(
+      (item) =>
+        `<li style="margin-bottom:4px;">${esc(item.name)}${item.variantName ? ` <span style="color:${BRAND.muted};">(${esc(item.variantName)})</span>` : ''} <span style="color:${BRAND.muted};">× ${item.quantity}</span></li>`,
+    )
+    .join('');
+
+  const body = `
+    <p style="margin:0 0 14px;">Hola${data.customerName ? ` ${esc(data.customerName)}` : ''}, vimos que dejaste tu compra a medias. Guardamos tu carrito para que la termines cuando quieras.</p>
+    ${list ? `<p style="margin:0 0 6px;color:${BRAND.muted};font-size:13px;">Tu carrito:</p><ul style="margin:0 0 18px;padding-left:18px;color:${BRAND.text};font-size:14px;">${list}</ul>` : ''}
+    <a href="${esc(data.recoveryUrl)}" style="display:inline-block;background-color:${BRAND.purple};background-image:none;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Terminar mi compra</a>
+    <p style="margin:18px 0 0;color:${BRAND.muted};font-size:13px;">Si tuviste algún problema para pagar, responde a este correo y te ayudamos.</p>
+  `;
+
+  return {
+    subject: 'Tu carrito te está esperando',
+    html: layout({
+      preheader: 'Guardamos tu carrito para que termines tu compra',
+      heading: 'Tu carrito te está esperando',
+      accent: BRAND.purple,
       body,
     }),
   };

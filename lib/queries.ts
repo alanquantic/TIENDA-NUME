@@ -1,6 +1,8 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { unstable_cache } from 'next/cache';
+import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { db } from './db';
+import { groupCatalogSections } from './catalog-sections';
 import {
   categories,
   digitalAssets,
@@ -10,7 +12,9 @@ import {
 import { effectivePrice } from './sale-price';
 import { effectiveMaxPerOrder } from './order-limits';
 import { toMinor } from './money';
+import { variantImage } from './variant-image';
 import { AGENDA_CATEGORY_SLUG, CURRENT_YEAR_MATCH, type UpsellTarget } from './agenda-upsell';
+import { NUMERATHUM_PLANS_CATEGORY_SLUG, PLAN_PERIOD_ATTRIBUTE, planPeriod, type PlanPeriod } from './numerathum-plans';
 
 export type CatalogCard = {
   id: string;
@@ -111,7 +115,7 @@ export async function listProducts(
       inStock: false,
       variantId: r.variantId,
       maxStock,
-      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),
+      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder, r.id),
       categorySlug: r.categorySlug,
       categoryName: r.categoryName,
     };
@@ -155,11 +159,19 @@ export async function listProducts(
   return [...byProduct.values()];
 }
 
-export async function getProductBySlug(slug: string) {
+/**
+ * Producto activo por slug. Con `includeUnpublished` también devuelve
+ * borradores y archivados (vista previa de administradores), nunca borrados.
+ */
+export async function getProductBySlug(slug: string, opts: { includeUnpublished?: boolean } = {}) {
   const [product] = await db
     .select()
     .from(products)
-    .where(and(eq(products.slug, slug), eq(products.status, 'active')))
+    .where(
+      opts.includeUnpublished
+        ? and(eq(products.slug, slug), isNull(products.deletedAt))
+        : and(eq(products.slug, slug), eq(products.status, 'active')),
+    )
     .limit(1);
 
   if (!product) return null;
@@ -195,6 +207,19 @@ export async function listCategories() {
   return db.select().from(categories).orderBy(asc(categories.name));
 }
 
+/**
+ * Secciones del home (nombre + slug) para el footer. El footer sale en todas
+ * las páginas, así que se cachea 10 min en vez de consultar en cada visita.
+ */
+export const listFooterSections = unstable_cache(
+  async (): Promise<{ slug: string; name: string }[]> => {
+    const [list, cats] = await Promise.all([listProducts(), listCategories()]);
+    return groupCatalogSections(list, cats).map(({ slug, name }) => ({ slug, name }));
+  },
+  ['footer-sections'],
+  { revalidate: 600 },
+);
+
 // ── Reconciliación del carrito con el catálogo ─────────────────
 
 export type CartVariantData = {
@@ -216,6 +241,7 @@ export type ReconciledLine =
   | { status: 'removed'; variantId: string };
 
 const CART_FIELDS = {
+  attributes: productVariants.attributes,
   variantId: productVariants.id,
   variantName: productVariants.name,
   priceAmount: productVariants.priceAmount,
@@ -235,6 +261,7 @@ const CART_FIELDS = {
 } as const;
 
 type CartRow = {
+  attributes: unknown;
   variantId: string;
   variantName: string;
   priceAmount: string;
@@ -264,10 +291,10 @@ function toCartData(r: CartRow): CartVariantData {
     // Precio vigente: así el carrito se actualiza cuando una oferta empieza o termina.
     priceAmount: effectivePrice(r).priceAmount,
     currency: r.currency,
-    image: images[0] ?? null,
+    image: variantImage(r.slug, images, (r.attributes as Record<string, string>) ?? {}) ?? images[0] ?? null,
     type: r.type,
     maxStock: r.type === 'physical' && r.trackInventory ? r.stock : null,
-    maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder),
+    maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder, r.productId),
   };
 }
 
@@ -324,4 +351,81 @@ export async function getAgendaUpsellTarget(): Promise<UpsellTarget | null> {
   // Si hay varios productos 2027, se prefiere la agenda (no un kit o planeador).
   const target = current.find((r) => r.slug.startsWith('agenda-')) ?? current[0];
   return target ? { href: `/productos/${target.slug}`, name: target.name } : null;
+}
+
+export type NumerathumPlanOption = {
+  variantId: string;
+  name: string;
+  period: PlanPeriod;
+  /** Precio vigente (de oferta si aplica). */
+  priceAmount: string;
+  /** Precio regular tachado; null si no hay oferta vigente. */
+  regularPriceAmount: string | null;
+};
+
+export type NumerathumPlan = {
+  id: string;
+  slug: string;
+  name: string;
+  image: string | null;
+  currency: string;
+  maxPerOrder: number | null;
+  /** Una opción por vigencia (Mensual / Anual), si existe. */
+  options: Partial<Record<PlanPeriod, NumerathumPlanOption>>;
+};
+
+/** Planes Numerathum activos para /planes, del más barato al más caro. */
+export async function listNumerathumPlans(): Promise<NumerathumPlan[]> {
+  const rows = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      images: products.images,
+      currency: products.currency,
+      type: products.type,
+      maxPerOrder: products.maxPerOrder,
+      variantId: productVariants.id,
+      variantName: productVariants.name,
+      attributes: productVariants.attributes,
+      priceAmount: productVariants.priceAmount,
+      salePriceAmount: productVariants.salePriceAmount,
+      saleStartsAt: productVariants.saleStartsAt,
+      saleEndsAt: productVariants.saleEndsAt,
+    })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .innerJoin(productVariants, eq(productVariants.productId, products.id))
+    .where(and(eq(products.status, 'active'), eq(categories.slug, NUMERATHUM_PLANS_CATEGORY_SLUG)));
+
+  const byProduct = new Map<string, NumerathumPlan>();
+  for (const r of rows) {
+    const plan = byProduct.get(r.id) ?? {
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      image: ((r.images as string[]) ?? [])[0] ?? null,
+      currency: r.currency,
+      maxPerOrder: effectiveMaxPerOrder(r.type, r.maxPerOrder, r.id),
+      options: {},
+    };
+    byProduct.set(r.id, plan);
+    const attrs = (r.attributes ?? {}) as Record<string, string>;
+    const period = planPeriod(attrs[PLAN_PERIOD_ATTRIBUTE] ?? r.variantName);
+    if (!period || plan.options[period]) continue;
+    const price = effectivePrice(r);
+    plan.options[period] = {
+      variantId: r.variantId,
+      name: r.variantName,
+      period,
+      priceAmount: price.priceAmount,
+      regularPriceAmount: price.regularPriceAmount,
+    };
+  }
+
+  const minPrice = (plan: NumerathumPlan) =>
+    Math.min(...Object.values(plan.options).map((o) => toMinor(o.priceAmount)));
+  return [...byProduct.values()]
+    .filter((plan) => Object.keys(plan.options).length > 0)
+    .sort((a, b) => minPrice(a) - minPrice(b));
 }
