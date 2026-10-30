@@ -15,8 +15,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <AdminPathProvider base={ADMIN_BASE}>
       <div data-admin-panel className="mx-auto max-w-5xl px-4 py-8">
         {authed && (
-          <div className="mb-8 flex items-center justify-between border-b border-[hsl(var(--border))] pb-4">
-            <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[hsl(var(--border))] pb-4">
+            <nav className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm" aria-label="Administración">
               <Link href={adminHref()} className="font-semibold">
                 Productos
               </Link>

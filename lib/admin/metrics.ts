@@ -1,8 +1,9 @@
-import { and, desc, gte, inArray, lt, not, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, not, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { abandonedCarts, generatedReports, orderItems, orders } from '../db/schema';
 import { itemsForOrders } from './order-items';
 import { ITEM_KIND_LABEL, testOrderSql } from './order-kinds';
+import type { MetricsKind } from './sales-metrics';
 
 /** Estados que cuentan como venta. */
 const SOLD = ['paid', 'fulfilled', 'partially_refunded'] as const;
@@ -10,16 +11,25 @@ const SOLD = ['paid', 'fulfilled', 'partially_refunded'] as const;
 export type SalesMetrics = Awaited<ReturnType<typeof salesMetrics>>;
 
 /**
- * Ventas reales (sin pedidos de prueba) entre dos fechas YYYY-MM-DD, ambas
- * incluidas, en hora de Ciudad de México.
+ * Ventas entre dos fechas YYYY-MM-DD, ambas incluidas, en hora de Ciudad de
+ * México. Por omisión solo pedidos reales, en cualquier moneda.
  */
-export async function salesMetrics(from: string, to: string) {
+export async function salesMetrics(
+  from: string,
+  to: string,
+  { currency, kind = 'real' }: { currency?: string; kind?: MetricsKind } = {},
+) {
   const start = sql`${from}::date::timestamp AT TIME ZONE 'America/Mexico_City'`;
   const end = sql`(${to}::date + 1)::timestamp AT TIME ZONE 'America/Mexico_City'`;
-  const inPeriod = and(gte(orders.createdAt, start), lt(orders.createdAt, end));
-  const sold = and(inPeriod, inArray(orders.status, [...SOLD]), not(testOrderSql));
+  const inPeriod = and(
+    gte(orders.createdAt, start),
+    lt(orders.createdAt, end),
+    currency ? eq(orders.currency, currency) : undefined,
+  );
+  const ofKind = kind === 'real' ? not(testOrderSql) : kind === 'test' ? testOrderSql : undefined;
+  const sold = and(inPeriod, inArray(orders.status, [...SOLD]), ofKind);
 
-  const [[totals], [tests], byDay, soldOrders, topProducts, [aiCost], [carts]] = await Promise.all([
+  const [[totals], [tests], byDay, soldOrders, topProducts, [aiCost], [carts], byStatus] = await Promise.all([
     db
       .select({
         orders: sql<number>`count(*)::int`,
@@ -74,6 +84,12 @@ export async function salesMetrics(from: string, to: string) {
       })
       .from(abandonedCarts)
       .where(and(gte(abandonedCarts.createdAt, start), lt(abandonedCarts.createdAt, end))),
+    // Todos los pedidos del periodo, también los que no cuentan como venta.
+    db
+      .select({ status: orders.status, n: sql<number>`count(*)::int` })
+      .from(orders)
+      .where(and(inPeriod, ofKind))
+      .groupBy(orders.status),
   ]);
 
   // Ventas por tipo de producto (Reporte IA, Membresía…), sumando sus líneas.
@@ -104,6 +120,7 @@ export async function salesMetrics(from: string, to: string) {
     discounts: Number(totals.discounts),
     averageTicket: totals.orders ? revenue / totals.orders : 0,
     testOrders: tests.n,
+    statusCounts: Object.fromEntries(byStatus.map((s) => [s.status, s.n])) as Record<string, number>,
     days,
     byKind: [...byKind.values()].sort((a, b) => b.revenue - a.revenue),
     topProducts: topProducts.map((p) => ({ ...p, revenue: Number(p.revenue) })),
@@ -114,4 +131,9 @@ export async function salesMetrics(from: string, to: string) {
       openAmount: Number(carts.openAmount),
     },
   };
+}
+
+/** Monedas con pedidos, para el filtro de métricas. */
+export function getMetricsCurrencies() {
+  return db.selectDistinct({ currency: orders.currency }).from(orders).orderBy(orders.currency);
 }

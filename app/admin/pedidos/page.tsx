@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { asc, desc } from 'drizzle-orm';
+import { asc, desc, sql } from 'drizzle-orm';
 import { adminHref } from '@/lib/admin-path';
 import { db } from '@/lib/db';
 import { categories, orders, products } from '@/lib/db/schema';
@@ -36,9 +36,10 @@ export default async function AdminOrders({ searchParams }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = parseOrderFilters(searchParams);
-  const [categoryOptions, productOptions, matches] = await Promise.all([
+  const [categoryOptions, productOptions, monthOptions, matches] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.name)),
     db.select({ id: products.id, name: products.name }).from(products).orderBy(asc(products.name)),
+    db.selectDistinct({ month: sql<string>`to_char(${orders.createdAt} AT TIME ZONE 'America/Mexico_City', 'YYYY-MM')` }).from(orders).orderBy(desc(sql`to_char(${orders.createdAt} AT TIME ZONE 'America/Mexico_City', 'YYYY-MM')`)),
     filters.error ? Promise.resolve([]) : db.select().from(orders).where(orderConditions(filters))
       .orderBy(desc(orders.createdAt), desc(orders.id)).limit(201),
   ]);
@@ -79,7 +80,14 @@ export default async function AdminOrders({ searchParams }: {
         </div>
         <div className="min-w-0">
           <label htmlFor="order-month" className="mb-1.5 block text-sm font-medium">Mes</label>
-          <input id="order-month" name="mes" type="month" defaultValue={filters.month} className={fieldClass} />
+          <select id="order-month" name="mes" defaultValue={filters.month} className={fieldClass}>
+            <option value="">Todos los meses</option>
+            {Array.from(new Set([...monthOptions.map(({ month }) => month), ...(filters.month ? [filters.month] : [])])).sort().reverse().map((month) => (
+              <option key={month} value={month}>
+                {new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T12:00:00Z`))}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="min-w-0">
           <label htmlFor="order-from" className="mb-1.5 block text-sm font-medium">Desde</label>
