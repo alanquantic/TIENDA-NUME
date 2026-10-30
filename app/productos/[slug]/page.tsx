@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   getAgendaUpsellTarget,
   getProductBySlug,
-  getRelatedProducts,
+  listProducts,
   listCategories,
 } from '@/lib/queries';
 import { isPreviousAgenda } from '@/lib/agenda-upsell';
@@ -18,7 +18,7 @@ import { ProductCountdown } from '@/components/product-countdown';
 import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
-import { ProductCard } from '@/components/product-card';
+import { ProductRecommendations } from '@/components/product-recommendations';
 import { discountPercent, effectivePrice } from '@/lib/sale-price';
 import { effectiveMaxPerOrder } from '@/lib/order-limits';
 import { readVariationAttributes } from '@/lib/variations';
@@ -321,7 +321,6 @@ export default async function ProductPage({ params }: { params: { slug: string }
       !min || parseFloat(price.priceAmount) < parseFloat(min.priceAmount) ? price : min,
     null,
   );
-  const saleEndText = fromPrice?.onSale ? formatSaleEnd(fromPrice.saleEndsAt) : null;
 
   const variationAttributes = readVariationAttributes(product.metadata, variants);
   const pricesDiffer = new Set(pricedVariants.map(({ price }) => price.priceAmount)).size > 1;
@@ -338,12 +337,22 @@ export default async function ProductPage({ params }: { params: { slug: string }
   }));
 
   const [related, categories, upsellTarget, paymentMethods] = await Promise.all([
-    getRelatedProducts(product.categoryId, product.id),
+    listProducts(),
     listCategories(),
     getAgendaUpsellTarget(),
     getAvailablePaymentMethods(),
   ]);
   const categorySlug = categories.find((c) => c.id === product.categoryId)?.slug ?? null;
+  const annualVariant = categorySlug === 'planes-numerathum'
+    ? pricedVariants.find(({ variant }) => {
+        const attributes = (variant.attributes ?? {}) as Record<string, unknown>;
+        const period = String(attributes.vigencia ?? variant.name ?? '')
+          .normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase();
+        return /\b(anual|12 meses|1 ano)\b/.test(period);
+      })
+    : undefined;
+  const displayPrice = annualVariant?.price ?? fromPrice;
+  const saleEndText = displayPrice?.onSale ? formatSaleEnd(displayPrice.saleEndsAt) : null;
   // Solo las agendas anteriores invitan a la 2027 al agregarlas al carrito.
   const upsell = isPreviousAgenda(product.slug, categorySlug) ? upsellTarget : null;
   const defaultVariant = variantOptions[0];
@@ -391,19 +400,19 @@ export default async function ProductPage({ params }: { params: { slug: string }
             {product.type === 'digital' ? 'Producto digital' : 'Producto físico'}
           </span>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">{product.name}</h1>
-          {fromPrice?.onSale && (
-            <SaleBadge percent={discountPercent(fromPrice)} className="mt-3" />
+          {displayPrice?.onSale && (
+            <SaleBadge percent={discountPercent(displayPrice)} className="mt-3" />
           )}
           <p className="mt-3 text-2xl font-semibold">
-            {pricesDiffer && (
+            {pricesDiffer && !annualVariant && (
               <span className="mr-2 text-base font-normal text-[hsl(var(--muted-foreground))]">
                 Desde
               </span>
             )}
             <PriceWithSale
               shippingExtra={product.type === 'physical'}
-              priceAmount={fromPrice?.priceAmount ?? '0'}
-              regularPriceAmount={fromPrice?.regularPriceAmount ?? null}
+              priceAmount={displayPrice?.priceAmount ?? '0'}
+              regularPriceAmount={displayPrice?.regularPriceAmount ?? null}
               currency={product.currency}
             />
           </p>
@@ -415,6 +424,24 @@ export default async function ProductPage({ params }: { params: { slug: string }
             <p className="mt-5 whitespace-pre-line text-[hsl(var(--muted-foreground))]">
               {product.shortDescription.trim()}
             </p>
+          )}
+
+          {categorySlug === 'planes-numerathum' && (
+            <div className="mt-5 space-y-3">
+              {product.description && (
+                <p className="text-sm leading-relaxed text-[hsl(var(--muted-foreground))]">
+                  {getDisplayDescription(product.slug, product.description).split(/\n\s*\n|\n/)[0]}
+                </p>
+              )}
+              <a
+                href="https://numerathum.numerologia-cotidiana.com/universal"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-sm text-lg font-bold text-navbar underline decoration-2 underline-offset-4 hover:decoration-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navbar"
+              >
+                Conoce Numerathum Universal
+              </a>
+            </div>
           )}
 
           <div className="mt-8">
@@ -488,24 +515,12 @@ export default async function ProductPage({ params }: { params: { slug: string }
         </div>
       )}
 
-      {related.length > 0 && (
-        <div className="mt-16">
-          <div className="mb-6 flex items-center gap-3 border-b border-[hsl(var(--primary)/0.18)] pb-3">
-            <span
-              aria-hidden="true"
-              className="h-8 w-1.5 rounded-full bg-gradient-brand"
-            />
-            <h2 className="text-2xl font-bold tracking-tight text-[hsl(var(--primary))]">
-              Productos relacionados
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {related.map((p) => (
-              <ProductCard key={p.id} product={p} upsell={upsellTarget} />
-            ))}
-          </div>
-        </div>
-      )}
+      <ProductRecommendations
+        catalog={related}
+        currentSlug={product.slug}
+        currentCategory={categorySlug}
+        upsell={upsellTarget}
+      />
     </div>
   );
 }
