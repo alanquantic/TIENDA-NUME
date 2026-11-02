@@ -10,6 +10,20 @@ import type { ProductDuration } from './product-groups';
 export const NUMERATHUM_PLANS_CATEGORY_SLUG = 'planes-numerathum';
 export const NUMERATHUM_PLANS_CATEGORY_NAME = 'Planes Numerathum';
 
+/**
+ * Capturas del home y los menús de /app de Numerathum, tomadas el 2026-11-02.
+ * Se les quitó el nombre y la fecha de nacimiento de la cuenta antes de tomarlas.
+ */
+export const NUMERATHUM_SCREENSHOTS = [
+  '/images/numerathum/capturas/home-energia-diaria.png',
+  '/images/numerathum/capturas/home-mensajes.png',
+  '/images/numerathum/capturas/home-calendario.png',
+  '/images/numerathum/capturas/menu-etapa-de-vida.png',
+  '/images/numerathum/capturas/menu-mi-pinaculo.png',
+  '/images/numerathum/capturas/menu-agenda.png',
+  '/images/numerathum/capturas/menu-quien-soy.png',
+];
+
 /** Atributo de variación que define la vigencia. */
 export const PLAN_PERIOD_ATTRIBUTE = 'vigencia';
 
