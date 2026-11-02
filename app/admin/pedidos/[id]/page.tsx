@@ -218,7 +218,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                       {r.usage && (
                         <span>
                           {r.usage.totalTokens != null && `${r.usage.totalTokens.toLocaleString('es-MX')} tokens · `}
-                          Tokens {formatUsd(r.usage.tokenCostUsd)} · Producción {formatUsd(r.usage.productionCostUsd)}
+                          Tokens (USD) {formatUsd(r.usage.tokenCostUsd)} · Producción (USD) {formatUsd(r.usage.productionCostUsd)}
                           {r.usage.model && ` · ${r.usage.model}`}
                         </span>
                       )}
@@ -230,7 +230,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             </ul>
             {withUsage.length > 0 && (
               <p className="mt-3 border-t border-[hsl(var(--border))] pt-3 text-sm">
-                Costo IA del pedido: tokens <strong>{formatUsd(tokenCost)}</strong> · producción{' '}
+                Costo IA del pedido (USD): tokens <strong>{formatUsd(tokenCost)}</strong> · producción{' '}
                 <strong>{formatUsd(productionCost)}</strong>
               </p>
             )}

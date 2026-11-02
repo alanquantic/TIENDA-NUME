@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useProductImageSelection } from '@/components/product-image-selection';
 
-export function ProductGallery({ images, name }: { images: string[]; name: string }) {
+export function ProductGallery({ images, name, fit = 'cover' }: { images: string[]; name: string; fit?: 'cover' | 'contain' }) {
   const [selected, setSelected] = useState(0);
   const selection = useProductImageSelection();
   const main = selection?.image ?? images[selected] ?? null;
@@ -13,7 +13,7 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
       <div className="aspect-square overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]">
         {main ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={main} alt={name} className="h-full w-full object-cover" />
+          <img src={main} alt={name} className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`} />
         ) : (
           <div className="grid h-full w-full place-items-center text-[hsl(var(--muted-foreground))]">
             Sin imagen
@@ -40,7 +40,7 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="h-full w-full object-cover" />
+              <img src={src} alt="" className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`} />
             </button>
           ))}
         </div>

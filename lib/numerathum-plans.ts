@@ -10,6 +10,13 @@ import type { ProductDuration } from './product-groups';
 export const NUMERATHUM_PLANS_CATEGORY_SLUG = 'planes-numerathum';
 export const NUMERATHUM_PLANS_CATEGORY_NAME = 'Planes Numerathum';
 
+/** Capturas de la vista personal /app de Numerathum, tomadas el 2026-11-02. */
+export const NUMERATHUM_SCREENSHOTS = [
+  '/images/numerathum/capturas/calendario-personal.png',
+  '/images/numerathum/capturas/energia-personal.png',
+  '/images/numerathum/capturas/mensajes-personales.png',
+];
+
 /** Atributo de variación que define la vigencia. */
 export const PLAN_PERIOD_ATTRIBUTE = 'vigencia';
 
