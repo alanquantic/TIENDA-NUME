@@ -25,6 +25,7 @@ import { readVariationAttributes } from '@/lib/variations';
 import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price';
 import { isAdminAuthed } from '@/lib/admin-auth';
 import { adminHref } from '@/lib/admin-path';
+import { NUMERATHUM_PLANS, NUMERATHUM_SCREENSHOTS } from '@/lib/numerathum-plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -313,7 +314,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
   if (!data) notFound();
 
   const { product, variants, preview } = data;
-  const images = (product.images as string[]) ?? [];
+  const isNumerathumPlan = NUMERATHUM_PLANS.some((plan) => plan.slug === product.slug);
+  const images = [...new Set([
+    ...((product.images as string[]) ?? []),
+    ...(isNumerathumPlan ? NUMERATHUM_SCREENSHOTS : []),
+  ])];
   // Precio vigente de cada variante (oferta si está dentro de sus fechas).
   const pricedVariants = variants.map((v) => ({ variant: v, price: effectivePrice(v) }));
   const fromPrice = pricedVariants.reduce<(typeof pricedVariants)[number]['price'] | null>(
@@ -393,7 +398,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
       ) : null}
       <ProductImageSelection key={product.id} initialImage={variantOptions[0]?.image ?? images[0] ?? null}>
       <div className="grid gap-10 md:grid-cols-2">
-        <ProductGallery images={images} name={product.name} />
+        <ProductGallery images={images} name={product.name} fit={categorySlug === 'planes-numerathum' ? 'contain' : 'cover'} />
 
         <div>
           <span className="text-xs uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
