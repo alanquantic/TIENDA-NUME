@@ -10,9 +10,13 @@ export const PHYSICAL_MAX_PER_ORDER = 1;
 /** Agenda Numerológica 2027 (física). Por ID: el slug se puede editar en el admin. */
 export const AGENDA_2027_PRODUCT_ID = '1be11ac4-a5ef-4f05-88de-c13fafd99a91';
 
+/** Agenda Numerológica 2026 (física). */
+export const AGENDA_2026_PRODUCT_ID = '3f44f74b-567f-4982-aefc-cce9a604d53a';
+
 /** Físicos con un tope propio en lugar de PHYSICAL_MAX_PER_ORDER. */
 export const PHYSICAL_MAX_PER_ORDER_BY_PRODUCT: Readonly<Record<string, number>> = {
   [AGENDA_2027_PRODUCT_ID]: 2,
+  [AGENDA_2026_PRODUCT_ID]: 2,
 };
 
 /** Tope efectivo por pedido: el configurado en BD, acotado para físicos. */

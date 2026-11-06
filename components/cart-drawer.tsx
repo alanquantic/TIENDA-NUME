@@ -23,6 +23,8 @@ export function CartDrawer() {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const slug = items[items.length - 1]?.slug;
+  // Firma de los slugs del carrito: cambios reactivan la búsqueda de sugerencias.
+  const cartSlugsKey = items.map((item) => item.slug).join('|');
 
   useEffect(() => {
     // Los enlaces antiguos a /carrito abren el mismo panel sobre el catálogo.
@@ -60,7 +62,13 @@ export function CartDrawer() {
     setLoading(true);
     setFailed(false);
     setRecommendations([]);
-    fetch(`/api/cart/recommendations${slug ? `?slug=${encodeURIComponent(slug)}` : ''}`, { signal: controller.signal })
+    const query = cartSlugsKey
+      ? `?${cartSlugsKey
+          .split('|')
+          .map((value) => `slug=${encodeURIComponent(value)}`)
+          .join('&')}`
+      : '';
+    fetch(`/api/cart/recommendations${query}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error('No disponible');
         return response.json();
@@ -72,7 +80,7 @@ export function CartDrawer() {
       .catch(() => { if (!controller.signal.aborted) setFailed(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [isOpen, slug]);
+  }, [isOpen, cartSlugsKey]);
 
   const related = recommendations.filter((product) => !items.some((item) => item.productId === product.id));
   const count = items.reduce((sum, item) => sum + item.quantity, 0);

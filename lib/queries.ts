@@ -193,15 +193,6 @@ export async function getProductBySlug(slug: string, opts: { includeUnpublished?
   return { product, variants, assets };
 }
 
-export async function getRelatedProducts(
-  categoryId: string | null,
-  excludeId: string,
-  limit = 6,
-): Promise<CatalogCard[]> {
-  if (!categoryId) return [];
-  const list = await listProducts({ categoryId, excludeId });
-  return list.slice(0, limit);
-}
 
 export async function listCategories() {
   return db.select().from(categories).orderBy(asc(categories.name));
