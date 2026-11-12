@@ -41,11 +41,16 @@ export function PriceWithSale({
   );
 }
 
-/** "Termina el 30 de octubre" para mostrar bajo el precio de una oferta con fin. */
+/**
+ * "La oferta termina el 17 de noviembre" para mostrar bajo el precio de una
+ * oferta con fin. El fin es exclusivo, así que se muestra el último día en que
+ * la oferta sigue vigente: si termina a las 00:00 del 18, el texto dice 17.
+ */
 export function formatSaleEnd(iso: string | null): string | null {
   if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
+  const end = new Date(iso);
+  if (Number.isNaN(end.getTime())) return null;
+  const date = new Date(end.getTime() - 1);
   return `La oferta termina el ${new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',

@@ -15,6 +15,7 @@ import { ProductImageSelection } from '@/components/product-image-selection';
 import { variantImage } from '@/lib/variant-image';
 import { ProductTrust } from '@/components/product-trust';
 import { ProductCountdown } from '@/components/product-countdown';
+import { SaleCountdown } from '@/components/sale-countdown';
 import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
@@ -421,8 +422,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
               currency={product.currency}
             />
           </p>
-          {saleEndText && (
-            <p className="mt-3 inline-flex rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-2 text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
+          {saleEndText && displayPrice?.saleEndsAt && (
+            <div>
+              <SaleCountdown
+                endsAt={displayPrice.saleEndsAt}
+                className="mt-3 inline-flex flex-col gap-3 rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-3"
+              >
+                <p className="text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
+              </SaleCountdown>
+            </div>
           )}
 
           {product.shortDescription?.trim() && (

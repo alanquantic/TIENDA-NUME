@@ -40,6 +40,9 @@
   --accent: 34 90% 61%;
   --accent-foreground: 308 37% 18%;
   --fuchsia: 340 60% 50%;
+  /* Rojo de promociones (banner del Buen Fin). */
+  --promo: 0 74% 42%;
+  --promo-foreground: 0 0% 100%;
   --ring: 308 37% 40%;
   /* Franjas del encabezado: lavanda #966E90 (energía colectiva) y ciruela #693061 (menú). */
   --topbar: 309 16% 51%;
@@ -61,6 +64,8 @@
   --accent: 34 90% 64%;
   --accent-foreground: 308 30% 12%;
   --fuchsia: 340 70% 70%;
+  --promo: 0 68% 40%;
+  --promo-foreground: 0 0% 100%;
   --ring: 308 40% 62%;
   --topbar: 309 18% 32%;
   --navbar: 308 37% 20%;

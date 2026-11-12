@@ -3,6 +3,7 @@ import { groupCatalogSections } from '@/lib/catalog-sections';
 import { ListingTracker } from '@/components/analytics/listing-tracker';
 import { catalogCardToGaItem } from '@/lib/analytics';
 import { ProductCard } from '@/components/product-card';
+import { BuenFinBanner } from '@/components/buen-fin-banner';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,7 @@ export default async function HomePage() {
 
         {/* Secciones de productos por categoría */}
         <div className="min-w-0 flex-1">
+          <BuenFinBanner />
           {ordered.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[hsl(var(--border))] p-12 text-center text-[hsl(var(--muted-foreground))]">
               No hay productos todavía.
