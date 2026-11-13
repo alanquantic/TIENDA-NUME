@@ -1,6 +1,6 @@
 import { buildAgenda2027Payload } from './agenda-2027';
 import { buildAgenda2026Payload } from './agenda-2026';
-import { buildNumerathumPayload, NUMERATHUM_ORDER_COLUMN } from './numerathum';
+import { buildNumerathumPayload, numerathumOrderReference, NUMERATHUM_ORDER_COLUMN } from './numerathum';
 import { buildLibroPayload } from './libro';
 import type { MondayItem, MondayOrder, MondayJob } from './shared';
 import { MondayError, type MondayClient } from './client';
@@ -35,7 +35,8 @@ export async function deliverMondayOrder(orderId: string, store: MondayDeliveryS
   const { order, items, job } = claimed;
   try {
     const isNumerathum = job.kind === 'numerathum';
-    const existing = await client.inspectOrder(job.boardId, order.number, isNumerathum ? NUMERATHUM_ORDER_COLUMN : 'texto');
+    const reference = isNumerathum ? numerathumOrderReference(order.number, job.productId) : order.number;
+    const existing = await client.inspectOrder(job.boardId, reference, isNumerathum ? NUMERATHUM_ORDER_COLUMN : 'texto');
     let itemId = existing.itemId;
     if (!itemId) {
       const payload = isNumerathum
@@ -45,7 +46,10 @@ export async function deliverMondayOrder(orderId: string, store: MondayDeliveryS
         : job.kind === 'agenda-2026'
         ? buildAgenda2026Payload(order, items, { productId: job.productId, postalColumnType: existing.postalColumnType })
         : buildAgenda2027Payload(order, items, { productId: job.productId, postalColumnType: existing.postalColumnType });
-      itemId = await client.createPurchaseItem({ boardId: job.boardId, groupId: job.groupId, orderId, payload, kind: job.kind });
+      itemId = await client.createPurchaseItem({
+        boardId: job.boardId, groupId: job.groupId, orderId, payload, kind: job.kind,
+        idempotencySuffix: reference !== order.number ? job.productId : undefined,
+      });
     }
     await store.finish(orderId, job.claimId!, {
       ...job, status: 'sent', itemId, sentAt: new Date().toISOString(), error: undefined,

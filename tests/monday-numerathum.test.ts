@@ -4,7 +4,8 @@ import { AGENDA_2027_PRODUCT_ID, MONDAY_JOB_KEY, buildAgenda2027Payload } from '
 import { buildInitialMondayJobs } from '../lib/monday/jobs';
 import {
   NUMERATHUM_PRODUCT_ID, NUMERATHUM_BOARD_ID, NUMERATHUM_GROUP_ID, NUMERATHUM_JOB_KEY,
-  NUMERATHUM_ORDER_COLUMN, buildNumerathumPayload,
+  NUMERATHUM_ORDER_COLUMN, buildNumerathumPayload, MONDAY_NUMERATHUM_PLANS,
+  LEGACY_NUMERATHUM_PRODUCT_ID, numerathumOrderReference,
 } from '../lib/monday/numerathum';
 import { createMondayClient, type MondayClient } from '../lib/monday/client';
 import { deliverMondayOrder, mondayJobDue, type MondayDeliveryStore } from '../lib/monday/delivery';
@@ -25,12 +26,58 @@ const numerathum: MondayItem = { productId: NUMERATHUM_PRODUCT_ID, variantName: 
 const items = () => [agenda, numerathum];
 
 describe('Numerathum board mapping', () => {
+  it('reads each plan product ID from its own environment variable', () => {
+    for (const [index, plan] of MONDAY_NUMERATHUM_PLANS.entries()) {
+      const previous = process.env[plan.productIdEnv];
+      const productId = `00000000-0000-4000-8000-00000000000${index}`;
+      process.env[plan.productIdEnv] = productId;
+      try {
+        const lines = [{ ...numerathum, productId }];
+        const jobs = buildInitialMondayJobs(order(), lines);
+        assert.equal(jobs[plan.jobKey]?.productId, productId);
+        assert.deepEqual(Object.keys(buildInitialMondayJobs(order(), [{ ...numerathum, productId: plan.productId }])), []);
+        const payload = buildNumerathumPayload(order(), lines, { productId });
+        assert.deepEqual(payload.columns.color_mkxpqbfg, { index: plan.planIndex });
+        assert.equal(payload.columns.__pedido_web, `${order().number}:${plan.slug}`);
+      } finally {
+        if (previous === undefined) delete process.env[plan.productIdEnv];
+        else process.env[plan.productIdEnv] = previous;
+      }
+    }
+  });
+
+  it('maps all three plan products and both periods to the verified PLAN options', () => {
+    for (const plan of MONDAY_NUMERATHUM_PLANS) {
+      const lines = ['Mensual', 'Anual'].map((variantName) => ({
+        ...numerathum, productId: plan.productId, variantName, totalAmount: '100.00',
+      }));
+      const paid = order({ totalAmount: '200.00', shippingAmount: '0.00' });
+      const jobs = buildInitialMondayJobs(paid, lines);
+      assert.deepEqual(Object.keys(jobs), [plan.jobKey]);
+      assert.equal(jobs[plan.jobKey]?.productId, plan.productId);
+      const payload = buildNumerathumPayload(paid, lines, { productId: plan.productId });
+      assert.deepEqual(payload.columns.color_mkxpqbfg, { index: plan.planIndex });
+      assert.equal(payload.columns.n_meros, '200.00');
+      assert.equal(payload.columns.__pedido_web, `${paid.number}:${plan.slug}`);
+    }
+  });
+
+  it('stops queueing the legacy product even with the previous product override', () => {
+    const legacy = { ...numerathum, productId: LEGACY_NUMERATHUM_PRODUCT_ID };
+    assert.deepEqual(buildInitialMondayJobs(order(), [legacy], {
+      [NUMERATHUM_JOB_KEY]: { productId: LEGACY_NUMERATHUM_PRODUCT_ID },
+    }), {});
+    const payload = buildNumerathumPayload(order(), [legacy], { productId: LEGACY_NUMERATHUM_PRODUCT_ID });
+    assert.equal(payload.columns.__pedido_web, order().number);
+    assert.deepEqual(payload.columns.color_mkxpqbfg, { index: 0 });
+  });
+
   it('selects ALAN with dropdown ID 27 and PLAN ORACULO with status index 0', () => {
     const payload = buildNumerathumPayload(order(), items());
     assert.equal(payload.name, 'María José');
     assert.deepEqual(payload.columns.mm, { ids: [27] });
     assert.deepEqual(payload.columns.color_mkxpqbfg, { index: 0 });
-    assert.equal(payload.columns[NUMERATHUM_ORDER_COLUMN], 'NUME-MIXED');
+    assert.equal(payload.columns[NUMERATHUM_ORDER_COLUMN], 'NUME-MIXED:numerathum-oraculo-365');
     assert.equal(payload.columns.texto33, 'cliente@example.test');
     assert.deepEqual(payload.columns.phone1, { phone: '5512345678', countryShortName: 'MX' });
     assert.deepEqual(payload.columns.status2, { index: 2 });
@@ -80,6 +127,90 @@ describe('Numerathum board mapping', () => {
 });
 
 describe('independent board jobs', () => {
+  it('keeps the reference and idempotency key of already queued legacy purchases', async () => {
+    const legacyItem = { ...numerathum, productId: LEGACY_NUMERATHUM_PRODUCT_ID };
+    let job: MondayJob = {
+      kind: 'numerathum', status: 'processing', boardId: NUMERATHUM_BOARD_ID,
+      groupId: NUMERATHUM_GROUP_ID, productId: LEGACY_NUMERATHUM_PRODUCT_ID,
+      attempts: 1, queuedAt: new Date().toISOString(), claimId: 'legacy-claim',
+    };
+    const client = createMondayClient('test-token', async (_url, init) => {
+      const { query, variables } = JSON.parse(String(init?.body));
+      if (query.includes('query PurchaseOrder')) {
+        assert.equal(variables.orderNumber, order().number);
+        return Response.json({ data: { boards: [{ id: NUMERATHUM_BOARD_ID, columns: [] }],
+          items_page_by_column_values: { items: [] } } });
+      }
+      assert.equal(JSON.parse(variables.columns).__pedido_web, order().number);
+      assert.equal((init?.headers as Record<string, string>)['Idempotency-Key'],
+        `tienda-nume:numerathum:${NUMERATHUM_BOARD_ID}:${order().id}`);
+      return Response.json({ data: { create_item: { id: 'legacy-item' } } });
+    });
+    const store: MondayDeliveryStore = {
+      async claim() { return { order: order(), items: [legacyItem], job }; },
+      async finish(_id, _claim, next) { job = next; },
+    };
+    assert.equal(await deliverMondayOrder(order().id, store, client), 'sent');
+    assert.equal(job.itemId, 'legacy-item');
+  });
+
+  it('delivers multiple plans in one order with distinct references, amounts and retry keys', async () => {
+    const lines = MONDAY_NUMERATHUM_PLANS.map((plan) => ({
+      ...numerathum, productId: plan.productId, totalAmount: '100.00',
+    }));
+    const paid = order({ totalAmount: '270.00', shippingAmount: '0.00' });
+    const jobs = buildInitialMondayJobs(paid, lines) as Record<string, MondayJob>;
+    const remote = new Map<string, string>();
+    const keys = new Set<string>();
+    let lostResponse = true;
+    let mutations = 0;
+    const client = createMondayClient('test-token', async (_url, init) => {
+      const { query, variables } = JSON.parse(String(init?.body));
+      if (query.includes('query PurchaseOrder')) {
+        const itemId = remote.get(variables.orderNumber);
+        return Response.json({ data: {
+          boards: [{ id: NUMERATHUM_BOARD_ID, columns: [] }],
+          items_page_by_column_values: { items: itemId ? [{ id: itemId,
+            column_values: [{ id: NUMERATHUM_ORDER_COLUMN, text: variables.orderNumber }] }] : [] },
+        } });
+      }
+      mutations++;
+      const columns = JSON.parse(variables.columns);
+      const plan = MONDAY_NUMERATHUM_PLANS.find((plan) =>
+        columns.__pedido_web === numerathumOrderReference(paid.number, plan.productId))!;
+      assert.ok(plan);
+      assert.deepEqual(columns.color_mkxpqbfg, { index: plan.planIndex });
+      assert.equal(columns.n_meros, '90.00');
+      assert.equal(variables.boardId, NUMERATHUM_BOARD_ID);
+      assert.equal(variables.groupId, NUMERATHUM_GROUP_ID);
+      const key = (init?.headers as Record<string, string>)['Idempotency-Key'];
+      assert.ok(key.endsWith(`:${plan.productId}`));
+      keys.add(key);
+      remote.set(columns.__pedido_web, `item-${plan.slug}`);
+      if (lostResponse && plan.planIndex === 13) {
+        lostResponse = false;
+        throw new Error('lost-response');
+      }
+      return Response.json({ data: { create_item: { id: `item-${plan.slug}` } } });
+    });
+    const store = (key: string): MondayDeliveryStore => ({
+      async claim() {
+        if (!mondayJobDue(jobs[key])) return null;
+        jobs[key] = { ...jobs[key], status: 'processing', attempts: jobs[key].attempts + 1, claimId: key };
+        return { order: paid, items: lines, job: jobs[key] };
+      },
+      async finish(_id, _claim, job) { jobs[key] = job; },
+    });
+    for (const key of Object.keys(jobs)) await deliverMondayOrder(paid.id, store(key), client);
+    assert.equal(jobs.mondayNumerathumEspejo.status, 'failed');
+    jobs.mondayNumerathumEspejo.nextAttemptAt = new Date(0).toISOString();
+    for (const key of Object.keys(jobs)) await deliverMondayOrder(paid.id, store(key), client);
+    assert.ok(Object.values(jobs).every((job) => job.status === 'sent'));
+    assert.equal(remote.size, 3);
+    assert.equal(keys.size, 3);
+    assert.equal(mutations, 3);
+  });
+
   it('queues one job per included product, even when bought alone', () => {
     const both = buildInitialMondayJobs(order(), items());
     assert.equal(both[MONDAY_JOB_KEY]?.boardId, '18434858318');
@@ -156,11 +287,12 @@ describe('Numerathum duplicate checks and mutation variables', () => {
     const client = createMondayClient('test-token', async (_url, init) => {
       const request = JSON.parse(String(init?.body));
       assert.equal(request.variables.groupId, NUMERATHUM_GROUP_ID);
-      assert.equal(JSON.parse(request.variables.columns).__pedido_web, 'NUME-MIXED');
-      assert.equal((init?.headers as Record<string, string>)['Idempotency-Key'], `tienda-nume:numerathum:${NUMERATHUM_BOARD_ID}:mixed-order`);
+      assert.equal(JSON.parse(request.variables.columns).__pedido_web, 'NUME-MIXED:numerathum-oraculo-365');
+      assert.equal((init?.headers as Record<string, string>)['Idempotency-Key'], `tienda-nume:numerathum:${NUMERATHUM_BOARD_ID}:mixed-order:${NUMERATHUM_PRODUCT_ID}`);
       return Response.json({ data: { create_item: { id: 'numerathum-item' } } });
     });
     assert.equal(await client.createPurchaseItem({ boardId: NUMERATHUM_BOARD_ID, groupId: NUMERATHUM_GROUP_ID,
-      orderId: 'mixed-order', kind: 'numerathum', payload: buildNumerathumPayload(order(), items()) }), 'numerathum-item');
+      orderId: 'mixed-order', kind: 'numerathum', idempotencySuffix: NUMERATHUM_PRODUCT_ID,
+      payload: buildNumerathumPayload(order(), items()) }), 'numerathum-item');
   });
 });

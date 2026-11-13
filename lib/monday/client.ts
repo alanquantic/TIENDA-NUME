@@ -60,6 +60,7 @@ export function createMondayClient(token: string, fetcher: typeof fetch = fetch)
 
   async function createPurchaseItem(input: {
     boardId: string; groupId: string; orderId: string; payload: MondayPayload; kind?: MondayKind;
+    idempotencySuffix?: string;
   }) {
     const result = await request<{ create_item: { id: string } | null }>(
       `mutation ProductPurchase($boardId: ID!, $groupId: String!, $name: String!, $columns: JSON!) {
@@ -68,7 +69,8 @@ export function createMondayClient(token: string, fetcher: typeof fetch = fetch)
       }`,
       { boardId: input.boardId, groupId: input.groupId, name: input.payload.name,
         columns: JSON.stringify(input.payload.columns) },
-      `tienda-nume:${input.kind ?? 'agenda-2027'}:${input.boardId}:${input.orderId}`,
+      `tienda-nume:${input.kind ?? 'agenda-2027'}:${input.boardId}:${input.orderId}` +
+        (input.idempotencySuffix ? `:${input.idempotencySuffix}` : ''),
     );
     if (!result.create_item?.id) throw new MondayError('monday-missing-item-id');
     return result.create_item.id;

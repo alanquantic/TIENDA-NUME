@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildInitialMondayJobs } from '../lib/monday/jobs';
 import { AGENDA_2027_PRODUCT_ID, MONDAY_JOB_KEY, buildAgenda2027Payload } from '../lib/monday/agenda-2027';
-import { NUMERATHUM_PRODUCT_ID, NUMERATHUM_JOB_KEY, buildNumerathumPayload } from '../lib/monday/numerathum';
+import { NUMERATHUM_PRODUCT_ID, NUMERATHUM_JOB_KEY, buildNumerathumPayload, numerathumOrderReference } from '../lib/monday/numerathum';
 import { LIBRO_PRODUCT_ID, LIBRO_BOARD_ID, LIBRO_JOB_KEY, buildLibroPayload } from '../lib/monday/libro';
 import { deliverMondayOrder, mondayJobDue, type MondayDeliveryStore } from '../lib/monday/delivery';
 import { createMondayClient, type MondayClient } from '../lib/monday/client';
@@ -132,7 +132,8 @@ describe('Libro: Numerología Cotidiana', () => {
     const calls: string[] = [];
     const client: MondayClient = {
       async inspectOrder(boardId, number, column) {
-        assert.equal(number, order.number);
+        assert.equal(number, boardId === jobs[NUMERATHUM_JOB_KEY].boardId
+          ? numerathumOrderReference(order.number, NUMERATHUM_PRODUCT_ID) : order.number);
         assert.equal(column, boardId === jobs[NUMERATHUM_JOB_KEY].boardId ? '__pedido_web' : 'texto');
         return { itemId: created.get(boardId) ?? null, postalColumnType: 'phone' };
       },
