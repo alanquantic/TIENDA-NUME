@@ -9,6 +9,7 @@ import { createMondayClient, type MondayClient } from '../lib/monday/client';
 import { toMinor } from '../lib/money';
 import type { MondayOrder, MondayItem, MondayJob } from '../lib/monday/shared';
 import { shippingAddressSchema } from '../lib/validation';
+import { AGENDA_2026_PRODUCT_ID, buildAgenda2026Payload } from '../lib/monday/agenda-2026';
 
 const order: MondayOrder = {
   id: 'mixed-order', number: 'TEST-LIBRO', status: 'paid', paidAt: new Date('2026-10-19T02:00:00Z'),
@@ -38,6 +39,7 @@ describe('Libro: Numerología Cotidiana', () => {
     for (const columns of [
       buildLibroPayload(updated, items).columns,
       buildAgenda2027Payload(updated, items).columns,
+      buildAgenda2026Payload(updated, [{ ...agenda, productId: AGENDA_2026_PRODUCT_ID }]).columns,
     ]) {
       assert.equal(columns.colonia, 'Centro');
       assert.equal(columns.calle, 'Calle Ejemplo · CP: 03100');
