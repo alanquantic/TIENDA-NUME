@@ -268,7 +268,7 @@ export const orders = pgTable(
     // true si el pedido contiene al menos un producto físico.
     requiresShipping: boolean('requires_shipping').notNull().default(false),
     shippingMethod: text('shipping_method'),
-    // { name, line1, line2, city, state, postalCode, country, phone }
+    // { name, line1, exteriorNumber, line2, neighborhood, crossStreets, city, state, postalCode, country, phone }
     shippingAddress: jsonb('shipping_address'),
     // true si el cliente pidió factura (CFDI) en el checkout.
     requiresInvoice: boolean('requires_invoice').notNull().default(false),

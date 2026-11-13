@@ -8,6 +8,7 @@ import { deliverMondayOrder, mondayJobDue, type MondayDeliveryStore } from '../l
 import { createMondayClient, type MondayClient } from '../lib/monday/client';
 import { toMinor } from '../lib/money';
 import type { MondayOrder, MondayItem, MondayJob } from '../lib/monday/shared';
+import { shippingAddressSchema } from '../lib/validation';
 
 const order: MondayOrder = {
   id: 'mixed-order', number: 'TEST-LIBRO', status: 'paid', paidAt: new Date('2026-10-19T02:00:00Z'),
@@ -24,6 +25,27 @@ const numerathum: MondayItem = { productId: NUMERATHUM_PRODUCT_ID, variantName: 
 const items = [libro, agenda, numerathum];
 
 describe('Libro: Numerología Cotidiana', () => {
+  it('preserves separate checkout address fields through validation and Monday delivery', () => {
+    const shippingAddress = shippingAddressSchema.parse({
+      name: 'María López', line1: 'Calle Ejemplo', exteriorNumber: ' 10B ', line2: '2',
+      neighborhood: ' Centro ', crossStreets: ' Juárez y Reforma ',
+      city: 'CDMX', state: 'Ciudad de México', postalCode: '03100', country: 'MX',
+    });
+    assert.equal(shippingAddress.exteriorNumber, '10B');
+    assert.equal(shippingAddress.neighborhood, 'Centro');
+    assert.equal(shippingAddress.crossStreets, 'Juárez y Reforma');
+    const updated = { ...order, shippingAddress };
+    for (const columns of [
+      buildLibroPayload(updated, items).columns,
+      buildAgenda2027Payload(updated, items).columns,
+    ]) {
+      assert.equal(columns.colonia, 'Centro');
+      assert.equal(columns.calle, 'Calle Ejemplo · CP: 03100');
+      assert.equal(columns.n____n__int, '10B · 2');
+      assert.equal(columns.dup__of_estado, 'Juárez y Reforma');
+    }
+  });
+
   it('maps the book quantity, net amount, buyer, date and blank status to its board', () => {
     const payload = buildLibroPayload(order, items);
     assert.equal(payload.name, 'María López');

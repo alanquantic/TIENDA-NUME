@@ -38,6 +38,18 @@ describe('envEmailList', () => {
 });
 
 describe('renderOrderNotification', () => {
+  it('incluye colonia y entre calles escapadas en la dirección de envío', () => {
+    const { html } = renderOrderNotification({
+      ...order, requiresShipping: true,
+      shippingAddress: {
+        line1: 'Calle Uno', exteriorNumber: '12B', neighborhood: 'Centro <Norte>', crossStreets: 'Juárez & Reforma',
+      },
+    });
+    assert.ok(html.includes('Calle Uno 12B'));
+    assert.ok(html.includes('Colonia: Centro &lt;Norte&gt;'));
+    assert.ok(html.includes('Entre calles y referencias para localizar tu domicilio: Juárez &amp; Reforma'));
+  });
+
   it('resume el pedido y enlaza al admin', () => {
     const { subject, html } = renderOrderNotification(order);
     assert.match(subject, /^Nuevo pedido NUME-1042 · .*299\.00.* · Ana García$/);
