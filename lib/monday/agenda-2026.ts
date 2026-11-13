@@ -65,6 +65,8 @@ export function buildAgenda2026Payload(
   const address = (order.shippingAddress ?? {}) as Record<string, unknown>;
   const country = text(address, 'country').toUpperCase() || 'MX';
   const postalCode = text(address, 'postalCode');
+  const neighborhood = text(address, 'neighborhood');
+  const exteriorNumber = text(address, 'exteriorNumber');
   let street = text(address, 'line1');
   const columns: MondayColumns = {
     forma_compra2: { index: VENDEDOR_ALAN_INDEX },
@@ -83,7 +85,15 @@ export function buildAgenda2026Payload(
     else street = [street, `CP: ${postalCode}`].filter(Boolean).join(' · ');
   }
   if (street) columns.calle = street;
-  if (text(address, 'line2')) columns.colonia = text(address, 'line2');
+  // Older orders stored neighborhood and interior together in line2.
+  const colonia = neighborhood || (exteriorNumber ? '' : text(address, 'line2'));
+  if (colonia) columns.colonia = colonia;
+  const numbers = [
+    exteriorNumber,
+    (exteriorNumber || neighborhood) ? text(address, 'line2') : '',
+  ].filter(Boolean).join(' · ');
+  if (numbers) columns.n____n__int = numbers;
+  if (text(address, 'crossStreets')) columns.dup__of_estado = text(address, 'crossStreets');
   if (text(address, 'city')) columns.municipio_delegaci_n7 = text(address, 'city');
   if (text(address, 'state')) columns.estado31 = text(address, 'state');
   const phone = order.customerPhone?.trim() || text(address, 'phone');

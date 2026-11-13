@@ -56,7 +56,10 @@ const USO_LABEL = new Map(USO_CFDI);
 type Address = {
   name?: string;
   line1?: string;
+  exteriorNumber?: string | null;
   line2?: string | null;
+  neighborhood?: string | null;
+  crossStreets?: string | null;
   city?: string;
   state?: string | null;
   postalCode?: string;
@@ -149,7 +152,10 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 {addr.name}
                 <br />
                 {addr.line1}
+                {addr.exteriorNumber ? ` ${addr.exteriorNumber}` : ''}
                 {addr.line2 ? `, ${addr.line2}` : ''}
+                {addr.neighborhood && <><br />Colonia: {addr.neighborhood}</>}
+                {addr.crossStreets && <><br />Entre calles y referencias para localizar tu domicilio: {addr.crossStreets}</>}
                 <br />
                 {addr.city}
                 {addr.state ? `, ${addr.state}` : ''} {addr.postalCode}
