@@ -90,6 +90,31 @@ function isoMinute(date: Date): string {
   return `${date.toISOString().slice(0, 16)}Z`;
 }
 
+/** Hosts de los que el convertidor de imágenes acepta descargar. */
+const FEED_IMAGE_HOSTS = ['cdn.tienda.numerologia-cotidiana.com', 'tienda.numerologia-cotidiana.com'];
+
+/** true si la URL es una imagen de la tienda o de su CDN (evita un proxy abierto). */
+export function isAllowedFeedImageSource(src: string, appUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return false;
+  }
+  const app = new URL(appUrl);
+  if (url.host === app.host) return url.protocol === app.protocol;
+  return url.protocol === 'https:' && FEED_IMAGE_HOSTS.includes(url.hostname);
+}
+
+/**
+ * Meta acepta JPG/PNG. Las demás (WebP, GIF…) se sirven convertidas a JPG
+ * 1080×1080 con /feeds/imagen.jpg.
+ */
+export function metaImageUrl(url: string, appUrl: string): string {
+  if (/\.(jpe?g|png)(?:$|[?#])/i.test(url)) return url;
+  return `${appUrl.replace(/\/+$/, '')}/feeds/imagen.jpg?src=${encodeURIComponent(url)}`;
+}
+
 const CUSTOM_TYPE_LABEL = { digital: 'digital', physical: 'fisico' } as const;
 
 export function buildMetaCatalogItems(
@@ -115,7 +140,9 @@ export function buildMetaCatalogItems(
       // Foto propia de la variante (p. ej. color de la agenda) si existe y es apta.
       const ownImage = variantImage(product.slug, rawImages, attributesOf(variant.attributes));
       const ownImageUrl = ownImage && isRasterImage(ownImage) ? shareableImages([ownImage], opts.appUrl)[0] : null;
-      const gallery = ownImageUrl ? [ownImageUrl, ...images.filter((i) => i !== ownImageUrl)] : images;
+      const gallery = (ownImageUrl ? [ownImageUrl, ...images.filter((i) => i !== ownImageUrl)] : images).map(
+        (image) => metaImageUrl(image, opts.appUrl),
+      );
       // Sin imagen apta (solo SVG o sin fotos) Meta rechazaría el artículo.
       if (gallery.length === 0) continue;
 

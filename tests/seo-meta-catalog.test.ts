@@ -188,3 +188,27 @@ describe('JSON-LD de producto', () => {
     assert.equal(data.itemListElement[1].item, `${APP}/productos/quien-soy`);
   });
 });
+
+describe('imágenes para Meta', () => {
+  it('JPG/PNG se mandan tal cual; WebP pasa por el convertidor a JPG', () => {
+    const [item] = buildMetaCatalogItems(
+      [product({ images: ['https://cdn.tienda.numerologia-cotidiana.com/a.webp', 'https://cdn.tienda.numerologia-cotidiana.com/b.png'] })],
+      { appUrl: APP, now: NOW },
+    );
+    assert.equal(
+      item.image_link,
+      `${APP}/feeds/imagen.jpg?src=${encodeURIComponent('https://cdn.tienda.numerologia-cotidiana.com/a.webp')}`,
+    );
+    assert.deepEqual(item.additional_image_link, ['https://cdn.tienda.numerologia-cotidiana.com/b.png']);
+  });
+
+  it('el convertidor solo acepta imágenes de la tienda o su CDN', async () => {
+    const { isAllowedFeedImageSource } = await import('../lib/meta-catalog');
+    assert.equal(isAllowedFeedImageSource('https://cdn.tienda.numerologia-cotidiana.com/x.webp', APP), true);
+    assert.equal(isAllowedFeedImageSource(`${APP}/images/a.webp`, APP), true);
+    assert.equal(isAllowedFeedImageSource('https://evil.example.com/x.webp', APP), false);
+    assert.equal(isAllowedFeedImageSource('http://cdn.tienda.numerologia-cotidiana.com/x.webp', APP), false);
+    assert.equal(isAllowedFeedImageSource('file:///etc/passwd', APP), false);
+    assert.equal(isAllowedFeedImageSource('no es url', APP), false);
+  });
+});
