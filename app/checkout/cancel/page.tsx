@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Pago cancelado' };
+export const metadata: Metadata = { title: 'Pago cancelado', robots: { index: false } };
 
 export default function CancelPage() {
   return (

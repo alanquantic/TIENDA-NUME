@@ -52,14 +52,14 @@ export const NUMERATHUM_PLANS = [
     slug: 'numerathum-espejo',
     name: 'Numerathum Espejo',
     planCode: 'numerathum-espejo',
-    image: '/images/numerathum/espejo.svg',
+    image: '/images/numerathum/espejo.jpg',
     prices: { monthly: '149.00', annual: '1099.00' },
   },
   {
     slug: 'numerathum-horizonte-60',
     name: 'Numerathum Horizonte 60',
     planCode: 'numerathum-horizonte-60',
-    image: '/images/numerathum/horizonte-60.svg',
+    image: '/images/numerathum/horizonte-60.jpg',
     prices: { monthly: '189.00', annual: '1599.00' },
   },
   {
@@ -67,7 +67,7 @@ export const NUMERATHUM_PLANS = [
     name: 'Numerathum Oráculo 365',
     // Mismo código que el Oráculo 365 que ya se vendía: es el mismo acceso.
     planCode: 'numerathum-oraculo-365',
-    image: '/images/numerathum/oraculo-365.svg',
+    image: '/images/numerathum/oraculo-365.jpg',
     // Exclusivamente anual.
     prices: { monthly: null, annual: '1899.00' },
   },

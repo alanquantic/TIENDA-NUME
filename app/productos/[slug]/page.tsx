@@ -27,6 +27,14 @@ import { PriceWithSale, SaleBadge, formatSaleEnd } from '@/components/sale-price
 import { isAdminAuthed } from '@/lib/admin-auth';
 import { adminHref } from '@/lib/admin-path';
 import { NUMERATHUM_PLANS, NUMERATHUM_SCREENSHOTS } from '@/lib/numerathum-plans';
+import { config } from '@/lib/config';
+import {
+  jsonLdString,
+  metaDescription,
+  productBreadcrumbJsonLd,
+  productJsonLd,
+  shareableImages,
+} from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -302,11 +310,32 @@ export async function generateMetadata({
   if (data.preview) {
     return { title: `Vista previa: ${data.product.name}`, robots: { index: false, follow: false } };
   }
+  const { product } = data;
+  // Descripción corta (~155 caracteres) para Google y redes; antes se mandaba
+  // el texto completo con la lista de beneficios.
+  const description =
+    metaDescription(product.shortDescription) ||
+    metaDescription(product.description ? getDisplayDescription(product.slug, product.description) : null) ||
+    undefined;
+  const path = `/productos/${product.slug}`;
+  const images = shareableImages(product.images, config.appUrl).slice(0, 4);
   return {
-    title: data.product.name,
-    description: data.product.description
-      ? getDisplayDescription(data.product.slug, data.product.description)
-      : undefined,
+    title: product.name,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      type: 'website',
+      url: path,
+      title: product.name,
+      ...(description ? { description } : {}),
+      ...(images.length > 0 ? { images: images.map((url) => ({ url, alt: product.name })) } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.name,
+      ...(description ? { description } : {}),
+      ...(images.length > 0 ? { images: [images[0]] } : {}),
+    },
   };
 }
 
@@ -348,7 +377,28 @@ export default async function ProductPage({ params }: { params: { slug: string }
     getAgendaUpsellTarget(),
     getAvailablePaymentMethods(),
   ]);
-  const categorySlug = categories.find((c) => c.id === product.categoryId)?.slug ?? null;
+  const category = categories.find((c) => c.id === product.categoryId) ?? null;
+  const categorySlug = category?.slug ?? null;
+  // Datos estructurados (resultados enriquecidos de Google: precio, disponibilidad, imagen).
+  const structuredData = preview
+    ? null
+    : jsonLdString([
+        productJsonLd(
+          {
+            slug: product.slug,
+            name: product.name,
+            description: product.description ? getDisplayDescription(product.slug, product.description) : null,
+            shortDescription: product.shortDescription,
+            type: product.type,
+            currency: product.currency,
+            images: product.images,
+            categoryName: category?.name ?? null,
+          },
+          variants,
+          { appUrl: config.appUrl },
+        ),
+        productBreadcrumbJsonLd(product, config.appUrl),
+      ]);
   const annualVariant = categorySlug === 'planes-numerathum'
     ? pricedVariants.find(({ variant }) => {
         const attributes = (variant.attributes ?? {}) as Record<string, unknown>;
@@ -376,6 +426,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 pb-[calc(8rem+env(safe-area-inset-bottom))]">
+      {structuredData && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
+      )}
       {preview && (
         <div
           role="status"

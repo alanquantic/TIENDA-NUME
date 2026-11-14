@@ -18,7 +18,7 @@ import { PendingPaymentRefresh } from '@/components/pending-payment-refresh';
 import { ORDER_ACCESS_COOKIE, readOrderAccess } from '@/lib/order-access';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Tu pedido' };
+export const metadata: Metadata = { title: 'Tu pedido', robots: { index: false } };
 
 type StoredReportInput = {
   previewUrl?: string | null;

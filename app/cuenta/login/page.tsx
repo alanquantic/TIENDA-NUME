@@ -7,7 +7,7 @@ import { getSessionUser } from '@/lib/nume-session';
 import { NUME_SITE_URL } from '@/lib/nume-site';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Iniciar sesión' };
+export const metadata: Metadata = { title: 'Iniciar sesión', robots: { index: false } };
 
 export default async function AccountLoginPage() {
   const user = await getSessionUser();

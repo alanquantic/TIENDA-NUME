@@ -13,7 +13,7 @@ import {
 } from '@/components/checkout-form';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Checkout' };
+export const metadata: Metadata = { title: 'Checkout', robots: { index: false } };
 
 /**
  * Con sesión iniciada, precarga los datos del cliente: el correo viene de la

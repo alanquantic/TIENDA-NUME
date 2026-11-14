@@ -7,6 +7,12 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Planes Numerathum',
   description: 'Compara los planes Espejo, Horizonte 60 y Oráculo 365 con opciones de pago único mensual o anual.',
+  alternates: { canonical: '/planes' },
+  openGraph: {
+    url: '/planes',
+    title: 'Planes Numerathum',
+    description: 'Compara los planes Espejo, Horizonte 60 y Oráculo 365 con opciones de pago único mensual o anual.',
+  },
 };
 
 export default async function PlansPage() {

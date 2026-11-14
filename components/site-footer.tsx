@@ -2,7 +2,7 @@ import { config } from '@/lib/config';
 import { sectionHref } from '@/lib/catalog-sections';
 import { NUME_SITE_URL } from '@/lib/nume-site';
 import { listFooterSections } from '@/lib/queries';
-import { SITE_BRAND, SITE_DESCRIPTION, SITE_LOGO_URL, SITE_TITLE } from '@/lib/site';
+import { SITE_BRAND, SITE_DESCRIPTION, SITE_LOGO_PATH, SITE_TITLE } from '@/lib/site';
 import { SOCIAL_PROFILE_URLS, SocialLinks } from '@/components/ui/social-links';
 
 type FooterLink = { label: string; href: string; external?: boolean };
@@ -36,7 +36,7 @@ function structuredData(): string {
         '@id': `${url}/#organization`,
         name: SITE_BRAND,
         url,
-        logo: SITE_LOGO_URL,
+        logo: `${url}${SITE_LOGO_PATH}`,
         sameAs: SOCIAL_PROFILE_URLS,
       },
       {

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getAgendaUpsellTarget, listCategories, listProducts } from '@/lib/queries';
 import { groupCatalogSections } from '@/lib/catalog-sections';
 import { ListingTracker } from '@/components/analytics/listing-tracker';
@@ -6,6 +7,8 @@ import { ProductCard } from '@/components/product-card';
 import { BuenFinBanner } from '@/components/buen-fin-banner';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 export default async function HomePage() {
   const [products, categories, upsell] = await Promise.all([
@@ -18,6 +21,10 @@ export default async function HomePage() {
 
   return (
     <div className="w-full px-4 sm:px-6 py-6">
+      {/* Encabezado principal para buscadores y lectores de pantalla (no cambia el diseño). */}
+      <h1 className="sr-only">
+        Tienda en línea de Numerología Cotidiana: agendas numerológicas, reportes personalizados, cursos y membresías
+      </h1>
       <div className="flex flex-col md:flex-row gap-6 lg:gap-8">
         {/* Sidebar de categorías */}
         <aside className="md:w-56 md:shrink-0">
