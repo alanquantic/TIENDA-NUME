@@ -19,7 +19,7 @@ import { AccountLogoutButton } from '@/components/account-logout-button';
 import { AccountResendVerification } from '@/components/account-resend-verification';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Mi cuenta' };
+export const metadata: Metadata = { title: 'Mi cuenta', robots: { index: false } };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendiente',

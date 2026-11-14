@@ -9,6 +9,12 @@ export const SITE_BRAND = 'Numerología Cotidiana';
 export const SITE_DESCRIPTION =
   'Agendas numerológicas, reportes numerológicos personalizados, cursos, libros y membresías para vivir la numerología en tu día a día con Laura L. Rodríguez.';
 
-/** Logo morado (el del favicon), apto para fondos claros y para buscadores. */
-export const SITE_LOGO_URL =
-  'https://woocommerce-883512-3174482.cloudwaysapps.com/wp-content/uploads/2023/06/cropped-LOGO_Morado-192x192.png';
+/**
+ * Logo morado (el del favicon, 512×512), servido por la propia tienda. Antes
+ * apuntaba al servidor de WooCommerce, que ya no responde. Ruta relativa: se
+ * vuelve absoluta con `config.appUrl`.
+ */
+export const SITE_LOGO_PATH = '/images/logo-numerologia-cotidiana.png';
+
+/** Imagen por defecto al compartir la tienda en redes (1200×630). */
+export const SITE_OG_IMAGE_PATH = '/images/og-tienda-numerologia-cotidiana.jpg';
