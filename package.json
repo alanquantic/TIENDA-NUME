@@ -9,7 +9,7 @@
         "lint": "next lint",
         "typecheck": "tsc --noEmit",
         "test:auth": "node --import tsx --test tests/session-persistence.test.ts",
-        "test:analytics": "node --import tsx --test tests/meta-pixel.test.ts",
+        "test:analytics": "node --import tsx --test tests/meta-pixel.test.ts tests/meta-capi.test.ts",
         "test:monday": "node --import tsx --test tests/monday-agenda-2027.test.ts tests/monday-numerathum.test.ts tests/monday-libro.test.ts",
         "test:email": "node --import tsx --test tests/order-notification.test.ts",
         "test:admin": "node --import tsx --test tests/admin-security.test.ts tests/admin-filters.test.ts tests/admin-orders.test.ts",

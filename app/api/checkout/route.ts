@@ -14,6 +14,7 @@ import { getAvailablePaymentMethods, PAYMENT_METHOD_LABEL } from '@/lib/payments
 import { createMpPreference } from '@/lib/payments/mercadopago';
 import { createPpOrder } from '@/lib/payments/paypal';
 import { orderAccessCookie } from '@/lib/order-access';
+import { requestContext } from '@/lib/meta-capi';
 import {
   reportsForSlug,
   AGENDA_2025_COLORS,
@@ -157,6 +158,22 @@ export async function POST(req: Request) {
     );
   }
 
+  // Contexto para la API de Conversiones de Meta (cookies _fbp/_fbc, IP y
+  // navegador). Solo se guarda si el visitante aceptó cookies de publicidad.
+  const metaCtx = requestContext(req);
+  const metaMetadata = metaCtx.adConsent
+    ? {
+        meta: {
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+          clientIp: metaCtx.clientIp,
+          userAgent: metaCtx.userAgent,
+          adConsent: true,
+          sourceUrl: `${baseUrl}/checkout`,
+        },
+      }
+    : {};
+
   // 2) Crear pedido pending + ítems (snapshot inmutable).
   const number = generateOrderNumber();
   const [order] = await db
@@ -182,7 +199,7 @@ export async function POST(req: Request) {
       shippingAddress: input.shippingAddress ?? null,
       requiresInvoice: input.requiresInvoice ?? false,
       billingInfo: input.requiresInvoice ? (input.billingInfo ?? null) : null,
-      metadata: method ? { paymentMode: method.mode } : {},
+      metadata: { ...(method ? { paymentMode: method.mode } : {}), ...metaMetadata },
     })
     .returning();
 

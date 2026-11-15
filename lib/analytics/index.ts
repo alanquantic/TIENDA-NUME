@@ -15,3 +15,5 @@ export {
   itemsValue,
   inferCurrency
 } from './ecommerce'
+export { setMetaHashedUserData, setMetaUserData } from './meta-pixel'
+export type { MetaUserDataInput } from './meta-pixel'

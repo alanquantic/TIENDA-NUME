@@ -8,6 +8,8 @@ import { cartForOrder, cartRecoveryUrl, markCartNotified, markCartPurchased } fr
 import { sendOrderConfirmation, sendOrderFailed, sendOrderNotification } from './email';
 import type { EmailAddress, OrderEmailData } from './email-templates';
 import { isTestPayment } from './payments/test-payment';
+import { buildPurchaseEvent, storedMetaContext } from './meta-capi';
+import { sendMetaEvents } from './meta-capi-send';
 import { isReportGeneratorConfigured, submitReport } from './report-generator';
 import { reportEngineForKey, type ReportEngine, type ReportKey } from './report-catalog';
 import {
@@ -275,6 +277,13 @@ export async function fulfillOrder(orderId: string, meta: FulfillMeta = {}): Pro
   await markCartPurchased(order).catch((err) =>
     console.error('[fulfillment] no se pudo cerrar el carrito', order.number, err),
   );
+  // Compra a la API de Conversiones de Meta (mismo event_id que el Pixel). Solo
+  // con consentimiento de publicidad y nunca para pagos de prueba.
+  if (storedMetaContext(order.metadata)?.adConsent && !isTestPayment(order)) {
+    await sendMetaEvents([buildPurchaseEvent(order, items, { appUrl: config.appUrl })]).catch((err) =>
+      console.error('[fulfillment] no se pudo mandar la compra a Meta', order.number, err),
+    );
+  }
   const { reportLinks, pendingAiReports } = await generateReportsForOrder(order.id, items);
 
   const info = await productInfoFor(items);
