@@ -168,5 +168,29 @@ Como aquí la tienda usa `G-HE7B57PCBV` y WEB-NUME usa `G-42049MCJ59` (propiedad
 ## Pendientes
 
 - Sumar TikTok Pixel (contrato ya tipado; mismo patrón que `meta-pixel.ts`).
-- CAPI (Conversions API) de Meta server-side: `purchase` desde los webhooks de pago evita perder ventas por ad-blockers o por no aceptar el banner. Usar `event_id = purchase-<número de pedido>` para que Meta lo deduplique con el del navegador.
 - Refund tracking desde el flujo de reembolsos del admin.
+
+## API de Conversiones de Meta (servidor)
+
+Complementa al Pixel y a la API hospedada por Meta. Todo con el mismo `event_id`
+que el navegador, así Meta deduplica.
+
+- **Purchase**: lo manda `fulfillOrder` cuando el pedido pasa a pagado (webhooks de
+  Mercado Pago/PayPal, retorno de PayPal o pedido de $0). `event_id =
+  purchase-<número>`. Lleva correo, teléfono, nombre, fecha de nacimiento, ciudad,
+  estado y CP cifrados (SHA-256), `external_id`, IP, navegador y `_fbp`/`_fbc`
+  guardados en `orders.metadata.meta` al crear el checkout.
+- **ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo**: el navegador manda
+  una copia a `/api/meta/events` (petición a la propia tienda, la frenan menos los
+  bloqueadores) y el servidor la reenvía a Meta con IP, navegador y cookies.
+- **Coincidencia avanzada en el Pixel**: el checkout pasa correo, teléfono, nombre
+  y dirección (`setMetaUserData`); la página de compra exitosa pasa los datos del
+  pedido ya cifrados (`setMetaHashedUserData`).
+- **Consentimiento**: nada se manda a Meta si el visitante no aceptó cookies de
+  publicidad (`tienda_consent.s.ad_storage = granted`). Los pagos de prueba no se mandan.
+
+Variables en Vercel: `META_CAPI_ACCESS_TOKEN` (obligatoria para activar el envío),
+`NEXT_PUBLIC_META_PIXEL_ID` y, opcional, `META_CAPI_TEST_EVENT_CODE` para ver los
+eventos en "Probar eventos". Sin token, la tienda funciona igual y no manda nada
+del servidor. Código: `lib/meta-capi.ts` (puro, con pruebas en
+`tests/meta-capi.test.ts`) y `lib/meta-capi-send.ts` (envío).

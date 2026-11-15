@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-import { track, type EcommerceItem } from '@/lib/analytics'
+import { setMetaHashedUserData, track, type EcommerceItem } from '@/lib/analytics'
 
 const STORAGE_KEY = 'tienda_purchase_fired'
 
@@ -15,7 +15,8 @@ export function PurchaseTracker({
   items,
   tax,
   shipping,
-  coupon
+  coupon,
+  metaUser
 }: {
   transactionId: string
   currency: string
@@ -24,6 +25,8 @@ export function PurchaseTracker({
   tax?: number
   shipping?: number
   coupon?: string
+  /** Datos del comprador ya cifrados (SHA-256) para la coincidencia avanzada de Meta. */
+  metaUser?: Record<string, string>
 }) {
   const fired = useRef(false)
   useEffect(() => {
@@ -37,6 +40,7 @@ export function PurchaseTracker({
         (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key))
       if (already) return
 
+      if (metaUser) setMetaHashedUserData(metaUser)
       track('purchase', {
         transaction_id: transactionId,
         currency,
@@ -53,7 +57,7 @@ export function PurchaseTracker({
     } catch {
       // no romper el render si storage falla
     }
-  }, [transactionId, currency, value, items, tax, shipping, coupon])
+  }, [transactionId, currency, value, items, tax, shipping, coupon, metaUser])
 
   return null
 }
