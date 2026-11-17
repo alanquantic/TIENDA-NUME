@@ -285,3 +285,21 @@ describe('ofertas en el formato de Meta', () => {
     assert.equal(specs.find((p) => p.priceType === 'https://schema.org/StrikethroughPrice')?.price, '209.00');
   });
 });
+
+describe('Numerathum en el catálogo', () => {
+  it('un plan sin foto propia usa su portada JPG (antes quedaba fuera del feed)', () => {
+    const items = buildMetaCatalogItems(
+      [product({ id: 'p-esp', slug: 'numerathum-espejo', name: 'Numerathum Espejo', images: [], variants: [variant({ id: 'v-esp', priceAmount: '1099.00', salePriceAmount: '769.30', saleEndsAt: new Date('2026-11-18T06:00:00Z') })] })],
+      { appUrl: APP, now: NOW },
+    );
+    assert.equal(items.length, 1);
+    assert.equal(items[0].image_link, `${APP}/images/numerathum/espejo.jpg`);
+    assert.ok(items[0].additional_image_link.length > 0);
+    assert.equal(items[0].sale_price, '769.30 MXN');
+  });
+
+  it('un producto cualquiera sin imagen sigue fuera del feed', () => {
+    const items = buildMetaCatalogItems([product({ slug: 'otro', images: [] })], { appUrl: APP, now: NOW });
+    assert.equal(items.length, 0);
+  });
+});

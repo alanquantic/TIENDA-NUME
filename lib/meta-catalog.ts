@@ -11,6 +11,7 @@
 import { SITE_BRAND, SITE_DESCRIPTION, SITE_TITLE } from './site';
 import { formatAmount, isRasterImage, plainText, shareableImages, variantInStock, type SeoVariant } from './seo';
 import { variantImage } from './variant-image';
+import { NUMERATHUM_PLANS, NUMERATHUM_SCREENSHOTS } from './numerathum-plans';
 
 export type CatalogVariant = SeoVariant & {
   attributes: unknown;
@@ -205,6 +206,20 @@ export function productMetaTags(
   return tags;
 }
 
+/**
+ * Imágenes del producto para el catálogo. Los planes Numerathum se dieron de
+ * alta sin foto propia (la ficha solo muestra capturas de la app), así que el
+ * feed los descartaba por no tener imagen. Si un plan no tiene foto apta se
+ * usa su portada JPG de /images/numerathum y las capturas como adicionales.
+ */
+export function catalogImages(product: Pick<CatalogProduct, 'slug' | 'images'>, appUrl: string): string[] {
+  const own = shareableImages(product.images, appUrl);
+  if (own.length > 0) return own;
+  const plan = NUMERATHUM_PLANS.find((entry) => entry.slug === product.slug);
+  if (!plan) return own;
+  return shareableImages([plan.image, ...NUMERATHUM_SCREENSHOTS], appUrl);
+}
+
 const CUSTOM_TYPE_LABEL = { digital: 'digital', physical: 'fisico' } as const;
 
 export function buildMetaCatalogItems(
@@ -216,7 +231,7 @@ export function buildMetaCatalogItems(
 
   for (const product of products) {
     if (isExcludedFromCatalog(product.metadata)) continue;
-    const images = shareableImages(product.images, opts.appUrl);
+    const images = catalogImages(product, opts.appUrl);
     const rawImages = Array.isArray(product.images)
       ? (product.images as unknown[]).filter((i): i is string => typeof i === 'string')
       : [];

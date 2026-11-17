@@ -28,13 +28,12 @@ import { isAdminAuthed } from '@/lib/admin-auth';
 import { adminHref } from '@/lib/admin-path';
 import { NUMERATHUM_PLANS, NUMERATHUM_SCREENSHOTS } from '@/lib/numerathum-plans';
 import { config } from '@/lib/config';
-import { productMetaTags } from '@/lib/meta-catalog';
+import { catalogImages, productMetaTags } from '@/lib/meta-catalog';
 import {
   jsonLdString,
   metaDescription,
   productBreadcrumbJsonLd,
   productJsonLd,
-  shareableImages,
 } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
@@ -319,7 +318,7 @@ export async function generateMetadata({
     metaDescription(product.description ? getDisplayDescription(product.slug, product.description) : null) ||
     undefined;
   const path = `/productos/${product.slug}`;
-  const images = shareableImages(product.images, config.appUrl).slice(0, 4);
+  const images = catalogImages(product, config.appUrl).slice(0, 4);
   return {
     title: product.name,
     description,
