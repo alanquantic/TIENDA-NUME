@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildMetaCatalogItems, renderMetaCatalogRss, type CatalogProduct } from '../lib/meta-catalog';
+import {
+  buildMetaCatalogItems,
+  metaDateTime,
+  productMetaTags,
+  renderMetaCatalogRss,
+  type CatalogProduct,
+} from '../lib/meta-catalog';
 import { metaDescription, productBreadcrumbJsonLd, productJsonLd, shareableImages } from '../lib/seo';
 
 const APP = 'https://tienda.numerologia-cotidiana.com';
@@ -117,7 +123,7 @@ describe('catálogo de Meta', () => {
       { appUrl: APP, now: NOW },
     );
     assert.equal(item.sale_price, '146.30 MXN');
-    assert.equal(item.sale_price_effective_date, '2026-11-13T06:00Z/2026-11-18T05:59Z');
+    assert.equal(item.sale_price_effective_date, '2026-11-13T00:00-06:00/2026-11-17T23:59-06:00');
     assert.equal(item.custom_label_2, 'oferta');
   });
 
@@ -210,5 +216,72 @@ describe('imágenes para Meta', () => {
     assert.equal(isAllowedFeedImageSource('http://cdn.tienda.numerologia-cotidiana.com/x.webp', APP), false);
     assert.equal(isAllowedFeedImageSource('file:///etc/passwd', APP), false);
     assert.equal(isAllowedFeedImageSource('no es url', APP), false);
+  });
+});
+
+describe('ofertas en el formato de Meta', () => {
+  it('fechas en hora de México con offset -06:00 (formato documentado por Meta)', () => {
+    assert.equal(metaDateTime(new Date('2026-11-18T05:59:00Z')), '2026-11-17T23:59-06:00');
+    assert.equal(metaDateTime(new Date('2026-07-01T00:30:00Z')), '2026-06-30T18:30-06:00');
+    assert.doesNotMatch(metaDateTime(new Date()), /Z$/);
+  });
+
+  it('oferta sin inicio: la ventana arranca "ahora" y termina en su fin', () => {
+    const [item] = buildMetaCatalogItems(
+      [product({ variants: [variant({ salePriceAmount: '146.30', saleEndsAt: new Date('2026-11-18T06:00:00Z') })] })],
+      { appUrl: APP, now: NOW },
+    );
+    assert.equal(item.price, '209.00 MXN');
+    assert.equal(item.sale_price, '146.30 MXN');
+    assert.equal(item.sale_price_effective_date, '2026-11-15T06:00-06:00/2026-11-18T00:00-06:00');
+  });
+
+  it('el feed publica la fecha con -06:00, nunca con Z', () => {
+    const items = buildMetaCatalogItems(
+      [product({ variants: [variant({ salePriceAmount: '146.30', saleEndsAt: new Date('2026-11-18T06:00:00Z') })] })],
+      { appUrl: APP, now: NOW },
+    );
+    const xml = renderMetaCatalogRss(items, { appUrl: APP });
+    assert.match(xml, /<g:sale_price_effective_date>2026-11-15T06:00-06:00\/2026-11-18T00:00-06:00<\/g:sale_price_effective_date>/);
+    assert.doesNotMatch(xml, /\d{2}:\d{2}Z/);
+  });
+
+  it('etiquetas product:* de la ficha: precio REGULAR + oferta, mismo id que el feed', () => {
+    const v = variant({
+      id: 'var-1',
+      salePriceAmount: '146.30',
+      saleStartsAt: new Date('2026-11-13T06:00:00Z'),
+      saleEndsAt: new Date('2026-11-18T05:59:00Z'),
+    });
+    const tags = Object.fromEntries(productMetaTags(product(), v, { now: NOW }));
+    const [feedItem] = buildMetaCatalogItems([product({ variants: [v] })], { appUrl: APP, now: NOW });
+    assert.equal(tags['product:retailer_item_id'], feedItem.id);
+    assert.equal(tags['product:item_group_id'], 'prod-1');
+    assert.equal(tags['product:price:amount'], '209.00');
+    assert.equal(tags['product:price:currency'], 'MXN');
+    assert.equal(tags['product:sale_price:amount'], '146.30');
+    assert.equal(tags['product:sale_price_dates:start'], '2026-11-13T00:00-06:00');
+    assert.equal(tags['product:sale_price_dates:end'], '2026-11-17T23:59-06:00');
+    assert.equal(tags['product:availability'], 'in stock');
+  });
+
+  it('sin oferta vigente no hay etiquetas de sale_price', () => {
+    const tags = Object.fromEntries(
+      productMetaTags(product(), variant({ salePriceAmount: '100.00', saleEndsAt: new Date('2026-11-01T00:00:00Z') }), { now: NOW }),
+    );
+    assert.equal(tags['product:price:amount'], '209.00');
+    assert.equal(tags['product:sale_price:amount'], undefined);
+  });
+
+  it('JSON-LD en oferta: price = lo que se cobra y el regular como StrikethroughPrice', () => {
+    const data = productJsonLd(
+      { slug: 'quien-soy', name: 'Q', description: null, shortDescription: null, type: 'digital', currency: 'MXN', images: [], categoryName: null },
+      [variant({ salePriceAmount: '146.30', saleEndsAt: new Date('2026-11-18T06:00:00Z') })],
+      { appUrl: APP, now: NOW },
+    );
+    const offer = data.offers as Record<string, unknown>;
+    assert.equal(offer.price, '146.30');
+    const specs = offer.priceSpecification as Array<Record<string, unknown>>;
+    assert.equal(specs.find((p) => p.priceType === 'https://schema.org/StrikethroughPrice')?.price, '209.00');
   });
 });

@@ -85,9 +85,64 @@ function toDate(value: Date | string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** ISO 8601 sin milisegundos, en UTC: lo que pide sale_price_effective_date. */
-function isoMinute(date: Date): string {
-  return `${date.toISOString().slice(0, 16)}Z`;
+/**
+ * Fecha para Meta en el formato EXACTO de su documentación
+ * (`YYYY-MM-DDTHH:MM-06:00`): hora del centro de México con offset explícito.
+ * Antes se mandaba en UTC con sufijo "Z", que Meta no documenta y puede
+ * ignorar (y con ello la oferta). México usa UTC-6 todo el año desde 2022.
+ */
+const MEXICO_OFFSET_MINUTES = -6 * 60;
+export function metaDateTime(date: Date): string {
+  const local = new Date(date.getTime() + MEXICO_OFFSET_MINUTES * 60_000);
+  return `${local.toISOString().slice(0, 16)}-06:00`;
+}
+
+export type MetaSaleFields = {
+  /** Precio regular ("209.00 MXN"). */
+  price: string;
+  sale_price?: string;
+  sale_price_effective_date?: string;
+  /** La oferta ya está vigente (no solo programada). */
+  saleLive: boolean;
+  saleStart?: Date;
+  saleEnd?: Date;
+};
+
+/**
+ * Precio regular + oferta de una variante tal como los quiere Meta. Lo usan el
+ * feed y las etiquetas product:* de la ficha, para que ambos digan lo mismo.
+ * La oferta solo se manda si es menor al precio y no ha terminado; Meta la
+ * aplica únicamente dentro de sale_price_effective_date.
+ */
+export function metaSaleFields(
+  variant: Pick<CatalogVariant, 'priceAmount' | 'salePriceAmount' | 'saleStartsAt' | 'saleEndsAt'>,
+  currency: string,
+  now: Date,
+): MetaSaleFields {
+  const fields: MetaSaleFields = { price: `${formatAmount(variant.priceAmount)} ${currency}`, saleLive: false };
+  const sale = variant.salePriceAmount;
+  const endsAt = toDate(variant.saleEndsAt);
+  if (!sale || !(Number(sale) < Number(variant.priceAmount)) || (endsAt && endsAt <= now)) return fields;
+
+  fields.sale_price = `${formatAmount(sale)} ${currency}`;
+  const startsAt = toDate(variant.saleStartsAt);
+  let start: Date | undefined;
+  let end: Date | undefined;
+  if (endsAt) {
+    start = startsAt ?? now;
+    end = endsAt;
+  } else if (startsAt && startsAt > now) {
+    // Oferta futura sin fin: se publica a partir de su inicio, por un año.
+    start = startsAt;
+    end = new Date(startsAt.getTime() + 365 * 86_400_000);
+  }
+  if (start && end) {
+    fields.sale_price_effective_date = `${metaDateTime(start)}/${metaDateTime(end)}`;
+    fields.saleStart = start;
+    fields.saleEnd = end;
+  }
+  fields.saleLive = !startsAt || startsAt <= now;
+  return fields;
 }
 
 /** Hosts de los que el convertidor de imágenes acepta descargar. */
@@ -113,6 +168,41 @@ export function isAllowedFeedImageSource(src: string, appUrl: string): boolean {
 export function metaImageUrl(url: string, appUrl: string): string {
   if (/\.(jpe?g|png)(?:$|[?#])/i.test(url)) return url;
   return `${appUrl.replace(/\/+$/, '')}/feeds/imagen.jpg?src=${encodeURIComponent(url)}`;
+}
+
+/**
+ * Etiquetas Open Graph `product:*` de la ficha (microdatos de Meta). El pixel
+ * las lee al cargar la página; si no están, Meta puede tomar el precio de los
+ * datos estructurados (que traen el precio YA rebajado) como precio regular y
+ * entonces la oferta del feed deja de ser "menor al precio" y no se muestra.
+ * `retailer_item_id` = la variante que el pixel reporta en ViewContent (la
+ * primera), igual que el `id` del feed.
+ */
+export function productMetaTags(
+  product: Pick<CatalogProduct, 'id' | 'type' | 'currency'>,
+  variant: CatalogVariant | SeoVariant,
+  opts: { now?: Date } = {},
+): Array<[property: string, content: string]> {
+  const now = opts.now ?? new Date();
+  const sale = metaSaleFields(variant, product.currency, now);
+  const tags: Array<[string, string]> = [
+    ['product:retailer_item_id', variant.id],
+    ['product:item_group_id', product.id],
+    ['product:brand', SITE_BRAND],
+    ['product:availability', variantInStock(product.type, variant) ? 'in stock' : 'out of stock'],
+    ['product:condition', 'new'],
+    ['product:price:amount', formatAmount(variant.priceAmount)],
+    ['product:price:currency', product.currency],
+  ];
+  if (sale.sale_price && variant.salePriceAmount) {
+    tags.push(['product:sale_price:amount', formatAmount(variant.salePriceAmount)]);
+    tags.push(['product:sale_price:currency', product.currency]);
+    if (sale.saleStart && sale.saleEnd) {
+      tags.push(['product:sale_price_dates:start', metaDateTime(sale.saleStart)]);
+      tags.push(['product:sale_price_dates:end', metaDateTime(sale.saleEnd)]);
+    }
+  }
+  return tags;
 }
 
 const CUSTOM_TYPE_LABEL = { digital: 'digital', physical: 'fisico' } as const;
@@ -164,21 +254,11 @@ export function buildMetaCatalogItems(
         ...(product.categorySlug ? { custom_label_1: product.categorySlug } : {}),
       };
 
-      // Oferta: solo si es menor al precio regular y no ha terminado. Meta
-      // aplica sale_price únicamente dentro de sale_price_effective_date.
-      const sale = variant.salePriceAmount;
-      const endsAt = toDate(variant.saleEndsAt);
-      if (sale && Number(sale) < Number(variant.priceAmount) && !(endsAt && endsAt <= now)) {
-        item.sale_price = `${formatAmount(sale)} ${product.currency}`;
-        const startsAt = toDate(variant.saleStartsAt);
-        if (endsAt) {
-          item.sale_price_effective_date = `${isoMinute(startsAt ?? now)}/${isoMinute(endsAt)}`;
-        } else if (startsAt && startsAt > now) {
-          // Oferta futura sin fin: se publica a partir de su inicio, por un año.
-          item.sale_price_effective_date = `${isoMinute(startsAt)}/${isoMinute(new Date(startsAt.getTime() + 365 * 86_400_000))}`;
-        }
-        const startsOk = !startsAt || startsAt <= now;
-        if (startsOk) item.custom_label_2 = 'oferta';
+      const sale = metaSaleFields(variant, product.currency, now);
+      if (sale.sale_price) {
+        item.sale_price = sale.sale_price;
+        if (sale.sale_price_effective_date) item.sale_price_effective_date = sale.sale_price_effective_date;
+        if (sale.saleLive) item.custom_label_2 = 'oferta';
       }
 
       items.push(item);
