@@ -128,7 +128,10 @@ export function CheckoutForm({
   const [country, setCountry] = useState('MX');
   const [address, setAddress] = useState({
     line1: '',
+    exteriorNumber: '',
     line2: '',
+    neighborhood: '',
+    crossStreets: '',
     city: '',
     state: '',
     postalCode: '',
@@ -359,7 +362,10 @@ export function CheckoutForm({
             ? {
                 name: `${firstName} ${lastName}`.trim(),
                 line1: address.line1,
+                exteriorNumber: address.exteriorNumber.trim(),
                 line2: address.line2 || null,
+                neighborhood: address.neighborhood.trim() || null,
+                crossStreets: address.crossStreets.trim() || null,
                 city: address.city,
                 state: address.state || null,
                 postalCode: address.postalCode,
@@ -647,24 +653,52 @@ export function CheckoutForm({
         {requiresShipping && (
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">Dirección de envío</h2>
-            <label className="flex flex-col">
-              <span className={labelCls}>
-                Calle y número <Req />
-              </span>
-              <input
-                required
-                placeholder="Calle y número"
-                value={address.line1}
-                onChange={(e) => setAddress({ ...address, line1: e.target.value })}
-                className={inputCls}
-              />
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex min-w-0 flex-col">
+                <span className={labelCls}>Calle <Req /></span>
+                <input
+                  required
+                  placeholder="Calle"
+                  value={address.line1}
+                  onChange={(e) => setAddress({ ...address, line1: e.target.value })}
+                  className={inputCls}
+                />
+              </label>
+              <label className="flex min-w-0 flex-col">
+                <span className={labelCls}>Número exterior <Req /></span>
+                <input
+                  required
+                  placeholder="Ej. 123 o S/N"
+                  value={address.exteriorNumber}
+                  onChange={(e) => setAddress({ ...address, exteriorNumber: e.target.value })}
+                  className={inputCls}
+                />
+              </label>
+            </div>
             <input
-              placeholder="Interior, colonia (opcional)"
+              placeholder="Interior (opcional)"
               value={address.line2}
               onChange={(e) => setAddress({ ...address, line2: e.target.value })}
               className={inputCls}
             />
+            <label className="flex flex-col">
+              <span className={labelCls}>Colonia (opcional)</span>
+              <input
+                placeholder="Colonia"
+                value={address.neighborhood}
+                onChange={(e) => setAddress({ ...address, neighborhood: e.target.value })}
+                className={inputCls}
+              />
+            </label>
+            <label className="flex flex-col">
+              <span className={labelCls}>Entre calles y referencias para localizar tu domicilio</span>
+              <input
+                placeholder="Ej. entre Av. Juárez y Calle Hidalgo, frente al parque"
+                value={address.crossStreets}
+                onChange={(e) => setAddress({ ...address, crossStreets: e.target.value })}
+                className={inputCls}
+              />
+            </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col">
                 <span className={labelCls}>

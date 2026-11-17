@@ -52,6 +52,9 @@ export async function POST(req: Request) {
 
   const resendId = event.data.email_id;
   const at = new Date(event.created_at);
+  // En un sql`` suelto el driver no sabe que el parámetro es una fecha y falla
+  // con un Date; se manda como texto ISO con el tipo explícito.
+  const atSql = sql`${at.toISOString()}::timestamptz`;
   const now = new Date();
 
   if (event.type === 'email.opened') {
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
       .update(emailMessages)
       .set({
         openCount: sql`${emailMessages.openCount} + 1`,
-        openedAt: sql`coalesce(${emailMessages.openedAt}, ${at})`,
+        openedAt: sql`coalesce(${emailMessages.openedAt}, ${atSql})`,
         updatedAt: now,
       })
       .where(eq(emailMessages.resendId, resendId));
@@ -68,9 +71,9 @@ export async function POST(req: Request) {
       .update(emailMessages)
       .set({
         clickCount: sql`${emailMessages.clickCount} + 1`,
-        clickedAt: sql`coalesce(${emailMessages.clickedAt}, ${at})`,
+        clickedAt: sql`coalesce(${emailMessages.clickedAt}, ${atSql})`,
         // Un clic implica que se abrió, aunque el pixel de apertura se bloquee.
-        openedAt: sql`coalesce(${emailMessages.openedAt}, ${at})`,
+        openedAt: sql`coalesce(${emailMessages.openedAt}, ${atSql})`,
         lastClickedUrl: event.data.click?.link ?? null,
         updatedAt: now,
       })

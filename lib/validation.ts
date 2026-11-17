@@ -34,7 +34,10 @@ export type BillingInfo = z.infer<typeof billingInfoSchema>;
 export const shippingAddressSchema = z.object({
   name: z.string().min(1),
   line1: z.string().min(1),
+  exteriorNumber: z.string().trim().min(1, 'El número exterior es obligatorio.').nullish(),
   line2: z.string().nullish(),
+  neighborhood: z.string().trim().nullish(),
+  crossStreets: z.string().trim().nullish(),
   city: z.string().min(1),
   state: z.string().trim().min(1, 'Selecciona un estado.'),
   postalCode: z.string().min(1),

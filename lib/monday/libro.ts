@@ -36,6 +36,8 @@ export function buildLibroPayload(order: MondayOrder, items: MondayItem[], optio
     quantity += item.quantity;
   }
   const address = (order.shippingAddress ?? {}) as Record<string, unknown>;
+  const neighborhood = text(address, 'neighborhood');
+  const exteriorNumber = text(address, 'exteriorNumber');
   let street = text(address, 'line1');
   const columns: MondayPayload['columns'] = {
     forma_compra2: { index: 16 }, // ALAN.
@@ -54,8 +56,15 @@ export function buildLibroPayload(order: MondayOrder, items: MondayItem[], optio
     else street = [street, `CP: ${postalCode}`].filter(Boolean).join(' · ');
   }
   if (street) columns.calle = street;
-  // Preserve the checkout address verbatim rather than guessing number/interior.
-  if (text(address, 'line2')) columns.colonia = text(address, 'line2');
+  // Older orders stored neighborhood and interior together in line2.
+  const colonia = neighborhood || (exteriorNumber ? '' : text(address, 'line2'));
+  if (colonia) columns.colonia = colonia;
+  const numbers = [
+    exteriorNumber,
+    (exteriorNumber || neighborhood) ? text(address, 'line2') : '',
+  ].filter(Boolean).join(' · ');
+  if (numbers) columns.n____n__int = numbers;
+  if (text(address, 'crossStreets')) columns.dup__of_estado = text(address, 'crossStreets');
   if (text(address, 'city')) columns.municipio_delegaci_n7 = text(address, 'city');
   if (text(address, 'state')) columns.estado31 = text(address, 'state');
   const phone = order.customerPhone?.trim() || text(address, 'phone');

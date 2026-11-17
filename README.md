@@ -167,11 +167,28 @@ opcionales están documentados en `.env.example`.
 - Los pagos simulados o sandbox se omiten por defecto. Para pruebas que deban
   crear registros en el tablero real, usar `MONDAY_SYNC_TEST_ORDERS=true`.
 
-El producto Numerathum `44759e92-c983-41f8-8ff4-c9e972d3bebb` crea su propio
-registro en el tablero `18379779965`, grupo `group_mkxprje7` («NUMERATHUM 2025»,
-nombre actual del grupo proporcionado). También se envía cuando se compra solo.
+Los productos activos de Planes Numerathum crean un registro por plan y pedido
+en el tablero `18379779965`, grupo `group_mkxprje7` («NUMERATHUM 2025»):
 
-- VENDEDOR es un dropdown distinto: ALAN usa `27`. PLAN usa ORACULO (`0`).
+| Plan | Producto | Opción PLAN |
+| --- | --- | --- |
+| Espejo | `872042a8-b6b6-472d-bca4-cdcd99d98a2c` | ESPEJO (`13`) |
+| Horizonte 60 | `47f6d348-edc7-4971-8c6a-f2eb3ff3a640` | HORIZONTE (`4`) |
+| Oráculo 365 | `bd660507-5d23-4451-a261-888bd8a5621e` | ORACULO (`0`) |
+
+Las variantes mensual/anual del mismo producto comparten registro e importe.
+Cada plan tiene su trabajo y reintentos independientes. `# PEDIDO WEB` contiene
+`<número de pedido>:<slug del plan>` para distinguir planes de un mismo pedido.
+El producto anterior `44759e92-c983-41f8-8ff4-c9e972d3bebb` deja de activar
+nuevos envíos; sus trabajos pendientes conservan el formato e idempotencia anteriores.
+
+Se conservan `MONDAY_NUMERATHUM_BOARD_ID` y `MONDAY_NUMERATHUM_GROUP_ID` como
+destino compartido. Los productos se configuran con
+`MONDAY_NUMERATHUM_ESPEJO_PRODUCT_ID`, `MONDAY_NUMERATHUM_HORIZONTE_PRODUCT_ID` y
+`MONDAY_NUMERATHUM_ORACULO_PRODUCT_ID`; si no se definen, se usan los IDs de la tabla.
+`MONDAY_NUMERATHUM_PRODUCT_ID` es la variable anterior y ya no se utiliza.
+
+- VENDEDOR es un dropdown distinto: ALAN usa `27`. PLAN corresponde al producto comprado.
 - Name recibe los nombres del comprador. Los apellidos del checkout se conservan
   juntos en Apellido Paterno, y Apellido Materno queda vacío hasta capturarlos por
   separado; no se intentan dividir automáticamente los apellidos compuestos.

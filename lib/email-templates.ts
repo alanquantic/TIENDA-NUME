@@ -25,7 +25,10 @@ const EMAIL_STORE_NAME = 'Tienda Numerología Cotidiana';
 export type EmailAddress = {
   name?: string;
   line1?: string;
+  exteriorNumber?: string | null;
   line2?: string | null;
+  neighborhood?: string | null;
+  crossStreets?: string | null;
   city?: string;
   state?: string | null;
   postalCode?: string;
@@ -218,7 +221,9 @@ function addressBlock(addr: EmailAddress | null): string {
 
   const parts = [
     esc(addr.name ?? ''),
-    esc(addr.line1 ?? '') + (addr.line2 ? `, ${esc(addr.line2)}` : ''),
+    esc(addr.line1 ?? '') + (addr.exteriorNumber ? ` ${esc(addr.exteriorNumber)}` : '') + (addr.line2 ? `, ${esc(addr.line2)}` : ''),
+    addr.neighborhood ? `Colonia: ${esc(addr.neighborhood)}` : '',
+    addr.crossStreets ? `Entre calles y referencias para localizar tu domicilio: ${esc(addr.crossStreets)}` : '',
     `${esc(addr.city ?? '')}${addr.state ? `, ${esc(addr.state)}` : ''} ${esc(addr.postalCode ?? '')}`.trim(),
     esc(addr.country ?? ''),
   ]

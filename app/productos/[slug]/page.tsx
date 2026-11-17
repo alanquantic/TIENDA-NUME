@@ -15,6 +15,7 @@ import { ProductImageSelection } from '@/components/product-image-selection';
 import { variantImage } from '@/lib/variant-image';
 import { ProductTrust } from '@/components/product-trust';
 import { ProductCountdown } from '@/components/product-countdown';
+import { SaleCountdown } from '@/components/sale-countdown';
 import { getAvailablePaymentMethods } from '@/lib/payments/settings';
 import { ProductDescription } from '@/components/product-description';
 import { ArithmaxLicenseDetails } from '@/components/arithmax-license-details';
@@ -50,11 +51,6 @@ const DESCRIPTION_HIGHLIGHTS_BY_SLUG: Record<string, readonly string[]> = {
     'Conoce las claves y las tendencias futuras en el amor.',
   ],
   'libro-numerologia-cotidiana': [
-    'Edición limitada a 1000 ejemplares.',
-    'Libro firmado por la autora.',
-    'Acceso a una charla exclusiva de preguntas y respuestas con Laura.',
-    'Un cupón de regalo del 50% de descuento',
-    'Inicia la preventa oficial de',
     'Numerología Cotidiana',
     'de Laura L. Rodríguez.',
     'los números no determinan, sino que orientan',
@@ -124,7 +120,6 @@ const DESCRIPTION_HIGHLIGHTS_BY_SLUG: Record<string, readonly string[]> = {
 const DESCRIPTION_SUBTITLES_BY_SLUG: Record<string, readonly string[]> = {
   'libro-numerologia-cotidiana': [
     '¿Qué encontrarás en este libro?',
-    'Beneficios Exclusivos de la Preventa',
   ],
   'kit-primavera': ['¿Qué incluye?'],
   'reporte-semestral-2026': [
@@ -137,7 +132,6 @@ const DESCRIPTION_SUBTITLES_BY_SLUG: Record<string, readonly string[]> = {
 const DESCRIPTION_ITALICS_BY_SLUG: Record<string, readonly string[]> = {
   'libro-numerologia-cotidiana': [
     'Numerología Cotidiana',
-    'Módulo I de la Certificación.',
   ],
   'agenda-numerologica-2026-digital-pdf': [
     'Numerología Cotidiana',
@@ -177,8 +171,6 @@ function getDisplayDescription(slug: string, description: string) {
       'Misión',
       'Personalidad y Sombra',
       'Etapas de realización',
-      'Fecha de la charla: Sábado 10 de enero 2026.',
-      'Este cupón es transferible, puedes usarlo tú o regalarlo a otra persona.',
     ];
 
     return nestedItems.reduce(
@@ -421,8 +413,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
               currency={product.currency}
             />
           </p>
-          {saleEndText && (
-            <p className="mt-3 inline-flex rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-2 text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
+          {saleEndText && displayPrice?.saleEndsAt && (
+            <div>
+              <SaleCountdown
+                endsAt={displayPrice.saleEndsAt}
+                className="mt-3 inline-flex flex-col gap-3 rounded-lg border border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary-soft))] px-3 py-3"
+              >
+                <p className="text-sm font-bold text-[hsl(var(--primary))]">{saleEndText}</p>
+              </SaleCountdown>
+            </div>
           )}
 
           {product.shortDescription?.trim() && (
