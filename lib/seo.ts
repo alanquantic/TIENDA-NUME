@@ -128,6 +128,26 @@ export function productJsonLd(
     ...(entry.price.onSale && entry.price.saleEndsAt
       ? { priceValidUntil: entry.price.saleEndsAt.slice(0, 10) }
       : {}),
+    // En oferta: `price` es lo que se cobra hoy (lo que pide Google) y el
+    // precio regular va como StrikethroughPrice, para que nadie confunda el
+    // precio rebajado con el precio normal.
+    ...(entry.price.onSale && entry.price.regularPriceAmount
+      ? {
+          priceSpecification: [
+            {
+              '@type': 'UnitPriceSpecification',
+              price: formatAmount(entry.price.priceAmount),
+              priceCurrency: product.currency,
+            },
+            {
+              '@type': 'UnitPriceSpecification',
+              priceType: 'https://schema.org/StrikethroughPrice',
+              price: formatAmount(entry.price.regularPriceAmount),
+              priceCurrency: product.currency,
+            },
+          ],
+        }
+      : {}),
     seller,
   });
 

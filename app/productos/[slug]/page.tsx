@@ -28,6 +28,7 @@ import { isAdminAuthed } from '@/lib/admin-auth';
 import { adminHref } from '@/lib/admin-path';
 import { NUMERATHUM_PLANS, NUMERATHUM_SCREENSHOTS } from '@/lib/numerathum-plans';
 import { config } from '@/lib/config';
+import { productMetaTags } from '@/lib/meta-catalog';
 import {
   jsonLdString,
   metaDescription,
@@ -399,6 +400,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
         ),
         productBreadcrumbJsonLd(product, config.appUrl),
       ]);
+  // Microdatos de Meta (product:*): precio regular + oferta de la variante que
+  // el pixel reporta en ViewContent (la primera), igual que el feed.
+  const metaProductTags = preview || !variants[0] ? [] : productMetaTags(product, variants[0]);
   const annualVariant = categorySlug === 'planes-numerathum'
     ? pricedVariants.find(({ variant }) => {
         const attributes = (variant.attributes ?? {}) as Record<string, unknown>;
@@ -429,6 +433,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
       {structuredData && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
       )}
+      {metaProductTags.map(([property, content]) => (
+        <meta key={property} property={property} content={content} />
+      ))}
       {preview && (
         <div
           role="status"
