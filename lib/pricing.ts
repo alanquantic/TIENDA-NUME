@@ -5,7 +5,7 @@ import { discountCodes, orders, products, productVariants } from './db/schema';
 import { toMinor } from './money';
 import { resolveShippingRate } from './shipping';
 import { effectivePrice } from './sale-price';
-import { effectiveMaxPerOrder } from './order-limits';
+import { COUPON_EXCLUDED_PRODUCT_IDS, effectiveMaxPerOrder } from './order-limits';
 import type { CheckoutInput } from './validation';
 
 export type PricedLine = {
@@ -265,17 +265,16 @@ async function applyDiscount(
   }
 
   // Base sobre la que aplica: todo el carrito, o solo las líneas del producto.
-  let baseMinor = subtotalMinor;
-  if (row.scope === 'product') {
-    if (!row.productId) {
-      throw new PricingError('El cupón no está configurado correctamente.');
-    }
-    baseMinor = lines
-      .filter((l) => l.productId === row.productId)
-      .reduce((sum, l) => sum + l.totalMinor, 0);
-    if (baseMinor === 0) {
-      throw new PricingError('El cupón no aplica a los productos de tu carrito.');
-    }
+  // Los productos excluidos de cupones (p. ej. el libro) nunca entran en la base.
+  if (row.scope === 'product' && !row.productId) {
+    throw new PricingError('El cupón no está configurado correctamente.');
+  }
+  const baseMinor = lines
+    .filter((l) => !COUPON_EXCLUDED_PRODUCT_IDS.has(l.productId))
+    .filter((l) => row.scope !== 'product' || l.productId === row.productId)
+    .reduce((sum, l) => sum + l.totalMinor, 0);
+  if (baseMinor === 0) {
+    throw new PricingError('El cupón no aplica a los productos de tu carrito.');
   }
 
   let amountMinor = 0;

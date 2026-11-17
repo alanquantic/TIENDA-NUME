@@ -13,6 +13,15 @@ export const AGENDA_2027_PRODUCT_ID = '1be11ac4-a5ef-4f05-88de-c13fafd99a91';
 /** Agenda Numerológica 2026 (física). */
 export const AGENDA_2026_PRODUCT_ID = '3f44f74b-567f-4982-aefc-cce9a604d53a';
 
+/** Libro: Numerología Cotidiana (físico). */
+export const LIBRO_PRODUCT_ID = '753b6bc0-2e2f-4f9a-a248-4e248dc6fe4f';
+
+/**
+ * Productos que nunca reciben descuento por cupón: sus líneas quedan fuera de
+ * la base de cualquier cupón (de carrito o de producto).
+ */
+export const COUPON_EXCLUDED_PRODUCT_IDS: ReadonlySet<string> = new Set([LIBRO_PRODUCT_ID]);
+
 /** Físicos con un tope propio en lugar de PHYSICAL_MAX_PER_ORDER. */
 export const PHYSICAL_MAX_PER_ORDER_BY_PRODUCT: Readonly<Record<string, number>> = {
   [AGENDA_2027_PRODUCT_ID]: 2,

@@ -51,11 +51,6 @@ const DESCRIPTION_HIGHLIGHTS_BY_SLUG: Record<string, readonly string[]> = {
     'Conoce las claves y las tendencias futuras en el amor.',
   ],
   'libro-numerologia-cotidiana': [
-    'Edición limitada a 1000 ejemplares.',
-    'Libro firmado por la autora.',
-    'Acceso a una charla exclusiva de preguntas y respuestas con Laura.',
-    'Un cupón de regalo del 50% de descuento',
-    'Inicia la preventa oficial de',
     'Numerología Cotidiana',
     'de Laura L. Rodríguez.',
     'los números no determinan, sino que orientan',
@@ -125,7 +120,6 @@ const DESCRIPTION_HIGHLIGHTS_BY_SLUG: Record<string, readonly string[]> = {
 const DESCRIPTION_SUBTITLES_BY_SLUG: Record<string, readonly string[]> = {
   'libro-numerologia-cotidiana': [
     '¿Qué encontrarás en este libro?',
-    'Beneficios Exclusivos de la Preventa',
   ],
   'kit-primavera': ['¿Qué incluye?'],
   'reporte-semestral-2026': [
@@ -138,7 +132,6 @@ const DESCRIPTION_SUBTITLES_BY_SLUG: Record<string, readonly string[]> = {
 const DESCRIPTION_ITALICS_BY_SLUG: Record<string, readonly string[]> = {
   'libro-numerologia-cotidiana': [
     'Numerología Cotidiana',
-    'Módulo I de la Certificación.',
   ],
   'agenda-numerologica-2026-digital-pdf': [
     'Numerología Cotidiana',
@@ -178,8 +171,6 @@ function getDisplayDescription(slug: string, description: string) {
       'Misión',
       'Personalidad y Sombra',
       'Etapas de realización',
-      'Fecha de la charla: Sábado 10 de enero 2026.',
-      'Este cupón es transferible, puedes usarlo tú o regalarlo a otra persona.',
     ];
 
     return nestedItems.reduce(
