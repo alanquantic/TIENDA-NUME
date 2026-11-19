@@ -71,7 +71,8 @@ export function toMetaEvent({ event, params }: AnyEvent): MetaEvent | null {
     case 'add_payment_info':
       return { name: 'AddPaymentInfo', params: commerceParams(params) }
     case 'purchase':
-      // El eventID permite deduplicar contra la Conversions API si se agrega.
+      // Mismo eventID que manda el servidor al confirmarse el pago (lib/meta-capi.ts):
+      // Meta cuenta la compra una sola vez.
       return {
         name: 'Purchase',
         params: commerceParams(params),
@@ -84,9 +85,122 @@ export function toMetaEvent({ event, params }: AnyEvent): MetaEvent | null {
 
 type QueuedCall = { path: string; args: unknown[] }
 
+/** Datos del comprador para la coincidencia avanzada (el Pixel los cifra antes de enviarlos). */
+export type MetaUserDataInput = {
+  email?: string | null
+  phone?: string | null
+  firstName?: string | null
+  lastName?: string | null
+  city?: string | null
+  state?: string | null
+  postalCode?: string | null
+  country?: string | null
+  externalId?: string | null
+}
+
 let consented = false
 let pending: QueuedCall[] = []
 let lastPageView = ''
+let userData: Record<string, string> = {}
+let initializedWith = ''
+
+/** Eventos que también se mandan al servidor (API de Conversiones). */
+const MIRRORED = new Set(['ViewContent', 'AddToCart', 'InitiateCheckout', 'AddPaymentInfo'])
+
+function newEventId(name: string): string {
+  const random =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+  return `${name.toLowerCase()}-${random}`
+}
+
+const clean = (v: string | null | undefined) => (v ?? '').trim().toLowerCase()
+
+/**
+ * Formato de coincidencia avanzada del Pixel (en minúsculas, sin espacios; el
+ * Pixel aplica el hash). Valores que ya vienen en SHA-256 se pasan tal cual.
+ */
+export function toPixelUserData(input: MetaUserDataInput): Record<string, string> {
+  const phoneDigits = (input.phone ?? '').replace(/\D/g, '')
+  const phone = phoneDigits.length === 10 ? `52${phoneDigits}` : phoneDigits
+  const country = clean(input.country)
+  const data: Record<string, string> = {
+    em: clean(input.email),
+    ph: phone,
+    fn: clean(input.firstName),
+    ln: clean(input.lastName),
+    ct: clean(input.city).replace(/\s+/g, ''),
+    st: clean(input.state).replace(/\s+/g, ''),
+    zp: clean(input.postalCode).replace(/\s+/g, ''),
+    country: country === 'mexico' || country === 'méxico' ? 'mx' : country,
+    external_id: clean(input.externalId)
+  }
+  for (const key of Object.keys(data)) if (!data[key]) delete data[key]
+  return data
+}
+
+/**
+ * Guarda los datos del comprador para la coincidencia avanzada. Si el Pixel ya
+ * cargó, se vuelve a inicializar con ellos (así lo indica Meta para actualizar
+ * los datos en la misma página).
+ */
+export function setMetaUserData(input: MetaUserDataInput) {
+  const next = { ...userData, ...toPixelUserData(input) }
+  if (JSON.stringify(next) === JSON.stringify(userData)) return
+  userData = next
+  if (consented && META_PIXEL_ID && typeof window !== 'undefined' && window.fbq) {
+    initPixel(window.fbq, META_PIXEL_ID)
+  }
+}
+
+/**
+ * Igual que setMetaUserData pero con valores ya cifrados en SHA-256 por el
+ * servidor (p. ej. en la página de compra exitosa, donde los datos vienen del
+ * pedido y no deben viajar en claro al navegador).
+ */
+export function setMetaHashedUserData(hashed: Record<string, string>) {
+  const valid: Record<string, string> = {}
+  for (const [key, value] of Object.entries(hashed)) {
+    if (/^[a-f0-9]{64}$/.test(value)) valid[key] = value
+  }
+  const next = { ...userData, ...valid }
+  if (JSON.stringify(next) === JSON.stringify(userData)) return
+  userData = next
+  if (consented && META_PIXEL_ID && typeof window !== 'undefined' && window.fbq) {
+    initPixel(window.fbq, META_PIXEL_ID)
+  }
+}
+
+function initPixel(fbq: Fbq, pixelId: string) {
+  const key = JSON.stringify(userData)
+  if (key === initializedWith && fbq.loaded) return
+  initializedWith = key
+  if (Object.keys(userData).length) fbq('init', pixelId, userData)
+  else fbq('init', pixelId)
+}
+
+/** Copia del evento a la API de Conversiones de la tienda (mismo eventID). */
+function mirrorToServer(args: unknown[]) {
+  const [kind, name, params, options] = args as [string, string, Record<string, unknown>?, { eventID?: string }?]
+  if (kind !== 'track' || !MIRRORED.has(name) || !options?.eventID) return
+  try {
+    void fetch('/api/meta/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        event_name: name,
+        event_id: options.eventID,
+        event_source_url: window.location.href.split('#')[0],
+        custom_data: params ?? {},
+        user: userData
+      })
+    }).catch(() => {})
+  } catch {
+    // nunca romper la página por métricas
+  }
+}
 
 function loadPixel(pixelId: string): Fbq {
   if (window.fbq) return window.fbq
@@ -107,7 +221,8 @@ function loadPixel(pixelId: string): Fbq {
   fbq.allowDuplicatePageViews = true
   window.fbq = fbq
   window._fbq = fbq
-  fbq('init', pixelId)
+  initializedWith = ''
+  initPixel(fbq, pixelId)
 
   const script = document.createElement('script')
   script.async = true
@@ -123,6 +238,7 @@ function send(args: unknown[]) {
   const path = window.location.pathname
   if (consented) {
     loadPixel(META_PIXEL_ID)(...args)
+    mirrorToServer(args)
     return
   }
   // El pixel usa la URL del momento del envío: lo de páginas anteriores ya no sirve.
@@ -142,11 +258,9 @@ export function metaPageView() {
 export function metaTrack<K extends AnalyticsEventName>(event: K, params: AnalyticsEventMap[K]) {
   const mapped = toMetaEvent({ event, params } as AnyEvent)
   if (!mapped) return
-  send(
-    mapped.eventId
-      ? ['track', mapped.name, mapped.params, { eventID: mapped.eventId }]
-      : ['track', mapped.name, mapped.params]
-  )
+  // Cada evento lleva su eventID para que Meta lo deduplique contra la copia
+  // del servidor (la nuestra y la de la API hospedada por Meta).
+  send(['track', mapped.name, mapped.params, { eventID: mapped.eventId ?? newEventId(mapped.name) }])
 }
 
 export function setMetaConsent(granted: boolean) {

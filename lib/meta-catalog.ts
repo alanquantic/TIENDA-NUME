@@ -1,0 +1,323 @@
+// Catálogo de productos para Meta (Facebook/Instagram) en formato RSS 2.0 con
+// el espacio de nombres g: (el mismo que acepta Google Merchant).
+//
+// Una fila por VARIANTE: `id` = id de la variante, que es exactamente lo que el
+// pixel manda como `content_ids` (ver lib/analytics/meta-pixel.ts). Así cada
+// ViewContent / AddToCart / Purchase coincide con un artículo del catálogo y
+// funcionan los anuncios dinámicos. `item_group_id` = id del producto.
+//
+// Sin dependencias de servidor: se prueba con datos de ejemplo.
+
+import { SITE_BRAND, SITE_DESCRIPTION, SITE_TITLE } from './site';
+import { formatAmount, isRasterImage, plainText, shareableImages, variantInStock, type SeoVariant } from './seo';
+import { variantImage } from './variant-image';
+import { NUMERATHUM_PLANS, NUMERATHUM_SCREENSHOTS } from './numerathum-plans';
+
+export type CatalogVariant = SeoVariant & {
+  attributes: unknown;
+  isDefault: boolean;
+};
+
+export type CatalogProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  shortDescription: string | null;
+  type: 'digital' | 'physical';
+  currency: string;
+  images: unknown;
+  metadata: unknown;
+  categoryName: string | null;
+  categorySlug: string | null;
+  variants: CatalogVariant[];
+};
+
+export type MetaCatalogItem = {
+  id: string;
+  item_group_id: string;
+  title: string;
+  description: string;
+  availability: 'in stock' | 'out of stock';
+  condition: 'new';
+  price: string;
+  sale_price?: string;
+  sale_price_effective_date?: string;
+  link: string;
+  image_link: string;
+  additional_image_link: string[];
+  brand: string;
+  product_type?: string;
+  custom_label_0: string;
+  custom_label_1?: string;
+  custom_label_2?: string;
+};
+
+/** Productos marcados en el admin para no anunciarse (p. ej. agendas de años pasados). */
+export function isExcludedFromCatalog(metadata: unknown): boolean {
+  if (!metadata || typeof metadata !== 'object') return false;
+  const value = (metadata as Record<string, unknown>).metaCatalogExclude;
+  return value === true || value === 'true';
+}
+
+function attributesOf(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
+}
+
+function variantLabel(variant: CatalogVariant): string | null {
+  const name = variant.name?.trim();
+  if (name && name.toLowerCase() !== 'default') return name;
+  const values = Object.values(attributesOf(variant.attributes)).filter(Boolean);
+  return values.length > 0 ? values.join(' / ') : null;
+}
+
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+function toDate(value: Date | string | null): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Fecha para Meta en el formato EXACTO de su documentación
+ * (`YYYY-MM-DDTHH:MM-06:00`): hora del centro de México con offset explícito.
+ * Antes se mandaba en UTC con sufijo "Z", que Meta no documenta y puede
+ * ignorar (y con ello la oferta). México usa UTC-6 todo el año desde 2022.
+ */
+const MEXICO_OFFSET_MINUTES = -6 * 60;
+export function metaDateTime(date: Date): string {
+  const local = new Date(date.getTime() + MEXICO_OFFSET_MINUTES * 60_000);
+  return `${local.toISOString().slice(0, 16)}-06:00`;
+}
+
+export type MetaSaleFields = {
+  /** Precio regular ("209.00 MXN"). */
+  price: string;
+  sale_price?: string;
+  sale_price_effective_date?: string;
+  /** La oferta ya está vigente (no solo programada). */
+  saleLive: boolean;
+  saleStart?: Date;
+  saleEnd?: Date;
+};
+
+/**
+ * Precio regular + oferta de una variante tal como los quiere Meta. Lo usan el
+ * feed y las etiquetas product:* de la ficha, para que ambos digan lo mismo.
+ * La oferta solo se manda si es menor al precio y no ha terminado; Meta la
+ * aplica únicamente dentro de sale_price_effective_date.
+ */
+export function metaSaleFields(
+  variant: Pick<CatalogVariant, 'priceAmount' | 'salePriceAmount' | 'saleStartsAt' | 'saleEndsAt'>,
+  currency: string,
+  now: Date,
+): MetaSaleFields {
+  const fields: MetaSaleFields = { price: `${formatAmount(variant.priceAmount)} ${currency}`, saleLive: false };
+  const sale = variant.salePriceAmount;
+  const endsAt = toDate(variant.saleEndsAt);
+  if (!sale || !(Number(sale) < Number(variant.priceAmount)) || (endsAt && endsAt <= now)) return fields;
+
+  fields.sale_price = `${formatAmount(sale)} ${currency}`;
+  const startsAt = toDate(variant.saleStartsAt);
+  let start: Date | undefined;
+  let end: Date | undefined;
+  if (endsAt) {
+    start = startsAt ?? now;
+    end = endsAt;
+  } else if (startsAt && startsAt > now) {
+    // Oferta futura sin fin: se publica a partir de su inicio, por un año.
+    start = startsAt;
+    end = new Date(startsAt.getTime() + 365 * 86_400_000);
+  }
+  if (start && end) {
+    fields.sale_price_effective_date = `${metaDateTime(start)}/${metaDateTime(end)}`;
+    fields.saleStart = start;
+    fields.saleEnd = end;
+  }
+  fields.saleLive = !startsAt || startsAt <= now;
+  return fields;
+}
+
+/** Hosts de los que el convertidor de imágenes acepta descargar. */
+const FEED_IMAGE_HOSTS = ['cdn.tienda.numerologia-cotidiana.com', 'tienda.numerologia-cotidiana.com'];
+
+/** true si la URL es una imagen de la tienda o de su CDN (evita un proxy abierto). */
+export function isAllowedFeedImageSource(src: string, appUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return false;
+  }
+  const app = new URL(appUrl);
+  if (url.host === app.host) return url.protocol === app.protocol;
+  return url.protocol === 'https:' && FEED_IMAGE_HOSTS.includes(url.hostname);
+}
+
+/**
+ * Meta acepta JPG/PNG. Las demás (WebP, GIF…) se sirven convertidas a JPG
+ * 1080×1080 con /feeds/imagen.jpg.
+ */
+export function metaImageUrl(url: string, appUrl: string): string {
+  if (/\.(jpe?g|png)(?:$|[?#])/i.test(url)) return url;
+  return `${appUrl.replace(/\/+$/, '')}/feeds/imagen.jpg?src=${encodeURIComponent(url)}`;
+}
+
+/**
+ * Etiquetas Open Graph `product:*` de la ficha (microdatos de Meta). El pixel
+ * las lee al cargar la página; si no están, Meta puede tomar el precio de los
+ * datos estructurados (que traen el precio YA rebajado) como precio regular y
+ * entonces la oferta del feed deja de ser "menor al precio" y no se muestra.
+ * `retailer_item_id` = la variante que el pixel reporta en ViewContent (la
+ * primera), igual que el `id` del feed.
+ */
+export function productMetaTags(
+  product: Pick<CatalogProduct, 'id' | 'type' | 'currency'>,
+  variant: CatalogVariant | SeoVariant,
+  opts: { now?: Date } = {},
+): Array<[property: string, content: string]> {
+  const now = opts.now ?? new Date();
+  const sale = metaSaleFields(variant, product.currency, now);
+  const tags: Array<[string, string]> = [
+    ['product:retailer_item_id', variant.id],
+    ['product:item_group_id', product.id],
+    ['product:brand', SITE_BRAND],
+    ['product:availability', variantInStock(product.type, variant) ? 'in stock' : 'out of stock'],
+    ['product:condition', 'new'],
+    ['product:price:amount', formatAmount(variant.priceAmount)],
+    ['product:price:currency', product.currency],
+  ];
+  if (sale.sale_price && variant.salePriceAmount) {
+    tags.push(['product:sale_price:amount', formatAmount(variant.salePriceAmount)]);
+    tags.push(['product:sale_price:currency', product.currency]);
+    if (sale.saleStart && sale.saleEnd) {
+      tags.push(['product:sale_price_dates:start', metaDateTime(sale.saleStart)]);
+      tags.push(['product:sale_price_dates:end', metaDateTime(sale.saleEnd)]);
+    }
+  }
+  return tags;
+}
+
+/**
+ * Imágenes del producto para el catálogo. Los planes Numerathum se dieron de
+ * alta sin foto propia (la ficha solo muestra capturas de la app), así que el
+ * feed los descartaba por no tener imagen. Si un plan no tiene foto apta se
+ * usa su portada JPG de /images/numerathum y las capturas como adicionales.
+ */
+export function catalogImages(product: Pick<CatalogProduct, 'slug' | 'images'>, appUrl: string): string[] {
+  const own = shareableImages(product.images, appUrl);
+  if (own.length > 0) return own;
+  const plan = NUMERATHUM_PLANS.find((entry) => entry.slug === product.slug);
+  if (!plan) return own;
+  return shareableImages([plan.image, ...NUMERATHUM_SCREENSHOTS], appUrl);
+}
+
+const CUSTOM_TYPE_LABEL = { digital: 'digital', physical: 'fisico' } as const;
+
+export function buildMetaCatalogItems(
+  products: CatalogProduct[],
+  opts: { appUrl: string; now?: Date },
+): MetaCatalogItem[] {
+  const now = opts.now ?? new Date();
+  const items: MetaCatalogItem[] = [];
+
+  for (const product of products) {
+    if (isExcludedFromCatalog(product.metadata)) continue;
+    const images = catalogImages(product, opts.appUrl);
+    const rawImages = Array.isArray(product.images)
+      ? (product.images as unknown[]).filter((i): i is string => typeof i === 'string')
+      : [];
+    const description = truncate(
+      plainText(product.description) || plainText(product.shortDescription) || product.name,
+      5000,
+    );
+    const link = `${opts.appUrl.replace(/\/+$/, '')}/productos/${product.slug}`;
+
+    for (const variant of product.variants) {
+      // Foto propia de la variante (p. ej. color de la agenda) si existe y es apta.
+      const ownImage = variantImage(product.slug, rawImages, attributesOf(variant.attributes));
+      const ownImageUrl = ownImage && isRasterImage(ownImage) ? shareableImages([ownImage], opts.appUrl)[0] : null;
+      const gallery = (ownImageUrl ? [ownImageUrl, ...images.filter((i) => i !== ownImageUrl)] : images).map(
+        (image) => metaImageUrl(image, opts.appUrl),
+      );
+      // Sin imagen apta (solo SVG o sin fotos) Meta rechazaría el artículo.
+      if (gallery.length === 0) continue;
+
+      const label = variantLabel(variant);
+      const item: MetaCatalogItem = {
+        id: variant.id,
+        item_group_id: product.id,
+        title: truncate(label ? `${product.name} – ${label}` : product.name, 150),
+        description,
+        availability: variantInStock(product.type, variant) ? 'in stock' : 'out of stock',
+        condition: 'new',
+        price: `${formatAmount(variant.priceAmount)} ${product.currency}`,
+        link,
+        image_link: gallery[0],
+        additional_image_link: gallery.slice(1, 11),
+        brand: SITE_BRAND,
+        ...(product.categoryName ? { product_type: product.categoryName } : {}),
+        custom_label_0: CUSTOM_TYPE_LABEL[product.type],
+        ...(product.categorySlug ? { custom_label_1: product.categorySlug } : {}),
+      };
+
+      const sale = metaSaleFields(variant, product.currency, now);
+      if (sale.sale_price) {
+        item.sale_price = sale.sale_price;
+        if (sale.sale_price_effective_date) item.sale_price_effective_date = sale.sale_price_effective_date;
+        if (sale.saleLive) item.custom_label_2 = 'oferta';
+      }
+
+      items.push(item);
+    }
+  }
+
+  return items;
+}
+
+function xml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+    // Caracteres de control no válidos en XML 1.0.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+}
+
+export function renderMetaCatalogRss(items: MetaCatalogItem[], opts: { appUrl: string }): string {
+  const base = opts.appUrl.replace(/\/+$/, '');
+  const field = (name: string, value: string | undefined) =>
+    value === undefined || value === '' ? '' : `\n      <g:${name}>${xml(value)}</g:${name}>`;
+
+  const body = items
+    .map((item) => {
+      const extraImages = item.additional_image_link
+        .map((url) => field('additional_image_link', url))
+        .join('');
+      return `    <item>${field('id', item.id)}${field('item_group_id', item.item_group_id)}${field('title', item.title)}${field('description', item.description)}${field('availability', item.availability)}${field('condition', item.condition)}${field('price', item.price)}${field('sale_price', item.sale_price)}${field('sale_price_effective_date', item.sale_price_effective_date)}${field('link', item.link)}${field('image_link', item.image_link)}${extraImages}${field('brand', item.brand)}${field('product_type', item.product_type)}${field('custom_label_0', item.custom_label_0)}${field('custom_label_1', item.custom_label_1)}${field('custom_label_2', item.custom_label_2)}
+    </item>`;
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>${xml(SITE_TITLE)}</title>
+    <link>${xml(base)}</link>
+    <description>${xml(SITE_DESCRIPTION)}</description>
+${body}
+  </channel>
+</rss>
+`;
+}

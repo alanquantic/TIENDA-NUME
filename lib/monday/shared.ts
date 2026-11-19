@@ -7,10 +7,12 @@ export type MondayOrder = Pick<Order,
   'customerLastName' | 'customerEmail' | 'customerPhone' | 'shippingAddress' |
   'totalAmount' | 'shippingAmount' | 'metadata' | 'externalPaymentIntentId' | 'provider'
 > & { customerBirthDate?: string | null };
-export type MondayItem = Pick<OrderItem, 'productId' | 'variantName' | 'quantity' | 'totalAmount'>;
+export type MondayItem = Pick<OrderItem, 'productId' | 'variantName' | 'quantity' | 'totalAmount'> & {
+  metadata?: unknown;
+};
 export type MondayColumns = Record<string, string | number | null | { index: number } | { ids: number[] } | { date: string } | { phone: string; countryShortName: string }>;
 export type MondayPayload = { name: string; orderNumber: string; columns: MondayColumns };
-export type MondayKind = 'agenda-2027' | 'agenda-2026' | 'numerathum' | 'libro';
+export type MondayKind = 'agenda-2027' | 'agenda-2026' | 'numerathum' | 'libro' | 'arithmax' | 'course' | 'report';
 
 export type MondayJob = {
   // Optional to keep previously queued Agenda 2027 jobs compatible.

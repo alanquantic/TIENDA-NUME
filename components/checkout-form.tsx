@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cartItemToGaItem, inferCurrency, itemsValue, track } from '@/lib/analytics';
+import { cartItemToGaItem, inferCurrency, itemsValue, setMetaUserData, track } from '@/lib/analytics';
 import { readCartToken, useCart, writeCartToken } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
 import { formatMoney, toMinor } from '@/lib/money';
@@ -308,10 +308,26 @@ export function CheckoutForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartKey]);
 
+  // Coincidencia avanzada de Meta: con los datos que ya conocemos (sesión
+  // iniciada) o que el comprador escribió, para que sus eventos se le atribuyan.
+  function shareBuyerWithMeta() {
+    setMetaUserData({
+      email: /^\S+@\S+\.\S+$/.test(email.trim()) ? email.trim() : null,
+      phone,
+      firstName,
+      lastName,
+      city: address.city,
+      state: address.state,
+      postalCode: address.postalCode,
+      country: 'mx',
+    });
+  }
+
   // begin_checkout — una vez que el carrito montó y tiene items.
   useEffect(() => {
     if (beginFired.current || !mounted || items.length === 0) return;
     beginFired.current = true;
+    shareBuyerWithMeta();
     const gaItems = items.map((i, idx) => cartItemToGaItem(i, idx));
     track('begin_checkout', {
       currency: inferCurrency(gaItems),
@@ -339,6 +355,7 @@ export function CheckoutForm({
     e.preventDefault();
     setError(null);
     setLoading(true);
+    shareBuyerWithMeta();
     const gaItems = items.map((i, idx) => cartItemToGaItem(i, idx));
     track('add_payment_info', {
       currency: inferCurrency(gaItems),

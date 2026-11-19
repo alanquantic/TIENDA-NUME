@@ -13,12 +13,13 @@ import {
 import { formatDecimal } from '@/lib/money';
 import type { EcommerceItem } from '@/lib/analytics';
 import { PurchaseTracker } from '@/components/analytics/purchase-tracker';
+import { buildUserData, pixelHashedUserData } from '@/lib/meta-capi';
 import { ClearCart } from '@/components/clear-cart';
 import { PendingPaymentRefresh } from '@/components/pending-payment-refresh';
 import { ORDER_ACCESS_COOKIE, readOrderAccess } from '@/lib/order-access';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Tu pedido' };
+export const metadata: Metadata = { title: 'Tu pedido', robots: { index: false } };
 
 type StoredReportInput = {
   previewUrl?: string | null;
@@ -109,6 +110,30 @@ export default async function SuccessPage() {
         }))
       : [];
 
+  // Coincidencia avanzada para el Purchase del Pixel: datos del pedido ya cifrados.
+  const shipping = (order?.shippingAddress ?? {}) as {
+    city?: string;
+    state?: string;
+    postalCode?: string;
+  };
+  const metaUser =
+    order && isPaid
+      ? pixelHashedUserData(
+          buildUserData({
+            email: order.customerEmail,
+            phone: order.customerPhone,
+            firstName: order.customerFirstName,
+            lastName: order.customerLastName,
+            birthDate: order.customerBirthDate,
+            city: shipping.city,
+            state: shipping.state,
+            postalCode: shipping.postalCode,
+            country: 'mx',
+            externalId: order.userId ?? order.customerEmail,
+          }),
+        )
+      : undefined;
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
       {order && isPaid && purchaseItems.length > 0 ? (
@@ -124,6 +149,7 @@ export default async function SuccessPage() {
           }
           tax={order.taxAmount ? Number.parseFloat(order.taxAmount) || undefined : undefined}
           coupon={order.discountCode ?? undefined}
+          metaUser={metaUser}
         />
       ) : null}
       {/* El carrito solo se vacía si el pedido sigue vivo (pagado o por confirmar). */}
