@@ -2,6 +2,9 @@ import { buildAgenda2027Payload } from './agenda-2027';
 import { buildAgenda2026Payload } from './agenda-2026';
 import { buildNumerathumPayload, numerathumOrderReference, NUMERATHUM_ORDER_COLUMN } from './numerathum';
 import { buildLibroPayload } from './libro';
+import { buildArithmaxPayload, arithmaxOrderReference, ARITHMAX_ORDER_COLUMN } from './arithmax';
+import { buildCoursePayload, courseOrderReference, COURSES_ORDER_COLUMN } from './courses';
+import { buildReportPayload, reportOrderReference, REPORTS_ORDER_COLUMN } from './reports';
 import type { MondayItem, MondayOrder, MondayJob } from './shared';
 import { MondayError, type MondayClient } from './client';
 
@@ -35,12 +38,26 @@ export async function deliverMondayOrder(orderId: string, store: MondayDeliveryS
   const { order, items, job } = claimed;
   try {
     const isNumerathum = job.kind === 'numerathum';
-    const reference = isNumerathum ? numerathumOrderReference(order.number, job.productId) : order.number;
-    const existing = await client.inspectOrder(job.boardId, reference, isNumerathum ? NUMERATHUM_ORDER_COLUMN : 'texto');
+    const isArithmax = job.kind === 'arithmax';
+    const isCourse = job.kind === 'course';
+    const isReport = job.kind === 'report';
+    const reference = isNumerathum ? numerathumOrderReference(order.number, job.productId)
+      : isArithmax ? arithmaxOrderReference(order.number, job.productId)
+      : isCourse ? courseOrderReference(order.number, job.productId)
+      : isReport ? reportOrderReference(order.number, job.productId) : order.number;
+    const orderColumn = isNumerathum ? NUMERATHUM_ORDER_COLUMN : isArithmax ? ARITHMAX_ORDER_COLUMN
+      : isCourse ? COURSES_ORDER_COLUMN : isReport ? REPORTS_ORDER_COLUMN : 'texto';
+    const existing = await client.inspectOrder(job.boardId, reference, orderColumn);
     let itemId = existing.itemId;
     if (!itemId) {
       const payload = isNumerathum
         ? buildNumerathumPayload(order, items, { productId: job.productId })
+        : isArithmax
+        ? buildArithmaxPayload(order, items, { productId: job.productId })
+        : isCourse
+        ? buildCoursePayload(order, items, { productId: job.productId })
+        : isReport
+        ? buildReportPayload(order, items, { productId: job.productId })
         : job.kind === 'libro'
         ? buildLibroPayload(order, items, { productId: job.productId, postalColumnType: existing.postalColumnType })
         : job.kind === 'agenda-2026'
