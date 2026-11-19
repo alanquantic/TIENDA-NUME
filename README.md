@@ -144,7 +144,7 @@ Reglas del importador ([lib/db/import-wc.ts](lib/db/import-wc.ts)):
 - **Pedidos inmutables**: `order_items` guarda snapshots (nombre, precio) para
   no depender de cambios futuros del catálogo.
 
-## monday CRM: Agenda 2027, Numerathum y Libro
+## monday CRM: Agendas, Numerathum, Libro, ARITHMAX, cursos y reportes
 
 Al confirmar el pago de `agenda-numerologica-2027`, se crea **un registro por
 pedido** en el tablero `18434858318`, grupo PREVENTA (`new_group`). Configurar
@@ -202,6 +202,78 @@ destino compartido. Los productos se configuran con
 - PayPal usa FORMA DE PAGO `2`; los demás proveedores quedan sin etiqueta hasta
   definir el método exacto. Se conserva la política de pruebas de
   `MONDAY_SYNC_TEST_ORDERS` para ambos tableros.
+
+Las licencias Software ARITHMAX se envían al tablero `2823809976`, grupo
+VERSION 3 (`group_mkxprje7`). Cada producto genera su propio registro por pedido:
+
+| Licencia | Producto | Opción LICENCIA |
+| --- | --- | --- |
+| 1 año | `55ce45a6-3cdb-43c0-a2e2-23e9a67ec5b0` | 1 AÑO (`13`) |
+| 3 años | `66b1fd58-0e42-4d23-a331-1f95fe8ba71a` | 3 AÑOS (`4`) |
+
+Configurar `MONDAY_ARITHMAX_BOARD_ID`, `MONDAY_ARITHMAX_GROUP_ID`,
+`MONDAY_ARITHMAX_1_YEAR_PRODUCT_ID`, `MONDAY_ARITHMAX_3_YEARS_PRODUCT_ID` y
+`MONDAY_ARITHMAX_SELLER_ID` (ALAN, `27`, confirmado). Se reutiliza `MONDAY_API_TOKEN`.
+Se envían comprador, correo, teléfono, nacimiento si existe, fecha de compra y el
+importe pagado por esa licencia tras descuentos, sin otros productos ni envío.
+PayPal usa `2` y Mercado Pago `16`. RECIBOS, PAGO 2 y VERIFICAR quedan sin capturar.
+`# PEDIDO WEB` usa `<pedido>:arithmax-1-ano` o `<pedido>:arithmax-3-anos`;
+los reintentos y claves de idempotencia son independientes por licencia.
+Los pagos de prueba respetan `MONDAY_SYNC_TEST_ORDERS`.
+
+Los cursos y certificaciones se envían al tablero `8931163014`, al grupo del producto:
+
+| Producto | Grupo | Clave de configuración |
+| --- | --- | --- |
+| Certificación Completa Numerología | CERTIFICACIÓN COMPLETA | `COMPLETE` |
+| Módulos 1 a 6 | MODULO 1 a MODULO 6, respectivamente | `MODULE_1` a `MODULE_6` |
+| Diseño de Nombres con Numerología | TALLER DEL NOMBRE | `NAME_WORKSHOP` |
+| Taller Numerología de las casas y los espacios | TALLER CASAS Y ESPACIOS | `SPACES_WORKSHOP` |
+| Taller Numerología de Parejas | TALLER PAREJA PT 1 | `COUPLES_WORKSHOP` |
+
+Configurar `MONDAY_COURSES_BOARD_ID` y, para cada clave de la tabla,
+`MONDAY_COURSES_<CLAVE>_PRODUCT_ID` y `MONDAY_COURSES_<CLAVE>_GROUP_ID`.
+Cada curso tiene su registro, referencia `<pedido>:<curso>`, importe neto y
+reintentos independientes. Se envían los datos del comprador y su fecha de nacimiento
+si existe. FORMA DE PAGO usa PAYPAL (`2`), MERCADO PAGO (`10`) o STRIPE (`108`).
+Este tablero no tiene VENDEDOR. PAGO 2 se deja vacío.
+`MONDAY_COURSES_STATUS_INDEX` configura ESTATUS: INSCRITO (`1`) para todos,
+confirmado por el usuario. Vacío omite la columna.
+El COMBO Niveles 1, 2, 3 y 4 no se envía, por indicación del usuario.
+
+Los reportes numerológicos con grupo correspondiente se envían al tablero `8931198393`:
+
+| Producto | Grupo | Clave de configuración |
+| --- | --- | --- |
+| ¿Quién soy? | QUIEN SOY | `WHO_AM_I` |
+| Reporte: ¿Quién soy? | QUIEN SOY | `WHO_AM_I_LEGACY` |
+| ¿Quién soy? Versión Extendida | QUIEN SOY VERSION EXTENDIDA | `WHO_AM_I_EXTENDED` |
+| Nuestro Antídoto de Pareja | ANTIDOTO PAREJA | `COUPLE_ANTIDOTE` |
+| Nuestra personalidad de pareja | PERSONALIDAD PAREJA | `COUPLE_PERSONALITY` |
+| Año Personal de la Pareja 2026 | AÑO PERSONAL DE PAREJA | `COUPLE_YEAR` |
+| Etapa de Vida 2026 | ETAPA DE VIDA | `LIFE_STAGE` |
+| El Amor Según tu Año Personal | EL AMOR SEGUN AÑO PERSONAL | `LOVE_PERSONAL_YEAR` |
+| ¿Quién es mi maestro? | QUIEN ES MI MAESTRO | `TEACHER` |
+| La herida que sano con mi pareja | LA HERIDA DE PAREJA | `COUPLE_WOUND` |
+| Numerología de Pareja | NUMEROLOGIA DE PAREJA | `COUPLE_NUMEROLOGY` |
+
+Configurar `MONDAY_REPORTS_BOARD_ID` y, para cada clave,
+`MONDAY_REPORTS_<CLAVE>_PRODUCT_ID` y `MONDAY_REPORTS_<CLAVE>_GROUP_ID`.
+`MONDAY_REPORTS_STATUS_INDEX=1` establece INSCRITO. FORMA DE PAGO usa PAYPAL (`2`)
+o STRIPE (`108`). Mercado Pago queda sin etiqueta, confirmado por el usuario:
+`MONDAY_REPORTS_MERCADOPAGO_INDEX` permanece vacío porque aún no existe esa opción.
+No se envían Mi energía vital y bienestar, Mi propósito y camino de vida,
+Numerología en el amor, Numerología en el trabajo ni Reporte Semestral 2026,
+por indicación del usuario al no tener grupos correspondientes.
+
+Se usan el nombre y nacimiento de la persona y su pareja capturados en el reporte;
+correo y teléfono corresponden al comprador. Si el pedido histórico no tiene datos
+de reporte, se usan los del comprador. No se dividen nombres completos en apellidos.
+Si un mismo producto tiene destinatarios distintos en varias líneas, el envío queda
+pendiente con `multiple-report-recipients-needs-review` para evitar mezclar datos.
+Los importes netos, referencias `<pedido>:<reporte>` y reintentos son independientes
+por producto; no se crean reportes de productos de otras categorías, como regalos
+incluidos en membresías o kits. PAGO 2 queda vacío.
 
 El libro `753b6bc0-2e2f-4f9a-a248-4e248dc6fe4f` crea un registro por pedido
 en el tablero `18314877163`, grupo PREVENTA (`new_group`). Opciones de entorno:
