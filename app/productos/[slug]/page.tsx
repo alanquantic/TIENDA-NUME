@@ -9,6 +9,7 @@ import {
 } from '@/lib/queries';
 import { isPreviousAgenda } from '@/lib/agenda-upsell';
 import { AddToCart, type VariantOption } from '@/components/add-to-cart';
+import { AgendaShippingNotice, hasAgendaShippingNotice } from '@/components/agenda-shipping-notice';
 import { ProductViewTracker } from '@/components/analytics/product-view-tracker';
 import { ProductGallery } from '@/components/product-gallery';
 import { ProductImageSelection } from '@/components/product-image-selection';
@@ -504,6 +505,12 @@ export default async function ProductPage({ params }: { params: { slug: string }
               >
                 Conoce Numerathum Universal
               </a>
+            </div>
+          )}
+
+          {hasAgendaShippingNotice(product.id) && (
+            <div className="mt-5">
+              <AgendaShippingNotice />
             </div>
           )}
 

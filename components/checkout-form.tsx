@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AgendaShippingNotice, hasAgendaShippingNotice } from '@/components/agenda-shipping-notice';
 import { cartItemToGaItem, inferCurrency, itemsValue, setMetaUserData, track } from '@/lib/analytics';
 import { readCartToken, useCart, writeCartToken } from '@/lib/cart-store';
 import { useToast } from '@/lib/toast-store';
@@ -480,6 +481,9 @@ export function CheckoutForm({
       className="grid lg:grid-cols-3 gap-8 pb-24 lg:pb-0"
     >
       <div className="lg:col-span-2 space-y-8">
+        {items.some((item) => hasAgendaShippingNotice(item.productId)) && (
+          <AgendaShippingNotice />
+        )}
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">Tus datos</h2>
           <div className="grid grid-cols-2 gap-3">
