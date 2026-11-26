@@ -1,0 +1,296 @@
+[
+  {
+    "id": "28fca374-1b4c-4a4b-a995-9d317b6c3f0d",
+    "price_amount": "719.00",
+    "sale_price_amount": "359.50",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "ac554f87-e873-4d7a-995d-c0d29abab0b2",
+    "price_amount": "719.00",
+    "sale_price_amount": "359.50",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "f03a82c4-677c-4c82-ab13-78640e52a2b4",
+    "price_amount": "719.00",
+    "sale_price_amount": "359.50",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "6ef7f438-8af4-41be-96f4-739716b80964",
+    "price_amount": "719.00",
+    "sale_price_amount": "359.50",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "5aac2039-a94c-4c86-99c8-7dbc375a19e8",
+    "price_amount": "209.00",
+    "sale_price_amount": "156.75",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "951fd457-3efb-4ddf-8950-96e2ddddb4f7",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "e18103a8-6fb1-4e63-885e-3afecb57eebc",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "b951b1cb-6aa6-4734-81ed-f8c0a4aadf44",
+    "price_amount": "17999.00",
+    "sale_price_amount": "14399.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "0a93f427-24b3-48eb-a572-310c520556f9",
+    "price_amount": "6299.00",
+    "sale_price_amount": "5039.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "d66862f6-e9f7-42eb-a2f3-154bf5b949d7",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "27c13a9a-a042-4d3c-a375-b2f0fea698db",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "e72d885f-638f-4bd6-9fff-fba59e59417a",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "cab70fee-68dc-4d2e-b353-470de839f71f",
+    "price_amount": "999.00",
+    "sale_price_amount": "890.00",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "b987f50f-e94a-4240-bdac-48541edf117f",
+    "price_amount": "999.00",
+    "sale_price_amount": "890.00",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "f997e10e-db54-4318-a7d5-c11397c6bfb6",
+    "price_amount": "1899.00",
+    "sale_price_amount": "1234.35",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "e8d2330c-12db-4e19-82d5-0e70af517664",
+    "price_amount": "1599.00",
+    "sale_price_amount": "1039.35",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "d284373b-6908-40b8-8913-90342a7f7c9f",
+    "price_amount": "1099.00",
+    "sale_price_amount": "714.35",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "357062a4-23da-464a-a8c3-457253a32194",
+    "price_amount": "699.00",
+    "sale_price_amount": "419.40",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "ecd6820b-6ecc-4008-8206-ae3bcbda6a0b",
+    "price_amount": "699.00",
+    "sale_price_amount": "349.50",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "1320ca8f-061f-4ec3-9f75-dd995c78a86d",
+    "price_amount": "2999.00",
+    "sale_price_amount": "2249.25",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "fa39ca3f-0b5b-4052-b9cc-868a83304e91",
+    "price_amount": "2699.00",
+    "sale_price_amount": "2024.25",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "0039c86f-4e7f-4d50-9f44-e0de57b1c5f5",
+    "price_amount": "5599.00",
+    "sale_price_amount": "4199.25",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "04c932d6-5da5-4b38-9793-90492c725e9a",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "eeb5fb0f-ac92-4997-9061-ef3646ac4422",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "049ddfc9-4615-4586-ad94-bafd6909c28e",
+    "price_amount": "366.00",
+    "sale_price_amount": "256.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "287acb32-8ae6-4a9f-a8c2-37261ec47726",
+    "price_amount": "366.00",
+    "sale_price_amount": "256.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "d5d2ac08-f42d-4eb1-89c7-abc2ea16fac4",
+    "price_amount": "69.00",
+    "sale_price_amount": "48.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "85823c28-25ac-4261-8730-5a6317663783",
+    "price_amount": "299.00",
+    "sale_price_amount": "209.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "a3c6f380-8c24-439a-a1bd-e8ccb59a45d8",
+    "price_amount": "69.00",
+    "sale_price_amount": "48.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "12dbfe96-e36b-4ff2-b685-05508da3d061",
+    "price_amount": "69.00",
+    "sale_price_amount": "48.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "a1bf1e93-1c0b-4c62-8d1c-db2c526451c5",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "735fd749-57a3-46da-bf1c-8d2d73432a51",
+    "price_amount": "209.00",
+    "sale_price_amount": "146.30",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "37b81878-b493-4267-91e6-9dec622fafd6",
+    "price_amount": "2699.00",
+    "sale_price_amount": "2159.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "7746d0ea-620b-4bfd-b9eb-455b3ca597b0",
+    "price_amount": "1799.00",
+    "sale_price_amount": "1349.25",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "4300e389-3f46-4ca7-8546-c41335ebb406",
+    "price_amount": "33196.00",
+    "sale_price_amount": "24897.00",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "5bd37458-5dea-4de2-8fce-3de5456d7b27",
+    "price_amount": "11550.00",
+    "sale_price_amount": "9240.00",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "1a79318a-4632-464f-b065-9fbc681cd13b",
+    "price_amount": "8299.00",
+    "sale_price_amount": "6639.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "16f9e5db-5be1-4a07-8e11-780094ad6f23",
+    "price_amount": "8299.00",
+    "sale_price_amount": "6639.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "f4661e8e-81c5-4020-8c43-b3104e215da6",
+    "price_amount": "8299.00",
+    "sale_price_amount": "6639.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "27cbc650-941e-437b-9344-bf382f4d9913",
+    "price_amount": "8299.00",
+    "sale_price_amount": "6639.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "d11e73a9-3980-4634-b8f1-0d36ef07ed2b",
+    "price_amount": "8299.00",
+    "sale_price_amount": "6639.20",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  },
+  {
+    "id": "6c8f403c-3808-4522-bf34-c04a882a4ca4",
+    "price_amount": "48000.00",
+    "sale_price_amount": "36000.00",
+    "sale_starts_at": "2026-11-27T06:00:00.000Z",
+    "sale_ends_at": "2026-12-01T08:00:00.000Z"
+  }
+]
